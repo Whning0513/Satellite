@@ -16,6 +16,9 @@
 
 % ── 数学 ──
 \usepackage{amsmath,amssymb,amsfonts}
+\usepackage{pifont}
+\newcommand{\cmark}{\textcolor{green!55!black}{\ding{51}}}
+\newcommand{\xmark}{\textcolor{red!80!black}{\ding{55}}}
 \usepackage{bm}
 
 % ── 图表 ──
@@ -65,6 +68,7 @@
 \author{人工智能与数学软件 ~~ 期末设计项目}
 \date{2026 年 6 月}
 
+\setlength{\headheight}{14.5pt}
 \begin{document}
 
 \maketitle
@@ -639,7 +643,7 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 \end{tabular}
 \end{table}
 
-结果表明：在 $h \le 1800$~s 时，实现近日距已稳定在 0.2845~AU，能量漂移远低于 $10^{-6}$ 的容忍上限。
+结果表明：在 $h \le 1800$~s 时，实现近日距已稳定在 0.2845~AU，能量漂移接近 $10^{-6}$ 的容忍上限。
 推荐 $h \le 900$~s 作为主积分步长。
 
 
@@ -699,7 +703,7 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\textwidth]{m8_energy_drift.png}
-\caption{N 体 Sun-Earth-Moon 系统相对能量漂移（30 天）。能量漂移约 $10^{-14}$，远低于 $10^{-6}$ 阈值，验证积分器的辛特性。}
+\caption{N 体 Sun-Earth-Moon 系统相对能量漂移（30 天）。能量漂移约 $10^{-14}$，接近 $10^{-6}$ 阈值，验证积分器的辛特性。}
 \label{fig:energy-drift}
 \end{figure}
 

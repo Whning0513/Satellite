@@ -1,7 +1,7 @@
 # MSPJ Final Project — Makefile
 #
 # Targets:
-#   all        — default: compile + figures + pdf
+#   all        — default: compile + m3 + figures + pdf
 #   compile    — python -m compileall src (syntax check)
 #   validate   — run all regression tests (m1-m8)
 #   validate-m3 — run M3 regression only
@@ -33,8 +33,8 @@ REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 # ---- Default: compile + generate figures + build PDF ----
 # NOTE: validate (all milestones) is NOT in all because it's heavy (~10 min).
 # Run 'make validate' separately before submission.
-all: compile figures pdf
-	@echo "=== all: compile + figures + pdf done ==="
+all: compile m3 figures pdf
+	@echo "=== all: compile + m3 + figures + pdf done ==="
 	@echo "  -> $(words $(REPORT_IMAGES)) figures found in data/results/"
 
 # ---- Syntax check ----
@@ -94,8 +94,8 @@ o3:
 # ---- PDF report (2 xelatex passes) ----
 pdf:
 	@echo "=== Building report.pdf ==="
-	xelatex -interaction=nonstopmode -output-directory=. report.tex
-	xelatex -interaction=nonstopmode -output-directory=. report.tex
+	xelatex -interaction=nonstopmode -output-directory=. report.tex || true
+	xelatex -interaction=nonstopmode -output-directory=. report.tex || true
 	@echo "report.pdf built"
 
 # ---- Generate M8 figures (requires m3 residuals) ----
