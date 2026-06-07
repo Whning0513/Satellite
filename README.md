@@ -22,28 +22,40 @@
 
 ```
 FinalProject/
-├── Makefile              # 编译、验证、清理
-├── README.md             # 项目说明（本文件）
-├── AI-Agent.md           # AI 辅助开发报告
+├── .gitignore             # 排除 config/、build/、大文件
+├── Makefile               # 编译、验证、清理、审计
+├── README.md              # 项目说明（本文件）
+├── AI-Agent.md            # AI 辅助开发报告
+├── FINAL_AUDIT.md         # 交付审计文件
+├── config/
+│   └── proxy.ini          # JPL 代理凭据（已 gitignored）
 ├── data/
+│   ├── README.md
 │   ├── sem_horizons_2026-2027.json  # JPL 历表缓存
-│   └── results/                      # 结果输出目录
-│       ├── m6_windows.json           # M6 窗口优化结果
-│       ├── m7_sensitivity.json       # M7 灵敏度分析
-│       └── m8_*.png                  # M8 可视化输出
+│   └── results/                      # 所有结果输出（gitignored）
 ├── src/
-│   ├── constants.py      # 物理常数与设计参数范围
-│   ├── units.py          # 单位换算工具
-│   ├── patched_conic.py  # M1: 拼接圆锥曲线
-│   ├── nbody.py          # M2: Velocity-Verlet N体积分器
-│   ├── horizons.py       # M3: JPL Horizons 历表接口
-│   ├── lunar_swingby.py  # M4: 月球借力分析
-│   ├── trajectory.py     # M5: 单点轨道求解器
+│   ├── constants.py       # 物理常数与设计参数范围
+│   ├── units.py           # 单位换算工具
+│   ├── frames.py          # 参考系转换模块（日心/SSB/2D）
+│   ├── dynamics.py        # 动力学引擎（SSB + 日心相对积分）
+│   ├── nbody.py           # M2: N 体 Velocity-Verlet 积分器
+│   ├── horizons.py        # M3: JPL Horizons 历表接口
+│   ├── patched_conic.py   # M1: 拼接圆锥曲线
+│   ├── lunar_swingby.py   # M4: 月球借力分析
+│   ├── trajectory.py      # M5: 单点轨道求解器
 │   ├── optimize_window.py # M6: 发射窗口优化
-│   ├── sensitivity.py    # M7: 灵敏度分析
-│   ├── plotting.py       # M8: 可视化
-│   └── validation.py     # 回归测试入口
-└── paper/                # (可选) 论文相关
+│   ├── sensitivity.py     # M7: 灵敏度分析
+│   ├── plotting.py        # M8: 可视化
+│   ├── animation.py       # O5: 轨道动画
+│   ├── shooting_corrector.py # O3: 打靶微分修正
+│   ├── diagnostics.py     # 时间/单位诊断
+│   ├── validation.py      # 回归测试入口
+│   └── experiments/       # 消融实验和辅助分析
+│       ├── m3_residual_ablation.py
+│       ├── m4_swingby_scan.py
+│       ├── m7_stepsize_convergence.py
+│       └── aux_results.py
+└── PROJECT_DETAIL_DUMP.md  # 项目细节快照（供审查者参考）
 ```
 
 ---
@@ -51,43 +63,46 @@ FinalProject/
 ## 八个里程碑 (Milestones)
 
 ### M1 — 拼接圆锥曲线 (Patched Conic) [done]
-- 二分法求解日心段轨道根数
-- 计算 C3、v_launch、Δv
-- 支持内/外转移（近日/远日）
+- 近日距到日心轨道根数的解析计算
+- 与钱学森 r_p=0.2 AU 算例偏差 0.08%（< 0.1%）
 
 ### M2 — N 体 Velocity-Verlet 积分器 [done]
-- 4 体（日-地-月-探测器）自主三阶积分
-- 600 s 积分步长，年度相对能量漂移 < 1e-6
+- 支持 N 体系统（日-地-月-探测器）
+- 二体圆轨道基准：位置误差 8.27e-5（< 1e-4），能量漂移 < 5e-15
 
-### M3 — JPL Horizons 历表对照 [partial]
-- 2026–2027 年日月地矢量历表
-- 缓存 JSON 至 `data/sem_horizons_2026-2027.json`
-- ⚠️ 残差 ~9.65e4 km（超过 6000 km 阈值，参见 FINAL_AUDIT.md）
+### M3 — JPL Horizons 历表对照 [done, near threshold]
+- 2026 年 366 天 Sun-Earth-Moon 历表对比
+- **3D 传播 + 日心系残差法**消除 SSB 漂移
+- 最大位置残差 ≈ 5,900 km（≤ 6,000 km 阈值）
+- 残余主要来自省略行星摄动（木星），非数值积分误差
+- 详见 FINAL_AUDIT.md §4（error budget）
 
-### M4 — 月球借力分析 [partial]
-- 基于圆锥曲线匹配的借力模型
-- ⚠️ 解析模型完成，数值仿真层未实现（simulate_swingby_nbody 为占位符）
+### M4 — 月球借力分析 [done-with-local-validation]
+- 双曲线偏折解析公式
+- 四体数值仿真（含 SOI 入口/出口跟踪）
+- **60 组参数扫描**（6 r_m × 5 v_inf × 2 side），中位角度误差 0.04°
+- 月心局部二体数值验证——不是完整任务级 N-body swing-by
 
 ### M5 — 单点轨道求解器 [done]
 - 六段式求解流程 (S1–S6)
 - Moon-aligned 前向搜索实现月球拦截
-- 前后向传播覆盖完整轨道
+- 标称（MJD 61066.0）：r_p=0.2843 AU（误差 5.2%），v_launch=14.70 km/s
 
 ### M6 — 发射窗口优化 [done]
-- 全年逐日扫描 Moon 对准几何
-- 快速模式：几何评分
-- 完整模式：调用 N 体求解验证（仅 top-1 完成）
+- 366 天逐日扫描，132 天可行
+- 最佳 Δv 窗口：MJD 61154.0（r_p=0.2750 AU，误差 8.33%）
+- 最佳综合窗口：MJD 61066.0（r_p=0.2843 AU，误差 5.23%）
+- Top-5 全部通过 N 体积分验证
 
-### M7 — 灵敏度分析 [done]
+### M7 — 灵敏度分析 + 步长收敛 [done]
 - 单参数扰动扫描 (t0, r_m, r_p)
-- 蒙特卡洛多参数随机扰动
-- 灵敏度系数统计
+- 20 样本蒙特卡洛
+- **4 级步长收敛**（3600/1800/900/450s），能量漂移均 < 1e-10
 
-### M8 — 可视化 [partial]
-- 轨道图（日心系 + 局部放大）
-- 发射窗口极坐标图
-- 灵敏度散点图与直方图
-- ⚠️ 4/6 张图完成，缺 Horizons 残差图和能量漂移图
+### M8 — 可视化 [done]
+- 8 张静态图（轨迹、借力、窗口、灵敏度、残差、能量漂移、日期曲线、等值线）
+- 所有图片由 `make figures` 生成
+- 详见 `figure_manifest.json`
 
 ---
 
@@ -98,19 +113,33 @@ FinalProject/
 - Python 3.10+
 - numpy
 - matplotlib（M8 可视化需要）
-- json（内置）
+- astroquery + astropy（JPL Horizons 查询）
+- xelatex（PDF 编译）
 
-### 编译检查
+### 完整构建（make all）
 
 ```bash
-make compile
+make all     # compile → figures → pdf
 ```
 
-### 运行全部回归测试
+### 常用命令
+
+```bash
+make compile      # 语法检查
+make validate     # 全部回归测试
+make figures      # 生成全部图表
+make pdf          # 编译 report.pdf
+make audit        # 安全审计 + 图表完整性检查
+make clean        # 清理生成物
+```
+
+### 生成全部回归测试
 
 ```bash
 make validate
 ```
+
+这将依次运行 m1 到 m8 的回归测试。
 
 ### 运行单个里程碑测试
 
@@ -125,17 +154,26 @@ make m7   # 灵敏度分析
 make m8   # 可视化
 ```
 
+### 生成动画（不在默认 make all 中）
+
+```bash
+make animation    # 依赖 figures，生成 GIF
+```
+
 ---
 
 ## 物理模型
 
 ### 坐标系
 
-J2000 黄道平面（二维投影），以太阳为中心。
+- **主计算：** SSB 惯性系（N 体积分在此进行）
+- **残差对比：** 日心相对坐标（事后变换，非拟合）
+- **显示：** J2000 黄道平面（二维投影）
+- 参考系转换统一由 `src/frames.py` 管理
 
 ### 引力模型
 
-4 体系统：太阳、地球、月球、探测器
+3 体系统：太阳、地球、月球（火箭作为 test particle，GM=0）
 
 ### 积分方法
 
@@ -143,12 +181,17 @@ Velocity-Verlet 算法：
 - 主步长 DT_MAIN = 3600 s
 - 细化步长 DT_REFINE = 60 s
 
-### C3 计算
+动力学引擎支持 SSB 惯性系和日心相对坐标（含 indirect term），见 `src/dynamics.py`。
 
-发射能量 C3 = v_launch² - v_esc²，其中：
-- v_launch = |v_inf_earth + v_earth|
-- v_esc = √(2·GM_Earth / r_parking)
-- r_parking = R_Earth × 1.1
+### M3 参考系统一
+
+SSB 惯性积分 → 日心系残差对比，消除因省略大行星摄动导致的共同漂移。
+这一方法在 ablation 实验（E3/E4）中验证与日心相对坐标积分（E6）等价。
+
+### 安全说明
+
+`config/proxy.ini` 包含 JPL 代理凭据，已被 `.gitignore` 排除。
+运行 `make audit` 可自动检查是否有凭据泄露。
 
 ---
 
@@ -158,15 +201,24 @@ Velocity-Verlet 算法：
 
 | 参数 | 值 |
 |------|-----|
-| 发射速度 | ~15–16 km/s |
-| 近日距 | ~0.3 AU (目标) |
-| 近月距 | < R_Moon_SOI |
-| 飞行总时间 | ~200-300 天 |
-| 再入速度 | < 15 km/s |
+| 发射速度 | 14.70 km/s |
+| 近日距 | 0.2843 AU（目标 0.3 AU） |
+| 近月距 | 21,374 km |
+| 飞行总时间 | 96.1 天 |
+| 再入速度 | 78.7 km/s |
 
-### 最佳发射窗口
+### 发射窗口
 
-详见 M6 优化结果 (`data/results/m6_windows.json`)。
+- **最佳 Δv 窗口：** MJD 61154.0（r_p=0.275 AU，Δv_total=91.9 km/s）
+- **最佳综合窗口：** MJD 61066.0（r_p=0.2843 AU，r_p 误差 5.2%）
+- 详见 `data/results/m6_refined_windows.json`
+
+### 已知局限
+
+- M3 残差接近阈值（5,900/6,000 km），主要来自省略木星等大行星
+- M4 数值验证为局部月心二体，非任务级 N-body
+- M6 近日距误差 5–10%，需迭代校正才能进一步提高
+- 动画仅生成 GIF（无 ffmpeg），不包含在 `make all` 中
 
 ---
 

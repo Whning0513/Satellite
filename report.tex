@@ -414,9 +414,32 @@ $|v_{\infty}|$ 守恒误差 & 0.3\% & 弹性假设合理性 \\
 
 数值与解析的偏转角差异为 $2.29^\circ$，$v_{\infty}$ 守恒误差仅 $0.3\%$，验证了解析模型的合理性。差异主要来源于日心引力在 SOI 内部产生的潮汐效应。
 
+\subsubsection{多参数网格扫描}
+
+为系统评估解析模型的适用范围，在 $r_m$、$v_{\infty}$ 和飞越方向三个维度上进行了 $6 \times 5 \times 2 = 60$ 组数值对照实验。
+
+\begin{table}[H]
+\centering
+\caption{M4 参数扫描汇总}
+\label{tab:m4-scan}
+\begin{tabular}{lcc}
+\toprule
+指标 & 数值 & 说明 \\
+\midrule
+测试组数 & 60 & $6 r_m \times 5 v_{\infty} \times 2$ side \\
+成功 & 60/60 & 全部完成 SOI 穿越 \\
+中位角度误差 & $0.04^\circ$ & $v_{\infty} \ge 3$~km/s 时 \\
+最大角度误差 & $23.0^\circ$ & low $v_{\infty}=1$~km/s, leading \\
+最大 $|v_{\infty}|$ 守恒误差 & $3.6\%$ & SOI 内太阳潮汐效应 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+当 $v_{\infty} \ge 3$~km/s 时，角度误差普遍小于 $1^\circ$，解析模型十分准确。低 $v_{\infty}$（$1$~km/s）场景下，太阳潮汐使轨迹偏转远离二体假设，误差可达 $7-23^\circ$。这属于有限 SOI 近似和潮汐效应的固有局限，不影响本项目的典型任务参数（$v_{\infty} \approx 10$~km/s，角度误差 $<0.01^\circ$）。
+
 \subsection{完成状态}
 
-\textbf{M4 标记为 done。} 解析模型和数值仿真均已实现；四体数值传播与解析二体假设之间的偏差在合理范围内。
+\textbf{M4 标记为 done-with-local-validation。} 解析模型和月心局部数值仿真（60 组参数）均已实现，$v_{\infty}$ 守恒误差在典型任务参数下 $<0.3\%$。对照是月心局部二体验证，不是完整任务级 N-body 高保真验证。
 
 \newpage
 
@@ -596,6 +619,32 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 \textbf{结论：} M7 回归测试通过，完成基本灵敏度分析，\textbf{标记为 done}。
 
 \newpage
+\subsubsection{步长收敛分析}
+
+为了评估数值积分步长对轨迹求解结果的影响，在 $h = 3600, 1800, 900, 450$~s 四个步长上运行了完整的 M5 轨道求解。
+
+\begin{table}[H]
+\centering
+\caption{M7 步长收敛测试}
+\label{tab:m7-convergence}
+\begin{tabular}{lccc}
+\toprule
+步长 $h$ (s) & 能量漂移 (30 天) & 实现近日距 (AU) & 运行时间 (s) \\
+\midrule
+3600 & $5.78\times10^{-10}$ & 0.2843 & 6.0 \\
+1800 & $1.45\times10^{-10}$ & 0.2845 & 7.9 \\
+900  & $3.61\times10^{-11}$ & 0.2845 & 9.2 \\
+450  & $9.03\times10^{-12}$ & 0.2845 & 11.6 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+结果表明：在 $h \le 1800$~s 时，实现近日距已稳定在 0.2845~AU，能量漂移远低于 $10^{-6}$ 的容忍上限。
+推荐 $h \le 900$~s 作为主积分步长。
+
+
+
+
 
 % ============================================================
 \section{可视化结果（M8）}

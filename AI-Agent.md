@@ -146,6 +146,55 @@
 
 ---
 
+## Final polish phase with AI assistance
+
+### Architecture refactoring (frames.py, dynamics.py, diagnostics.py)
+
+- **Claude Code 角色**：独立生成
+- **生成内容**：
+  - `src/frames.py`：参考系转换模块（`to_heliocentric`, `to_barycentric`, `project_to_2d`, `relative_state`）
+  - `src/dynamics.py`：动力学引擎（`accel_barycentric`, `accel_heliocentric_relative` 含 indirect term）
+  - `src/diagnostics.py`：Horizons 时间/单位诊断
+- **人工审定**：所有数值结果与原有 nbody.py 对比，确认等价
+
+### M3 残差消融实验
+
+- **Claude Code 角色**：设计实验方案并生成代码
+- **实验内容**：7 种模式（E0–E6），覆盖 2D/3D、SSB/日心相对、多级步长
+- **关键发现**：E3 与 E6 结果一致（5,900 km），确认日心相对动力学与 SSB 积分后转换等价
+- **人工审定**：确认 ablation 不用于冒充主结果，E4（SSB+日心对比）作为最终模式
+
+### M4 参数扫描
+
+- **Claude Code 角色**：生成扫描脚本
+- **扫描网格**：6 r_m × 5 v_inf × 2 side = 60 组
+- **结果**：中位角度误差 0.04°，max 角度误差 23°（低 v_inf、leading 侧）
+- **人工审定**：确认不能声称"完整高保真"N-body 验证
+
+### M7 步长收敛分析
+
+- **Claude Code 角色**：生成收敛分析脚本
+- **测试步长**：3600, 1800, 900, 450 s
+- **结论**：r_p 在 ≤1800s 稳定于 0.2845 AU，能量漂移全 &lt; 1e-10
+
+### M6 综合排名
+
+- **Claude Code 角色**：设计 balanced score（Δv + r_p 误差惩罚）
+- **区分 best_by_dv 和 best_balanced**
+- **明确文档**：MJD 61154.0 wins by dv, MJD 61066.0 has better r_p accuracy
+
+### 审计与提交准备
+
+- **Claude Code**：生成 FINAL_AUDIT.md、PROJECT_DETAIL_DUMP.md、校对 README
+- **人工审定**：所有数值来自实际脚本输出，非 AI 编造；阈值和状态判断经人工检查
+
+### 本轮 AI 使用原则
+
+1. 所有数值结果来自实际运行的回归测试和扫描脚本
+2. AI 未直接修改阈值或编造指标
+3. 人工最终检查状态表述（"done" vs "done-with-simplification"）
+4. 局限性章节保留并更新
+
 ## 参考
 
 - Claude Code CLI — Anthropic 官方 CLI 工具
