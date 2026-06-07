@@ -231,9 +231,21 @@ def generate_orbit_animation(t0_mjd=61154.0, duration=45, fps=24, dpi=120):
 
     build_dir = repo_root/"build"; build_dir.mkdir(parents=True, exist_ok=True)
     if shutil.which("ffmpeg"):
+        # Detect available H.264 encoder: prefer h264_mf (Win) or open264
+        import subprocess
+        enc_test = subprocess.run(['ffmpeg', '-encoders'], capture_output=True, text=True)
+        enc_info = enc_test.stdout + enc_test.stderr
+        if 'libx264' in enc_info:
+            codec = 'libx264'
+        elif 'h264_mf' in enc_info:
+            codec = 'h264_mf'
+        elif 'libopenh264' in enc_info:
+            codec = 'libopenh264'
+        else:
+            codec = 'mpeg4'
         path = build_dir/"orbit_animation.mp4"
-        anim.save(str(path), writer=animation.FFMpegWriter(fps=fps, bitrate=4000, codec="libx264"), dpi=dpi)
-        print(f"  [Anim] MP4 -> {path}")
+        anim.save(str(path), writer=animation.FFMpegWriter(fps=fps, bitrate=4000, codec=codec), dpi=dpi)
+        print(f"  [Anim] MP4 ({codec}) -> {path}")
     else:
         path = build_dir/"orbit_animation.gif"
         anim.save(str(path), writer="pillow", fps=fps, dpi=dpi)
