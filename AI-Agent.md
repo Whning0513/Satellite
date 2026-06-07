@@ -183,6 +183,20 @@
 - **区分 best_by_dv 和 best_balanced**
 - **明确文档**：MJD 61154.0 wins by dv, MJD 61066.0 has better r_p accuracy
 
+### O5 轨道动画升级
+
+- **Claude Code 角色**：重写 `animation.py`
+- **功能**：45 秒 MP4（h264, 24fps, 1200×960），含日心轨道、月球 zoom-in、事件标注（LAUNCH/SWINGBY/PERIHELION/RETURN）、平滑相机过渡、火箭尾迹
+- **编码器自动降级**：libx264 → h264_mf → libopenh264 → mpeg4 → GIF fallback
+- **关键帧输出**：4 张 PNG + 海报图
+- **人工审定**：MP4 不进入 Git；动画基于简化轨道模型，不是高保真历表产品
+
+### O1 轻量 3D 对照实验
+
+- **Claude Code 角色**：生成对照实验脚本
+- **结果**：30 天传播后 Moon z 分量约 39,000 km（5.1° 倾角）；Earth 2D→3D 差异约 12,600 km
+- **人工审定**：标注为 diagnostic，不替代主线 2D 结果
+
 ### 审计与提交准备
 
 - **Claude Code**：生成 FINAL_AUDIT.md、PROJECT_DETAIL_DUMP.md、校对 README

@@ -157,8 +157,14 @@ make m8   # 可视化
 ### 生成动画（不在默认 make all 中）
 
 ```bash
-make animation    # 依赖 figures，生成 GIF
+make animation    # 依赖 figures，生成 45 秒 MP4 + 4 张关键帧
 ```
+
+- 输出 MP4：`build/orbit_animation.mp4`（若 ffmpeg/H.264 可用）
+- 降级输出：`build/orbit_animation.gif`（若 ffmpeg 不可用）
+- 关键帧：`data/results/animation_keyframe_*.png`
+- 轨迹缓存：`data/results/animation_trajectory.json`
+- MP4/GIF 不进入 Git（`build/` 已 gitignore）
 
 ---
 
@@ -218,7 +224,7 @@ SSB 惯性积分 → 日心系残差对比，消除因省略大行星摄动导�
 - M3 残差接近阈值（5,900/6,000 km），主要来自省略木星等大行星
 - M4 数值验证为局部月心二体，非任务级 N-body
 - M6 近日距误差 5–10%，需迭代校正才能进一步提高
-- 动画仅生成 GIF（无 ffmpeg），不包含在 `make all` 中
+- 动画（O5）在当前环境生成 MP4，若 ffmpeg/H.264 不可用会 fallback 到 GIF
 
 ---
 
