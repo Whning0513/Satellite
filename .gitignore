@@ -1,0 +1,44 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# JPL Horizons cache
+data/*.json
+!data/README.md
+
+# Generated figures
+figs/*.png
+figs/*.pdf
+figs/*.mp4
+
+# LaTeX build artifacts
+build/
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.xdv
+*.synctex.gz
+
+# Proxy credentials (token, mirror URL)
+config/
+
+# Stale planning document (not a deliverable)
+PROJECT_PLAN.md
+
+# Build artifact
+report.pdf
+
+# Data results (regression outputs, figures)
+data/results/
+
+# OS
+.DS_Store
+Thumbs.db
