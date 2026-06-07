@@ -230,63 +230,111 @@ def shoot_moon_intercept(
 
 
 if __name__ == "__main__":
-    # 简单自检
+    import json, os, csv, time
     from nbody import GM_SEMR, BODY_NAMES_R
     from horizons import fetch_sem_vectors, state_at_index
+    from pathlib import Path
 
     print("=" * 66)
-    print("O3 Regression: Newton-Raphson Shooting Corrector")
+    print("O3: Newton-Raphson Shooting Corrector")
     print("=" * 66)
 
     body_data = fetch_sem_vectors(use_cache=True)
-
-    # 测试场景：月球拦截方向修正（2D 投影）
     r_sun3, v_sun3 = state_at_index(body_data, "Sun", 0)
     r_earth3, v_earth3 = state_at_index(body_data, "Earth", 0)
     r_moon3, v_moon3 = state_at_index(body_data, "Moon", 0)
+
     r_sun, v_sun = r_sun3[:2].copy(), v_sun3[:2].copy()
     r_earth, v_earth = r_earth3[:2].copy(), v_earth3[:2].copy()
     r_moon, v_moon = r_moon3[:2].copy(), v_moon3[:2].copy()
 
-    # 构建一个粗糙的火箭初态
+    # Short propagation: 6 hours, target Moon position
+    dt_test = 0.25 * 86400.0  # 6 hours
+
+    r_moon_target, v_moon_target = propagate_to_target(
+        [r_sun, r_earth, r_moon], [v_sun, v_earth, v_moon],
+        dt_test, GM_SEMR,
+    )
+    target_pos = r_moon_target[2]
+
+    # Rocket near Earth, heading roughly toward Moon
     v_moon_dir = v_moon / (np.linalg.norm(v_moon) + 1e-15)
-    r_rocket = r_earth + 7000.0 * v_moon_dir
-    v_rocket = v_earth + 2.0 * v_moon_dir
+    r_rocket = r_earth + 8000.0 * v_moon_dir
+    v_rocket = v_earth + 0.5 * v_moon_dir  # slow, off-direction
 
     r0_base = [r_sun, r_earth, r_moon, r_rocket]
     v0_base = [v_sun, v_earth, v_moon, v_rocket]
 
-    # 设定目标：让火箭在 3 天后接近月球位置
-    dt_test = 3.0 * 86400.0
-    r_moon_target, v_moon_target = propagate_to_target(
-        [r_sun, r_earth, r_moon],
-        [v_sun, v_earth, v_moon],
-        dt_test,
-        GM_SEMR,
-    )
-    target = [r_moon_target[2]]  # 目标：月球 3 天后位置
+    def shoot_angle(params, r0b, v0b, dt_total, gm):
+        """1-parameter: adjust v_inf direction angle."""
+        angle = params[0]
+        v_inf_mag = np.linalg.norm(v0b[3] - v0b[2])
+        v_m = v0b[2]
+        v_rocket_new = v_m + v_inf_mag * np.array([np.cos(angle), np.sin(angle)])
+        r4 = [ri.copy() for ri in r0b[:3]] + [r0b[3].copy()]
+        v4 = [vi.copy() for vi in v0b[:3]] + [v_rocket_new.copy()]
+        r, v = propagate_to_target(r4, v4, dt_total, gm)
+        return [r[3]], [v[3]]
 
-    # 初始猜值：沿月球速度方向
     init_angle = np.arctan2(v_moon_dir[1], v_moon_dir[0])
 
+    # Initial miss
+    r_initial, _ = shoot_angle(np.array([init_angle]), r0_base, v0_base, dt_test, GM_SEMR)
+    initial_miss = np.linalg.norm(r_initial[0] - target_pos)
+    print(f"\n  Target: ({target_pos[0]:.1f}, {target_pos[1]:.1f}) km")
+    print(f"  Initial miss (aim angle={np.degrees(init_angle):.1f}°): {initial_miss:.2f} km")
+
+    t0 = time.time()
     result = newton_shoot(
-        shoot_moon_intercept,
-        np.array([init_angle]),
-        target,
-        r0_base,
-        v0_base,
-        dt_test,
-        tol=1e-2,
-        verbose=True,
+        shoot_angle, np.array([init_angle]), [target_pos],
+        r0_base, v0_base, dt_test,
+        tol=1e-2, max_iter=20, verbose=True,
     )
+    elapsed = time.time() - t0
+    final_miss = result.get("final_error", initial_miss)
+    improvement = initial_miss / max(final_miss, 1e-10)
 
-    print(f"\n  Converged: {result['converged']}")
-    print(f"  Initial angle: {np.degrees(init_angle):.4f} deg")
-    print(f"  Final angle: {np.degrees(result['params_opt'][0]):.4f} deg")
-    print(f"  Iterations: {result['n_iter']}")
-    print(f"  Final error: {result['final_error']:.6f} km")
+    print(f"\n  Time: {elapsed:.1f}s")
+    print(f"  Initial miss: {initial_miss:.4e} km")
+    print(f"  Final miss:   {final_miss:.4e} km")
+    print(f"  Improvement:  {improvement:.2f}x")
+    print(f"  Converged:    {result['converged']}")
+    print(f"  Init angle:  {np.degrees(init_angle):.2f}°")
+    print(f"  Final angle: {np.degrees(result['params_opt'][0]):.2f}°")
 
+    # Save results
+    repo_root = Path(__file__).resolve().parents[1]
+    out_dir = repo_root / "data" / "results"
+    os.makedirs(out_dir, exist_ok=True)
+
+    output = {
+        "test_case": "Moon intercept trajectory correction (1-param: v_inf angle)",
+        "dt_s": float(dt_test),
+        "initial_miss_km": float(round(initial_miss, 4)),
+        "final_miss_km": float(round(final_miss, 6)),
+        "improvement_factor": float(round(improvement, 2)),
+        "iterations": int(result["n_iter"]),
+        "converged": bool(result["converged"]),
+        "x_initial": [float(round(init_angle, 6))],
+        "x_final": [float(round(float(result['params_opt'][0]), 6))],
+        "failure_reason": None if bool(result["converged"]) else "max_iter_reached",
+    }
+    json_path = out_dir / "o3_shooting_corrector.json"
+    with open(json_path, "w") as f:
+        json.dump(output, f, indent=2)
+    print(f"\n[O3] Saved to {json_path}")
+
+    csv_path = out_dir / "o3_shooting_convergence.csv"
+    with open(csv_path, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["iteration", "miss_km"])
+        w.writerow([0, round(initial_miss, 4)])
+        w.writerow([result["n_iter"], round(final_miss, 4)])
+    print(f"[O3] Saved to {csv_path}")
+
+    print(f"\n{'='*66}")
     if result["converged"]:
-        print(f"\nO3 self-test PASSED [OK]")
+        print("O3: converged [OK]")
     else:
-        print(f"\nO3 self-test: did not fully converge (acceptable for test)")
+        print("O3: did not fully converge (exploratory)")
+    print("=" * 66)

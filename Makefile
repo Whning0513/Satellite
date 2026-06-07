@@ -27,7 +27,7 @@ PYTHON := python
 REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 
 .PHONY: all compile validate validate-m3 validate-m4
-.PHONY: m1 m2 m3 m4 m5 m6 m7 m8 o3
+.PHONY: m1 m2 m3 m4 m5 m6 m7 m8 o3 o1-3d
 .PHONY: pdf figures scan-fast animation audit clean
 
 # ---- Default: compile + generate figures + build PDF ----
@@ -90,6 +90,12 @@ validate-m4: compile
 # ---- O3: Shooting corrector (optional) ----
 o3:
 	cd src && $(PYTHON) shooting_corrector.py
+
+# ---- O1: 3D comparison (optional) ----
+o1-3d:
+	@echo "=== O1: 3D vs 2D comparison ==="
+	cd src && $(PYTHON) experiments/o1_3d_comparison.py
+	@echo "O1 comparison done"
 
 # ---- PDF report (2 xelatex passes) ----
 pdf:
