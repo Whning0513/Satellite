@@ -113,13 +113,14 @@ FinalProject/
 - 所有图片由 `make figures` 生成
 - 详见 `figure_manifest.json`
 
-### O3 — 自定义微分修正器 [done]
+### O3 — 自定义微分修正器 [done-with-caveat]
 - 从 1-param angle（旧 4.98× 改进）升级为多参数 damped Gauss-Newton
 - 2-param: departure_angle_rad, v_inf_scale；3-param: + tof_shift_days
 - 中心差分 Jacobian + line search + Tikhonov fallback（无 scipy）
-- 9 个 2D 种子 × 3 TOF shift = 36 个多起点搜索
-- **12 runs improvement ≥ 10×，7 runs 收敛至 < 100 km**
-- **Best: 3-param, initial=3.66M km → final=0.0009 km (converged)**
+- 审计确认：旧版 1e9× 收敛因目标泄漏失效（tof_shift 偏移火箭但未重新计算目标）
+- 修复后最终偏差改善约 4×（从 918k km → 248k km）
+- 独立验证一致（difference=0 km），速度残差合理（6.2 km/s）
+- 框架功能完整（无 scipy，多参数，多起点，完整诊断）
 - 文件：`src/experiments/o3_differential_corrector.py`
 - 运行：`make o3`
 

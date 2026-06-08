@@ -219,10 +219,10 @@
   - 病态 Jacobian 时自动启用 Tikhonov 正则化 fallback
   - 9 个 2D 种子 × 3 TOF shift = 36 多起点搜索
 - **结果**：
-  - 12/36 runs improvement ≥ 10×，7 runs 收敛至 < 100 km
-  - **Best: 3-param, 初始 3.66M km → 最终 0.0009 km（完全收敛）**
+  - 审计发现目标泄漏 bug：旧版 tof_shift 偏移火箭但未重算目标，导致虚假收敛
+  - 修复后（每次求值同时重算目标天体位置）最佳 ~4x 改善（918k → 248k km）
   - 失败模式记录（Jacobian condition number, line search 失败等）
-- **人工审定**：标记为 done，收敛曲线和诊断已保存
+- **人工审定**：标记为 done-with-caveat，诚实报告目标泄漏审计发现
 
 ### O4 多次借力链搜索
 

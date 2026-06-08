@@ -86,7 +86,7 @@ Current fixed-date Lambert search is sufficient. Do not re-enter M5 without a pr
 |------|--------|----------|-------------------|
 | **O1** 3D extension | ✅ diagnostic | `o1_3d_comparison.json`; Moon z ~39,000 km, Earth 2D→3D diff ~12,600 km | 不替代主线 2D 结果 |
 | **O2** GR correction | ✅ done | `o2_relativity.json`; a_GR/a_N ≈ 6.7e-8, Δr_p < 1 km | 效应极小，对本项目无实质影响 |
-| **O3** shooting corrector | ✅ done | `o3_shooting_corrector.json`; multi-param damped Gauss-Newton; 36 runs; 7 converged; best 3.66M km → 0.0009 km | Upgraded from 1-param exploratory to converged multi-param corrector. Not integrated into M5/M6 main pipeline. |
+| **O3** shooting corrector | ⚠️ done-with-caveat | `o3_shooting_corrector.json`; multi-param damped Gauss-Newton; scipy-free; audit caught target-leak bug; ~4x improvement after fix | Framework complete (Jacobian, line search, Tikhonov, multi-start). Target-leak bug fixed. Honest assessment: position-shooting hard with 2-3 params. |
 | **O4** multi-gravity assist | ⚠️ exploratory | `o4_multi_gravity_assist.json`; 98 Lambert chain candidates (Earth-Moon-Venus-Earth); analytic Venus fallback; best return v_inf=13.38 km/s; 0 feasible-ish | Moon flyby turn ~3 deg at high v_inf, Venus insufficient; chain not feasible in patched-conic framework |
 | **O5** orbit animation | ✅ done | 45s, 24fps, h264 MP4 (`build/orbit_animation.mp4`, gitignored) + 4 keyframes + poster | 无（编码器自动降级） |
 | **O6** interactive demo | ✅ done | `interactive_demo.py` + `o6_interactive_screenshot.png` | 需本地 Tkinter/Matplotlib GUI |
@@ -105,7 +105,7 @@ Current fixed-date Lambert search is sufficient. Do not re-enter M5 without a pr
 |----------|------|---------|-------------------|
 | **1** | O4 multi-gravity assist | Lambert chain framework built (98 candidates). No feasible-ish candidate due to Moon/Venus turn deficit at high v_inf. Analytic circular Venus fallback. | **O4 is frozen at commit `18fa865` as a completed exploratory multi-gravity-assist Lambert-chain search.** Any future powered flyby optimizer or full MGA optimization should be treated as O4+, a separate extension task, not as a replacement of O4. |
 | ~~2~~ | ~~O7 parallel scan~~ | ~~resolved~~ | ProcessPool mean 3.78x + Ridge R2=0.8956 surrogate prefilter implemented (3-run benchmark, 55/55 identical)
-| **3** | O3 shooting corrector | 1-parameter not enough for stable convergence | 2-parameter (dvx, dvy) damped Gauss-Newton with numerical Jacobian; or use existing Lambert solver as correction engine |
+| **3** | O3 position corrector | Framework complete (Jacobian, line search, multi-start). Target-leak bug found and fixed. ~4x improvement (918k->248k km). More parameters needed for full convergence. | Freeze as done-with-caveat. The corrector framework is correct; the position problem itself needs more degrees of freedom. |
 | **4** | Final push | No remote configured | Create Gitea repo, push both `master` and `all-bonus-complete` |
 
 ---

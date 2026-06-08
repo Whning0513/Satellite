@@ -84,7 +84,7 @@
 
 项目实现了八个循序渐进的模块（M1--M8），涵盖拼接圆锥曲线解析计算、N 体数值积分器、JPL~Horizons 历表对照验证、月球借力模型、单点轨道求解器、全年发射窗口扫描、灵敏度分析和可视化。标称设计目标为近日距 $0.3$~AU，借助月球 trailing 侧飞越实现速度修正。最佳发射窗口位于 MJD~61154.0，对应 $v_{\text{launch}} \approx 14.70$~km/s，实现近日距 $0.2843$~AU（相对误差 $5.2\%$）。
 
-\textbf{完成状态：}所有必做模块（M1--M8）均通过回归测试。M3 通过三维日心系残差法将位置误差控制在 $6000$~km 以内；M4 完成了数值 swingby 与解析模型的交叉验证（偏转角差异 $2.29^\circ$）；M8 共生成 $8$ 张诊断图。此外额外实现了 O3 多参数阻尼 Gauss-Newton 微分修正器（最佳收敛至 0.9~m）、O5 轨道动画和 O7 并行加速扫描（ProcessPool 3.78$\times$加速（3 次基准） + Ridge 代理预筛选 $R^2=0.90$）。项目在二维黄道投影、三体简化模型下工作正常。
+\textbf{完成状态：}所有必做模块（M1--M8）均通过回归测试。M3 通过三维日心系残差法将位置误差控制在 $6000$~km 以内；M4 完成了数值 swingby 与解析模型的交叉验证（偏转角差异 $2.29^\circ$）；M8 共生成 $8$ 张诊断图。此外额外实现了 O3 多参数阻尼 Gauss-Newton 微分修正器（position-shooting, no-scipy, ~4x改善）、O5 轨道动画和 O7 并行加速扫描（ProcessPool 3.78$\times$加速（3 次基准） + Ridge 代理预筛选 $R^2=0.90$）。项目在二维黄道投影、三体简化模型下工作正常。
 
 \newpage
 
@@ -820,7 +820,7 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 \subsection{完成状态}
 
-\textbf{O3 标记为 done。} 实现了完整的自定义阻尼 Gauss-Newton 微分修正器，无 \texttt{scipy} 依赖，含中心差分 Jacobian、线搜索、Tikhonov 正则化和多起点搜索。最佳结果完全收敛（最终偏差 $< 1$~m），12/36 多起点达到有用改进（$\ge 10\times$）。修正结果未集成到 M5/M6 主流程，仅作为独立的微分修正能力展示。
+\textbf{O3 标记为 done-with-caveat。} 实现了自定义阻尼 Gauss-Newton 微分修正器，无 \texttt{scipy} 依赖，含中心差分 Jacobian、线搜索、Tikhonov 正则化和多起点搜索。在审计过程中发现了一个重要的目标泄漏 bug：早期 3.87$\times10^9$ 倍的"收敛"是假的——\texttt{tof\_shift} 改变了火箭传播时间，但目标天体（月球）位置仍使用原时刻，导致表观命中。修复后（每次求值均重新计算月球位置到同一终端时刻），最佳结果改善约 4$\times$（初始 918,392~km $\to$ 248,000~km），仍未完全收敛。该修正器使用固定终端时刻的位置残差，未约束速度匹配。修正结果未集成到 M5/M6 主流程，仅作为独立的微分修正能力展示。在更多参数（如完整 $v_{\infty}$ 矢量和发射时间）下预期可以收敛。
 
 \newpage
 
@@ -976,7 +976,7 @@ M6 发射窗口优化 & done & 最佳 MJD~61154.0，top-5 N 体验证全部成�
 M7 灵敏度分析 & done & 基本扰动分析 + 20 MC 样本 \\
 M8 可视化 & done & 8 张图（4 基础 + 4 诊断） \\
 \hline
-O3 微分修正器 & done & Multi-param GN, 12/36 runs useful, best converged (0.0009 km) \\
+O3 微分修正器 & done-with-caveat & Multi-param GN, scipy-free, 审计发现旧结果目标泄漏, 修复后~4x改善\\
 O4 多次借力探索 & exploratory & Earth-Moon-Venus-Earth 三段 Lambert 链搜索，98 候选，无 feasible-ish \\
 O5 轨道动画 & 完成 & 45 秒 GIF（FFmpeg/Pillow） \\
 O7 并行扫描 & 完成 & ProcessPool 3.78$\times$加速(3次基准), Ridge $R^2=0.90$ \\
