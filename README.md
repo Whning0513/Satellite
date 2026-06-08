@@ -118,7 +118,7 @@ FinalProject/
 - Venus 历表：analytic circular fallback（无网络时离线可用）
 - 三段 Lambert：地球出发→月球→金星→地球返回
 - 含飞越可行性判断（required-turn vs available-turn at min periapsis）
-- 98 个候选，Lambert 成功率 100%，最佳 return v_inf=13.4 km/s
+- ~8400 条链路组合中 98 条三段 Lambert 成功收敛（保留候选）
 - 主要限制：月球在高 v_inf（~10 km/s）下最大偏转角仅 ~3°，限制链可行性
 - 文件：`src/experiments/o4_ephemeris_extend.py`、`o4_multi_gravity_assist.py`
 

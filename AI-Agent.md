@@ -216,7 +216,7 @@
   - 三段 Lambert 使用不同的中心天体 GM（地月段用地球 GM，月金段和金地段用太阳 GM）
   - 飞越可行性使用 required-turn vs available-turn 判别
 - **结果**：
-  - 98 个候选全部 Lambert 成功
+  - ~8400 链路组合中 98 条三段 Lambert 均收敛（保留候选）
   - 最佳候选 return v_inf=13.4 km/s OK，但近期距 0.638 AU 偏大
   - 无候选达到 feasible-ish，因高 v_inf 下月球偏转角（~3°）和金星偏转角（~8°）不足
 - **人工审定**：诚实标记为 exploratory，明确了 Moon/Venus 转向的物理限制

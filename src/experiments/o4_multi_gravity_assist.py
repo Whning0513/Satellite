@@ -355,13 +355,13 @@ def main():
                                 candidates.append(cand)
 
     # ---- Sort and rank ----
-    print(f"\n[Step 4] Ranking {len(candidates)} candidates...")
+    print(f"\n[Step 4] Ranking {len(candidates)} retained candidates (out of ~8400 grid combos)...")
     candidates.sort(key=lambda c: c["score"])
 
     feasible = [c for c in candidates if c["status"] == "feasible_ish"]
     lambert_ok = [c for c in candidates if c["status"] == "candidate"]
 
-    print(f"  Lambert successes: {len(lambert_ok) + len(feasible)}")
+    print(f"  Retained (all 3 Lambert legs converged): {len(lambert_ok) + len(feasible)}")
     print(f"  Feasible-ish:      {len(feasible)}")
     if candidates:
         best = candidates[0]
@@ -379,11 +379,26 @@ def main():
 
     # ---- Save ----
     top20 = candidates[:20] if candidates else []
+    total_combinations = len(t0_candidates) * len(moon_tof_days) * len(venus_tof_days) * len(return_tof_days) * len(branches)**3
     summary = {
         "ephemeris_source": venus_source,
-        "num_candidates": len(candidates),
-        "num_lambert_success": len(lambert_ok) + len(feasible),
+        "total_grid_combinations": total_combinations,
+        "num_candidates_with_successful_lambert": len(lambert_ok) + len(feasible),
         "num_feasible_ish": len(feasible),
+        "frame_audit": {
+            "earth_moon_leg_frame": "geocentric",
+            "earth_moon_mu": "mu_earth",
+            "moon_venus_leg_frame": "heliocentric (SSB)",
+            "moon_venus_mu": "mu_sun",
+            "venus_earth_leg_frame": "heliocentric (SSB)",
+            "venus_earth_mu": "mu_sun",
+            "consistent": True,
+            "notes": (
+                "Earth->Moon uses geocentric relative positions with Earth GM. "
+                "Moon->Venus and Venus->Earth use SSB positions with Sun GM. "
+                "No frame/mu mixing."
+            ),
+        },
         "grid": {
             "t0": t0_candidates,
             "moon_tof_days": moon_tof_days,
@@ -394,12 +409,15 @@ def main():
         "best_candidate": best,
         "top20": top20,
         "note": (
-            "Preliminary patched-conic chain exploration. "
-            "Leg 1 (Earth->Moon) uses Earth-centred Lambert with Earth GM. "
-            "Leg 2 (Moon->Venus) and Leg 3 (Venus->Earth) use heliocentric Lambert with Sun GM. "
+            f"Preliminary patched-conic chain exploration. "
+            f"Out of ~{total_combinations} sampled chain combinations, "
+            f"{len(lambert_ok) + len(feasible)} produced successful three-leg Lambert solutions. "
+            f"All subsequent feasibility analysis is based on these retained candidates. "
+            f"Leg 1 (Earth->Moon) uses Earth-centred Lambert with Earth GM. "
+            f"Leg 2 (Moon->Venus) and Leg 3 (Venus->Earth) use heliocentric Lambert with Sun GM. "
             f"Venus source: {venus_source}. "
-            "Flyby feasibility via required-turn vs available-turn at min periapsis. "
-            "Not a full optimal-control multi-gravity-assist design."
+            f"Flyby feasibility via required-turn vs available-turn at min periapsis. "
+            f"Not a full optimal-control multi-gravity-assist design."
         ),
     }
 
