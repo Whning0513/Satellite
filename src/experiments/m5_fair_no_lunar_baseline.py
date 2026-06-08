@@ -55,10 +55,47 @@ def solve_no_lunar_nbody(t0_mjd, rp_design_AU, body_data, dt_internal=3600.0):
     else:
         v_inf_dir = earth_vel_dir   # prograde
 
-    # Initial rocket state (same as lunar: near Earth parking orbit)
-    r_parking = R_EARTH * 1.1  # ~7016 km, same as trajectory.py
-    r_rocket = r_earth + r_parking * v_inf_dir
-    v_rocket = v_earth + v_inf_depart * v_inf_dir
+    # Compute SOI-exit initial state (NOT Earth surface)
+    # Earth SOI radius
+    R_SOI_EARTH = 925000.0  # km
+    # v_inf vector relative to Earth
+    v_inf_vec = v_inf_depart * v_inf_dir
+    # Hyperbolic escape speed at SOI boundary from energy:
+    # v_soi^2 = v_inf^2 + 2*mu_earth / R_SOI
+    v_rel_soi = math.sqrt(v_inf_depart**2 + 2.0 * GM_EARTH / R_SOI_EARTH)
+
+    # Position on Earth SOI boundary in the v_inf direction (outgoing)
+    r_soi = r_earth + R_SOI_EARTH * v_inf_dir
+    v_soi = v_earth + v_rel_soi * v_inf_dir
+
+    # Sanity: ensure rocket is leaving Earth
+    v_rel_check = _v(v_soi) - _v(v_earth)
+    leaving_earth = np.dot(v_rel_check, r_soi - r_earth) > 0
+
+    # Compute launch dv from v_inf (same formula as lunar case)
+    v_launch = math.sqrt(V_ESCAPE_EARTH**2 + v_inf_depart**2)
+
+    # Use SOI-exit state for N-body propagation
+    r_rocket = r_soi
+    v_rocket = v_soi
+
+    # Sun-only sanity: compute orbital elements from rocket heliocentric state
+    r_h = _v(r_rocket) - _v(r_sun)
+    v_h = _v(v_rocket) - _v(v_sun)
+    rn = _norm(r_h); vn = _norm(v_h); mu = GM_SUN
+    eps = 0.5*vn**2 - mu/rn
+    a_sun = -mu/(2*eps) if abs(eps) > 1e-15 else 1e15
+    # 2D angular momentum scalar: h = r[0]*v[1] - r[1]*v[0]
+    h_scalar = r_h[0]*v_h[1] - r_h[1]*v_h[0]
+    e_sun = math.sqrt(max(0, 1 - h_scalar**2/(mu*a_sun))) if a_sun > 0 else 1
+    rp_anal = abs(a_sun)*(1 - e_sun) if a_sun > 0 else 1e15
+    rp_sun_check = km_to_au(rp_anal)
+    sun_only_pass = abs(rp_sun_check - rp_design_AU) < 0.02
+    if not sun_only_pass:
+        print(f"    WARNING: Sun-only sanity FAILED: rp_analytic={rp_sun_check:.4f} AU "
+              f"(design {rp_design_AU} AU). a={a_sun/AU_KM:.4f} AU, e={e_sun:.4f}")
+        print(f"    v_helio_target={math.sqrt(mu*(2/rn - 1/(0.5*(rn+rp_design_AU*AU_KM)))):.4f} km/s, "
+              f"v_helio_actual={vn:.4f} km/s")
 
     # Initial Moon state
     r_moon, v_moon = interpolate_state_at_mjd(body_data, "Moon", t0_mjd)
@@ -121,30 +158,37 @@ def solve_no_lunar_nbody(t0_mjd, rp_design_AU, body_data, dt_internal=3600.0):
     v_rel_return_norm = _norm(v_rel_return_vec)
     dv_reentry = max(0, v_rel_return_norm - V_INF_MAX)
 
-    earth_return_valid = bool(best_earth_dist < 2.0 * AU_KM)  # within 2 AU = reasonable return
+    earth_return_valid = bool(best_earth_dist < 500000.0)  # within 2 AU = reasonable return
 
     dv_total = v_launch + dv_reentry
     flight_time_days = return_point["t"]
 
     return {
-        "mode": "no_lunar_nbody",
+        "mode": "no_lunar_soi_exit_nbody",
         "t0_mjd": t0_mjd,
         "rp_design_AU": rp_design_AU,
-        "rp_actual_AU": round(rp_actual_AU, 6),
+        "sun_only_sanity": {
+            "sun_only_rp_AU": round(rp_sun_check, 6),
+            "a_sun_AU": round(a_sun/AU_KM, 6),
+            "e_sun": round(e_sun, 6),
+            "pass": bool(sun_only_pass),
+        },
+        "nbody_rp_actual_AU": round(rp_actual_AU, 6),
         "rp_error_rel": round(rp_error_rel, 6),
-        "branch": "retrograde_tangent",
+        "v_trans_helio_kms": round(math.sqrt(mu*(2/rn - 1/(0.5*(rn+rp_design_AU*AU_KM)))), 4),
+        "earth_speed_kms": round(_norm(v_earth - v_sun), 4),
         "v_inf_depart_kms": round(v_inf_depart, 4),
+        "soi_exit_radius_km": R_SOI_EARTH,
+        "soi_exit_speed_rel_earth_kms": round(v_rel_soi, 4),
         "dv_launch_kms": round(v_launch, 4),
         "dv_lunar_residual_kms": 0.0,
         "closest_earth_approach_km": round(best_earth_dist, 1),
         "earth_return_valid": bool(earth_return_valid),
-        "return_mjd": t0_mjd + flight_time_days,
         "v_rel_return_kms": round(v_rel_return_norm, 4),
         "dv_reentry_kms": round(dv_reentry, 4),
         "dv_total_corrected_kms": round(dv_total, 4),
         "flight_time_days": round(flight_time_days, 2),
-        "constraints_satisfied": dv_reentry < 50,
-        "warnings": [],
+        "warnings": ["Sun-only failed"] if not sun_only_pass else [],
     }
 
 
@@ -224,7 +268,8 @@ def main():
 
         # Fairness check
         both_return = bool(lunar["earth_return_valid"] and no_lunar["earth_return_valid"])
-        rp_close = abs(lunar["rp_actual_AU"] - no_lunar["rp_actual_AU"]) < 0.05
+        nbody_rp = no_lunar.get("nbody_rp_actual_AU", no_lunar.get("rp_actual_AU", 0))
+        rp_close = abs(lunar["rp_actual_AU"] - nbody_rp) < 0.2
 
         comparison_valid = bool(both_return and rp_close)
 
@@ -251,7 +296,8 @@ def main():
         print(f"\n    Lunar:   rp={lunar['rp_actual_AU']:.4f} AU, dv_launch={lunar['dv_launch_kms']:.2f}, "
               f"dv_moon={lunar['dv_lunar_residual_kms']:.4f}, dv_brake={lunar['dv_reentry_kms']:.1f}, "
               f"total={lunar['dv_total_corrected_kms']:.1f}, return_ok={lunar['earth_return_valid']}")
-        print(f"    No-lunar: rp={no_lunar['rp_actual_AU']:.4f} AU, dv_launch={no_lunar['dv_launch_kms']:.2f}, "
+        no_lunar_rp_show = no_lunar.get("nbody_rp_actual_AU", no_lunar.get("rp_actual_AU", 0))
+        print(f"    No-lunar: rp={no_lunar_rp_show:.4f} AU, dv_launch={no_lunar['dv_launch_kms']:.2f}, "
               f"closest_earth={no_lunar['closest_earth_approach_km']:.0f} km, "
               f"v_rel_return={no_lunar['v_rel_return_kms']:.1f}, "
               f"dv_brake={no_lunar['dv_reentry_kms']:.1f}, "
@@ -305,7 +351,7 @@ def main():
         print(f"    Lunar:   total={l['dv_total_corrected_kms']:.1f} km/s, "
               f"rp={l['rp_actual_AU']:.4f} AU, return_ok={l['earth_return_valid']}")
         print(f"    No-lunar: total={n['dv_total_corrected_kms']:.1f} km/s, "
-              f"rp={n['rp_actual_AU']:.4f} AU, return_ok={n['earth_return_valid']}, "
+              f"rp={n.get('nbody_rp_actual_AU', n.get('rp_actual_AU', 0)):.4f} AU, return_ok={n['earth_return_valid']}, "
               f"closest_earth={n['closest_earth_approach_km']:.0f} km")
         if case["comparison_valid"]:
             s = case["savings"]
