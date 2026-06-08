@@ -83,10 +83,14 @@ FinalProject/
 - **60 组参数扫描**（6 r_m × 5 v_inf × 2 side），中位角度误差 0.04°
 - 月心局部二体数值验证——不是完整任务级 N-body swing-by
 
-### M5 — 单点轨道求解器 [done]
+### M5 — 单点轨道求解器 [done-with-caveat]
 - 六段式求解流程 (S1–S6)
 - Moon-aligned 前向搜索实现月球拦截
 - 标称（MJD 61066.0）：r_p=0.2843 AU（误差 5.2%），v_launch=14.70 km/s
+- **无月球借力对比**：基于 SOI-出口切向传播和 Earth-to-Earth Lambert 搜索重构。
+  在 Lambert 搜索中，MJD 61066 找到 rp=0.3011 AU 的候选，但返回 v_inf=26.24 km/s > 15 km/s 约束；
+  MJD 61154 无匹配近日距候选。因此不报告节能比例。
+  详见 `data/results/m5_fair_no_lunar_baseline.json` 和 `m5_no_lunar_lambert_baseline.json`。
 
 ### M6 — 发射窗口优化 [done]
 - 366 天逐日扫描，132 天可行

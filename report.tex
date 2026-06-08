@@ -505,11 +505,51 @@ $|v_{\infty}|$ 守恒误差 & 0.3\% & 弹性假设合理性 \\
 \end{tabular}
 \end{table}
 
+\subsection{无月球借力对比}
+
+为评估月球借力在轨道设计中的作用，在相同发射日期（MJD 61066.0）和相同目标近日距 $r_p=0.3$~AU 下，构建了两个不同的无月借 baseline 进行比较。
+
+\subsubsection{SOI-出口切线方向 baseline}
+
+第一条 baseline 修正了以往从地球表面直接初始化的缺陷，从地球作用范围（SOI, $\approx 925000$~km）边界出发，以与月球借力相同的 patched-conic 出发速度注入日心转移轨道，并使用完整的四体 N 体积分传播。
+
+在仅考虑太阳引力的解析二体验证中，该初始化能准确达到目标近日距 $0.3$~AU。在包含日-地-月完整四体 N 体积分后，也能实现 $r_p \approx 0.284$~AU，但在两个测试发射日期（MJD 61066 和 61154）下，火箭在预计飞行时间内未能返回地球附近（最近距离超过 1800~万公里）。这表明，**仅靠简单切线方向无月借出发可以实现目标近日距，但不能同时满足同一固定发射日期下的地球返回约束**。
+
+\subsubsection{Earth-to-Earth Lambert baseline}
+
+第二条 baseline 使用自行实现的 universal-variable Lambert 求解器（不使用 \texttt{scipy.optimize}），在同一固定发射日期下系统地搜索从地球出发到地球返回的日心转移轨道，覆盖 100--730 天的飞行时间范围、4 种 Lambert 分支（prograde short/long, retrograde short/long），粗步长 5 天，在最优候选附近精化至 0.25 天。
+
+\begin{table}[H]
+\centering
+\caption{M5 Earth-to-Earth Lambert no-lunar 基线搜索结果}
+\label{tab:m5-lambert}
+\begin{tabular}{ccccccc}
+\toprule
+$t_0$ & 候选数 & Feasible & Near-Feasible & 最佳 $r_p$ (AU) & 飞行时间 (d) & 返回 $v_{\infty}$ (km/s) & 状态 \\
+\midrule
+61066 & 358 & 0 & 14 & 0.3011 & 271.5 & 26.24 & 部分权衡 \\
+61154 & 380 & 0 & 0 & 0.4721 & 287.5 & 64.06 & 无匹配近日距 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{m5_no_lunar_lambert_pareto.png}
+\caption{固定发射日期 Earth-to-Earth Lambert 搜索的 Pareto 前沿。横轴为 $r_p$ 相对误差，纵轴为返回 $v_{\infty}$。绿色虚线为 15~km/s 再入约束，紫色虚线为 10\% $r_p$ 误差容限。红色星号标记月球借力参考值。}
+\label{fig:m5-pareto}
+\end{figure}
+
+对 MJD 61066.0，存在一条 $r_p=0.3011$~AU（相对误差 0.4\%）的无月借候选轨道，但返回相对速度 26.24~km/s 超过了 15~km/s 的再入约束。14 个 near-feasible 候选（$r_p$ 误差 $<10\%$，返回速度 15--25~km/s）均未同时满足两个条件。对 MJD 61154，最佳 Lambert 候选的 $r_p=0.4721$~AU，未能接近目标近日距。两个发射日期均未找到同时满足 $r_p$ 匹配和再入速度约束的 feasible 候选，因此**不计算具体的节能比例**（saving ratio not reported）。原先基于对称拼接圆锥曲线近似的 $-430\%$ 节能比例已经被废弃，因为该比较基于不同传播方法，口径不一致。
+
 \subsection{结果讨论}
+\label{sec:m5-discussion}
 
-标称轨道的近日距相对误差为 5.23\%，在 $<25\%$ 的回归测试阈值内。$v_{\text{launch}} \approx 14.70$~km/s 合理。再入速度较高（78.7~km/s），这是因为内转移轨道返回地球时具有较大的日心速度，需要多次大气制动才能安全着陆。
+标称轨道的近日距相对误差为 5.23\%，在 $<25\%$ 的回归测试阈值内。$v_{\text{launch}} \approx 14.70$~km/s 合理。再入速度较高（78.7~km/s），这是内转移轨道返回地球时具有较大日心速度的固有性质，需配合大气制动。
 
-\textbf{结论：} M5 回归测试通过，\textbf{标记为 done}。
+综合三条 baseline 分析，月球借力在此任务中同时实现了近日距命中与地球返回的相位匹配——这两者在这一简化任务框架和固定发射日期下，无月借候选无法同时满足。该结论限定于本研究所用的固定发射日期、简化轨道模型和 Lambert 搜索范围，不排除在其他发射日期或更复杂的无月借策略下存在可行解。
+
+\textbf{结论：} M5 回归测试通过，baseline 对比完成，\textbf{标记为 done-with-caveat}。
 
 \newpage
 
