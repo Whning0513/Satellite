@@ -86,6 +86,22 @@ T_MAX_DAYS = 2 * 365.25     # 2 年
 # 再入相对速度上限 (km/s)
 V_INF_MAX = 15.0
 
+# =========================
+# 金星参数 (Venus)
+# =========================
+
+# 金星引力常数 (km^3/s^2) — JPL ASTRODYN
+GM_VENUS = 324858.592000
+
+# 金星半径 (km)
+R_VENUS = 6051.8
+
+# 金星轨道参数
+VENUS_ORBIT_RADIUS_AU = 0.72333199    # 金星半长轴 (AU)
+VENUS_ORBIT_RADIUS_KM = VENUS_ORBIT_RADIUS_AU * AU_KM
+VENUS_PERIOD_DAYS = 224.701           # 金星轨道周期 (天)
+V_VENUS_ORBIT = 35.02                 # 金星公转速度 (km/s)
+
 # 坐标变换
 # 地球表面第二宇宙速度平方
 V2_SQ = V_ESCAPE_EARTH ** 2

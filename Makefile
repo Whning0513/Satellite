@@ -15,7 +15,8 @@
 #   m5-fair    — SOI-exit no-lunar tangent baseline
 #   m5-lambert — Earth-to-Earth Lambert no-lunar baseline
 #   o3         — test shooting corrector
-#   o1-3d, o2-gr, o4-mga, o6-interactive, o7-parallel — optional extensions
+#   o1-3d, o2-gr, o4-mga, o6-interactive, o7-parallel, o7-surrogate — optional extensions
+#   o7-benchmark — 3-run repeated benchmark for O7
 #   bonus-all  — all optional extensions
 #   audit      — security + figure-reference + M5-files + repo-size check
 #   clean      — remove cache / build artifacts
@@ -27,7 +28,7 @@ REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 .PHONY: all compile validate validate-m3 validate-m4 validate-m5
 .PHONY: m1 m2 m3 m4 m5 m6 m7 m8 o3 o1-3d m5-fair m5-lambert
 .PHONY: pdf figures scan-fast animation audit clean
-.PHONY: o2-gr o4-mga o6-interactive o7-parallel bonus-all
+.PHONY: o2-gr o4-mga o6-interactive o7-parallel o7-surrogate bonus-all
 
 # ---- Default: compile + generate figures + build PDF ----
 all: compile m3 figures m5-lambert pdf
@@ -109,6 +110,9 @@ o1-3d:
 o2-gr:
 	@echo "=== O2: GR correction ==="
 	cd src && $(PYTHON) experiments/o2_relativity.py
+o4-ephem:
+	@echo "=== O4: extend ephemeris with Venus ==="
+	cd src && $(PYTHON) experiments/o4_ephemeris_extend.py
 o4-mga:
 	@echo "=== O4: multi-gravity assist ==="
 	cd src && $(PYTHON) experiments/o4_multi_gravity_assist.py
@@ -116,10 +120,18 @@ o6-interactive:
 	@echo "=== O6: interactive demo screenshot ==="
 	cd src && $(PYTHON) interactive_demo.py --screenshot
 o7-parallel:
-	@echo "=== O7: parallel scan ==="
+	@echo "=== O7: parallel scan (ProcessPool) ==="
 	cd src && $(PYTHON) experiments/o7_parallel_scan.py
 
-bonus-all: o1-3d o2-gr o3 o4-mga animation o6-interactive o7-parallel
+o7-surrogate:
+	@echo "=== O7: Ridge surrogate prefilter ==="
+	cd src && $(PYTHON) -c "import sys; sys.path.insert(0,'.'); from experiments.o7_surrogate_prefilter import main; main()"
+
+o7-benchmark:
+	@echo "=== O7: repeated benchmark (3 runs) ==="
+	cd src && $(PYTHON) experiments/o7_parallel_scan.py --repeat 3
+
+bonus-all: o1-3d o2-gr o3 o4-mga animation o6-interactive o7-parallel o7-surrogate
 	@echo "=== All optional extensions complete ==="
 
 # ---- Fast geometric launch-window scan (M6) ----

@@ -208,6 +208,32 @@
 - **结果**：30 天传播后 Moon z 分量约 39,000 km（5.1° 倾角）；Earth 2D→3D 差异约 12,600 km
 - **人工审定**：标注为 diagnostic，不替代主线 2D 结果
 
+### O4 多次借力链搜索
+
+- **Claude Code 角色**：独立实现框架
+- **关键决策**：
+  - Venus 历表优先尝试 Horizons，失败后退化为 analytic circular fallback
+  - 三段 Lambert 使用不同的中心天体 GM（地月段用地球 GM，月金段和金地段用太阳 GM）
+  - 飞越可行性使用 required-turn vs available-turn 判别
+- **结果**：
+  - 98 个候选全部 Lambert 成功
+  - 最佳候选 return v_inf=13.4 km/s OK，但近期距 0.638 AU 偏大
+  - 无候选达到 feasible-ish，因高 v_inf 下月球偏转角（~3°）和金星偏转角（~8°）不足
+- **人工审定**：诚实标记为 exploratory，明确了 Moon/Venus 转向的物理限制
+
+### O7 并行扫描与 Surrogate 预筛选
+
+- **Claude Code 角色**：独立实现全套方案
+- **关键决策**：
+  - 使用 ProcessPoolExecutor 替代 ThreadPoolExecutor 突破 GIL 限制
+  - Chunked batching（10 MJDs/chunk）使每进程只加载一次 Horizons 缓存
+  - 从零实现 Ridge 回归（闭式解，无 sklearn 依赖）
+- **结果**：
+  - ProcessPool 平均加速比 3.78x（55 MJDs, 8 workers, 3 次重复基准, 55/55 一致性, std=0.16）
+  - Ridge 回归 R2=0.8956，MAE=0.059 AU，Top-15 recall=33.3%
+  - 6 个几何特征：moon_angle, moon_dist, v_inf, phase_angle, vel_align, angular_rate
+- **人工审定**：加速比来自实际运行结果；surrogate 标注为"捕捉趋势但 recall 有限"
+
 ### 审计与提交准备
 
 - **Claude Code**：生成 FINAL_AUDIT.md、PROJECT_DETAIL_DUMP.md、校对 README

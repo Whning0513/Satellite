@@ -54,7 +54,12 @@ FinalProject/
 │       ├── m3_residual_ablation.py
 │       ├── m4_swingby_scan.py
 │       ├── m7_stepsize_convergence.py
-│       └── aux_results.py
+│       ├── aux_results.py
+│       ├── o4_ephemeris_extend.py    # O4: Venus ephemeris extension
+│       ├── o4_multi_gravity_assist.py # O4: Moon-Venus chain search
+│       ├── o7_worker.py          # O7: ProcessPool worker
+│       ├── o7_parallel_scan.py   # O7: ProcessPool parallel scan
+│       └── o7_surrogate_prefilter.py # O7: Ridge surrogate (no sklearn)
 └── PROJECT_DETAIL_DUMP.md  # 项目细节快照（供审查者参考）
 ```
 
@@ -107,6 +112,24 @@ FinalProject/
 - 8 张静态图（轨迹、借力、窗口、灵敏度、残差、能量漂移、日期曲线、等值线）
 - 所有图片由 `make figures` 生成
 - 详见 `figure_manifest.json`
+
+### O4 — 多次借力链搜索 [exploratory]
+- Earth-Moon-Venus-Earth patched-conic 链搜索
+- Venus 历表：analytic circular fallback（无网络时离线可用）
+- 三段 Lambert：地球出发→月球→金星→地球返回
+- 含飞越可行性判断（required-turn vs available-turn at min periapsis）
+- 98 个候选，Lambert 成功率 100%，最佳 return v_inf=13.4 km/s
+- 主要限制：月球在高 v_inf（~10 km/s）下最大偏转角仅 ~3°，限制链可行性
+- 文件：`src/experiments/o4_ephemeris_extend.py`、`o4_multi_gravity_assist.py`
+
+### O7 — 并行扫描与代理预筛选 [done]
+- ProcessPoolExecutor batching 替代 ThreadPoolExecutor（旧方案 GIL 限制，仅 0.56×）
+- 55 天测试集：平均 3.78× 加速比（3 次重复基准，55/55 结果一致）
+- Ridge 回归代理预筛选器（无 sklearn 依赖，闭式解实现）
+- 6 个几何特征预测实现近日距，R²=0.8956，MAE=0.059 AU
+- Top-15 召回率 33.3% — 可捕捉趋势但不可替代物理 N 体扫描
+- 文件：`src/experiments/o7_worker.py`、`o7_parallel_scan.py`、`o7_surrogate_prefilter.py`
+- 运行：`make o7-parallel` / `make o7-surrogate`
 
 ---
 
@@ -229,6 +252,9 @@ SSB 惯性积分 → 日心系残差对比，消除因省略大行星摄动导�
 - M4 数值验证为局部月心二体，非任务级 N-body
 - M6 近日距误差 5–10%，需迭代校正才能进一步提高
 - 动画（O5）在当前环境生成 MP4，若 ffmpeg/H.264 不可用会 fallback 到 GIF
+- O7 代理扫描：ProcessPool 平均加速比 3.78x（55 MJDs, 8 workers, 3 次重复基准），但 per-process 缓存加载有初始开销
+- O7 代理预筛选：Ridge 回归 R²=0.8956，几何特征仅能捕捉整体趋势，top-15 recall=33%
+- O4 多次借力链搜索：有限的多体链可行性（analytic Venus 近似 + Moon 高 v_inf 偏转角不足限制链可行性）
 
 ---
 
