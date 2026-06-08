@@ -86,7 +86,7 @@ Current fixed-date Lambert search is sufficient. Do not re-enter M5 without a pr
 |------|--------|----------|-------------------|
 | **O1** 3D extension | ✅ diagnostic | `o1_3d_comparison.json`; Moon z ~39,000 km, Earth 2D→3D diff ~12,600 km | 不替代主线 2D 结果 |
 | **O2** GR correction | ✅ done | `o2_relativity.json`; a_GR/a_N ≈ 6.7e-8, Δr_p < 1 km | 效应极小，对本项目无实质影响 |
-| **O3** shooting corrector | ⚠️ exploratory | `o3_shooting_corrector.json`; 5× miss improvement, not fully converged | 单个角度参数不够；需 2-param damped Gauss-Newton 或 Lambert 修正 |
+| **O3** shooting corrector | ✅ done | `o3_shooting_corrector.json`; multi-param damped Gauss-Newton; 36 runs; 7 converged; best 3.66M km → 0.0009 km | Upgraded from 1-param exploratory to converged multi-param corrector. Not integrated into M5/M6 main pipeline. |
 | **O4** multi-gravity assist | ⚠️ exploratory | `o4_multi_gravity_assist.json`; 98 Lambert chain candidates (Earth-Moon-Venus-Earth); analytic Venus fallback; best return v_inf=13.38 km/s; 0 feasible-ish | Moon flyby turn ~3 deg at high v_inf, Venus insufficient; chain not feasible in patched-conic framework |
 | **O5** orbit animation | ✅ done | 45s, 24fps, h264 MP4 (`build/orbit_animation.mp4`, gitignored) + 4 keyframes + poster | 无（编码器自动降级） |
 | **O6** interactive demo | ✅ done | `interactive_demo.py` + `o6_interactive_screenshot.png` | 需本地 Tkinter/Matplotlib GUI |

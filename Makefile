@@ -82,7 +82,7 @@ validate-m5: m5-fair m5-lambert
 
 # ---- O3: Shooting corrector (optional) ----
 o3:
-	cd src && $(PYTHON) shooting_corrector.py
+	cd src && $(PYTHON) experiments/o3_differential_corrector.py
 
 # ---- PDF report (2 xelatex passes) ----
 pdf:

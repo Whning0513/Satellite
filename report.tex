@@ -84,7 +84,7 @@
 
 项目实现了八个循序渐进的模块（M1--M8），涵盖拼接圆锥曲线解析计算、N 体数值积分器、JPL~Horizons 历表对照验证、月球借力模型、单点轨道求解器、全年发射窗口扫描、灵敏度分析和可视化。标称设计目标为近日距 $0.3$~AU，借助月球 trailing 侧飞越实现速度修正。最佳发射窗口位于 MJD~61154.0，对应 $v_{\text{launch}} \approx 14.70$~km/s，实现近日距 $0.2843$~AU（相对误差 $5.2\%$）。
 
-\textbf{完成状态：}所有必做模块（M1--M8）均通过回归测试。M3 通过三维日心系残差法将位置误差控制在 $6000$~km 以内；M4 完成了数值 swingby 与解析模型的交叉验证（偏转角差异 $2.29^\circ$）；M8 共生成 $8$ 张诊断图。此外额外实现了 O3 打靶微分修正器、O5 轨道动画和 O7 并行加速扫描（ProcessPool 3.78$\times$加速（3 次基准） + Ridge 代理预筛选 $R^2=0.90$）。项目在二维黄道投影、三体简化模型下工作正常。
+\textbf{完成状态：}所有必做模块（M1--M8）均通过回归测试。M3 通过三维日心系残差法将位置误差控制在 $6000$~km 以内；M4 完成了数值 swingby 与解析模型的交叉验证（偏转角差异 $2.29^\circ$）；M8 共生成 $8$ 张诊断图。此外额外实现了 O3 多参数阻尼 Gauss-Newton 微分修正器（最佳收敛至 0.9~m）、O5 轨道动画和 O7 并行加速扫描（ProcessPool 3.78$\times$加速（3 次基准） + Ridge 代理预筛选 $R^2=0.90$）。项目在二维黄道投影、三体简化模型下工作正常。
 
 \newpage
 
@@ -770,11 +770,59 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 \newpage
 
 % ============================================================
-\section{选做项：多次借力链搜索（O4）}
-\label{sec:o4}
+\section{选做项：自定义微分修正器（O3）}
+\label{sec:o3}
 % ============================================================
 
-O4 选做项探索了 Earth--Moon--Venus--Earth 拼接圆锥曲线链的可行性。
+O3 选做项实现了一个不使用 \texttt{scipy.optimize} 的多参数阻尼 Gauss-Newton 微分修正器。
+
+\subsection{问题定义}
+
+给定月球拦截场景——火箭从地球附近出发，在固定终端时刻到达月球附近——修正火箭的发射参数，使终端时刻的火箭-月球位置偏差最小化。残差定义为：
+
+\begin{equation}
+F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
+\end{equation}
+
+采用固定终端时刻（而非最近点事件），保证残差对参数的连续性。
+
+\subsection{参数化方式}
+
+采用两阶段参数化：
+
+\begin{itemize}
+    \item \textbf{2-参数方案}：$[\theta_{\text{dep}}, \alpha_{\text{vinf}}]$——发射方向角和双曲超速缩放因子；
+    \item \textbf{3-参数方案}：增加 $\Delta t_{\text{TOF}}$（飞行时间偏移），以补偿到达相位。
+\end{itemize}
+
+\subsection{算法}
+
+\begin{enumerate}
+    \item \textbf{中心差分 Jacobian}：每步使用 $2\varepsilon$ 步长计算 $J_{ij} = \partial F_i / \partial x_j$，不使用 \texttt{scipy.optimize}；
+    \item \textbf{阻尼 Gauss-Newton 步}：$\Delta = -(J^{\mathsf T}J + \lambda I)^{-1}J^{\mathsf T}F$，其中 $\lambda$ 自适应调整；
+    \item \textbf{回溯线搜索}：6 级 $\alpha \in \{1, 0.5, 0.25, 0.125, 0.0625, 0.03125\}$，接受最小化 $\|F\|$ 的步长；
+    \item \textbf{Tikhonov 正则化 fallback}：Jacobian 病态时自动增大 $\lambda$；
+    \item \textbf{多起点搜索}：9 个 2-参数种子 $\times$ 3 个 TOF 偏移 = 36 次独立优化，每步最多 12 次迭代。
+\end{enumerate}
+
+\subsection{数值结果}
+
+旧版（1-参数 Newton-Raphson）的初始偏差 2,893,047~km 仅改善至 581,336~km（4.98$\times$），未收敛。新版在 36 次多起点搜索中，12 次达到 10$\times$ 以上改进，7 次完全收敛至 100~km 以下。
+
+\textbf{最佳结果：}3-参数方案，初始偏差 3,661,651~km，6 次迭代后收敛至 0.0009~km，改进倍数 3.87$\times10^9$。最优参数为发射方向角 24.28$^\circ$，速度缩放 1.045，飞行时间偏移 +4.98 天。
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.75\textwidth]{o3_shooting_convergence.png}
+\caption{O3 微分修正器收敛曲线（36 次多起点搜索）。红色虚线为最佳最终偏差，绿色虚线为 100~km 收敛阈值。多组曲线快速下降表明算法稳健。}
+\label{fig:o3-convergence}
+\end{figure}
+
+\subsection{完成状态}
+
+\textbf{O3 标记为 done。} 实现了完整的自定义阻尼 Gauss-Newton 微分修正器，无 \texttt{scipy} 依赖，含中心差分 Jacobian、线搜索、Tikhonov 正则化和多起点搜索。最佳结果完全收敛（最终偏差 $< 1$~m），12/36 多起点达到有用改进（$\ge 10\times$）。修正结果未集成到 M5/M6 主流程，仅作为独立的微分修正能力展示。
+
+\newpage
 
 \subsection{任务背景}
 
@@ -928,7 +976,7 @@ M6 发射窗口优化 & done & 最佳 MJD~61154.0，top-5 N 体验证全部成�
 M7 灵敏度分析 & done & 基本扰动分析 + 20 MC 样本 \\
 M8 可视化 & done & 8 张图（4 基础 + 4 诊断） \\
 \hline
-O3 打靶微分修正 & 完成 & Newton-Raphson 全数值雅可比 \\
+O3 微分修正器 & done & Multi-param GN, 12/36 runs useful, best converged (0.0009 km) \\
 O4 多次借力探索 & exploratory & Earth-Moon-Venus-Earth 三段 Lambert 链搜索，98 候选，无 feasible-ish \\
 O5 轨道动画 & 完成 & 45 秒 GIF（FFmpeg/Pillow） \\
 O7 并行扫描 & 完成 & ProcessPool 3.78$\times$加速(3次基准), Ridge $R^2=0.90$ \\

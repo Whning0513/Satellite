@@ -47,7 +47,7 @@ FinalProject/
 │   ├── sensitivity.py     # M7: 灵敏度分析
 │   ├── plotting.py        # M8: 可视化
 │   ├── animation.py       # O5: 轨道动画
-│   ├── shooting_corrector.py # O3: 打靶微分修正
+│   ├── shooting_corrector.py # O3: 旧版打靶修正（legacy）
 │   ├── diagnostics.py     # 时间/单位诊断
 │   ├── validation.py      # 回归测试入口
 │   └── experiments/       # 消融实验和辅助分析
@@ -112,6 +112,16 @@ FinalProject/
 - 8 张静态图（轨迹、借力、窗口、灵敏度、残差、能量漂移、日期曲线、等值线）
 - 所有图片由 `make figures` 生成
 - 详见 `figure_manifest.json`
+
+### O3 — 自定义微分修正器 [done]
+- 从 1-param angle（旧 4.98× 改进）升级为多参数 damped Gauss-Newton
+- 2-param: departure_angle_rad, v_inf_scale；3-param: + tof_shift_days
+- 中心差分 Jacobian + line search + Tikhonov fallback（无 scipy）
+- 9 个 2D 种子 × 3 TOF shift = 36 个多起点搜索
+- **12 runs improvement ≥ 10×，7 runs 收敛至 < 100 km**
+- **Best: 3-param, initial=3.66M km → final=0.0009 km (converged)**
+- 文件：`src/experiments/o3_differential_corrector.py`
+- 运行：`make o3`
 
 ### O4 — 多次借力链搜索 [exploratory]
 - Earth-Moon-Venus-Earth patched-conic 链搜索

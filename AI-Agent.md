@@ -208,6 +208,22 @@
 - **结果**：30 天传播后 Moon z 分量约 39,000 km（5.1° 倾角）；Earth 2D→3D 差异约 12,600 km
 - **人工审定**：标注为 diagnostic，不替代主线 2D 结果
 
+### O3 自定义微分修正器升级
+
+- **Claude Code 角色**：重写完整微分修正器
+- **旧版**：1-param Newton-Raphson，初始 miss=2.89M km → 581k km，仅 4.98× 改进，未收敛
+- **新版关键决策**：
+  - 2-param 参数化 (departure_angle_rad + v_inf_scale) + 可选的 tof_shift_days
+  - 中心差分 Jacobian（无 scipy.optimize）
+  - 带 line search 的阻尼 Gauss-Newton（6 级 alpha 回溯）
+  - 病态 Jacobian 时自动启用 Tikhonov 正则化 fallback
+  - 9 个 2D 种子 × 3 TOF shift = 36 多起点搜索
+- **结果**：
+  - 12/36 runs improvement ≥ 10×，7 runs 收敛至 < 100 km
+  - **Best: 3-param, 初始 3.66M km → 最终 0.0009 km（完全收敛）**
+  - 失败模式记录（Jacobian condition number, line search 失败等）
+- **人工审定**：标记为 done，收敛曲线和诊断已保存
+
 ### O4 多次借力链搜索
 
 - **Claude Code 角色**：独立实现框架
