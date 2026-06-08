@@ -1,15 +1,15 @@
 """
 m5_no_lunar_lambert_baseline.py
 ================================
-Search direct Earth-to-Earth Lambert transfer orbits from a fixed t0,
-scanning return time tof_days, to find candidates that reach rp ≈ 0.3 AU
-AND return to Earth.
+Direct Earth-to-Earth Lambert transfer search for M5 no-lunar comparison.
+Coarse scan (5d) → fine scan (0.25d) around promising zones → Pareto frontier.
 
-Output: data/results/m5_no_lunar_lambert_baseline.json, .csv
+Outputs:
+  data/results/m5_no_lunar_lambert_baseline.json, .csv
+  data/results/m5_no_lunar_lambert_pareto.json, .csv, .png
 """
 
-import json, os, csv, sys, math, itertools
-import numpy as np
+import json, os, csv, sys, math, numpy as np
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -25,108 +25,78 @@ from horizons import fetch_sem_vectors
 def _norm(v):
     return float(np.linalg.norm(np.array(v, dtype=float)))
 
-
-def _fmt(v):
-    return [round(float(x), 4) for x in np.array(v, dtype=float)]
-
-
 def launch_dv_from_vinf(vinf):
     return math.sqrt(V_ESCAPE_EARTH**2 + vinf**2)
 
 
-def search_lambert_candidates(t0_mjd, body_data, tof_range=(100, 730, 5), rp_target=0.3):
-    """Scan direct Earth-to-Earth Lambert transfers at fixed t0."""
-    r_sun0, v_sun0 = interpolate_state_at_mjd(body_data, "Sun", t0_mjd)
-    r_earth0, v_earth0 = interpolate_state_at_mjd(body_data, "Earth", t0_mjd)
-    r0 = np.array(r_earth0) - np.array(r_sun0)
-    vE0 = np.array(v_earth0) - np.array(v_sun0)
-
-    mu = GM_SUN
-    candidates = []
-
-    tof_start, tof_end, step = tof_range
-
-    for tof_days in range(tof_start, tof_end + 1, step):
+def lambert_candidate(t0_mjd, tof_days, body_data, branch, rp_target=0.3):
+    """Compute a single Lambert candidate."""
+    try:
+        r_sun0, v_sun0 = interpolate_state_at_mjd(body_data, "Sun", t0_mjd)
+        r_earth0, v_earth0 = interpolate_state_at_mjd(body_data, "Earth", t0_mjd)
         tf_mjd = t0_mjd + tof_days
-        if tf_mjd > 62000:
-            continue
-        try:
-            r_earth_f, v_earth_f = interpolate_state_at_mjd(body_data, "Earth", tf_mjd)
-            r_sun_f, v_sun_f = interpolate_state_at_mjd(body_data, "Sun", tf_mjd)
-        except Exception:
-            continue
+        r_earth_f, v_earth_f = interpolate_state_at_mjd(body_data, "Earth", tf_mjd)
+        r_sun_f, v_sun_f = interpolate_state_at_mjd(body_data, "Sun", tf_mjd)
+    except Exception:
+        return None
 
-        rf = np.array(r_earth_f) - np.array(r_sun_f)
-        vEf = np.array(v_earth_f) - np.array(v_sun_f)
-        tof_s = tof_days * 86400.0
+    r0 = np.array(r_earth0) - np.array(r_sun0)
+    rf = np.array(r_earth_f) - np.array(r_sun_f)
+    vE0 = np.array(v_earth0) - np.array(v_sun0)
+    vEf = np.array(v_earth_f) - np.array(v_sun_f)
+    tof_s = tof_days * 86400.0
+    mu = GM_SUN
 
-        for branch, prograde, long_way in [
-            ("prograde_short", True, False),
-            ("prograde_long", True, True),
-            ("retrograde_short", False, False),
-            ("retrograde_long", False, True),
-        ]:
-            try:
-                v1, v2, diag = solve_lambert_universal(r0, rf, tof_s, mu, prograde=prograde, long_way=long_way)
-            except Exception:
-                continue
+    branch_flags = {
+        "prograde_short": (True, False),
+        "prograde_long": (True, True),
+        "retrograde_short": (False, False),
+        "retrograde_long": (False, True),
+    }
+    if branch not in branch_flags:
+        return None
+    prograde, long_way = branch_flags[branch]
 
-            if _norm(v1) > 1e6 or _norm(v2) > 1e6:
-                continue
+    try:
+        v1, v2, diag = solve_lambert_universal(r0, rf, tof_s, mu, prograde=prograde, long_way=long_way)
+    except Exception:
+        return None
 
-            # Orbital elements
-            a, e, rp_km, eps, h = orbital_elements_from_state(r0, v1, mu)
-            rp_AU = km_to_au(rp_km)
-            period_days = 2 * math.pi * math.sqrt(abs(a)**3 / mu) / 86400 if a > 0 else 1e15
+    if _norm(v1) > 1e6 or _norm(v2) > 1e6:
+        return None
 
-            # Earth departure
-            v_inf_depart_vec = v1 - vE0
-            v_inf_depart = _norm(v_inf_depart_vec)
-            dv_launch = launch_dv_from_vinf(v_inf_depart)
+    a, e, rp_km, eps, h = orbital_elements_from_state(r0, v1, mu)
+    rp_AU = km_to_au(rp_km)
+    v_inf_depart = _norm(v1 - vE0)
+    v_inf_return = _norm(v2 - vEf)
+    dv_launch = launch_dv_from_vinf(v_inf_depart)
+    dv_reentry = max(0, v_inf_return - V_INF_MAX)
+    dv_total = dv_launch + dv_reentry
+    rp_error_rel = abs(rp_AU - rp_target) / rp_target
+    rp_valid = rp_error_rel < 0.10
+    reentry_valid = v_inf_return <= 15
 
-            # Earth return
-            v_inf_return_vec = v2 - vEf
-            v_inf_return = _norm(v_inf_return_vec)
-            dv_reentry = max(0, v_inf_return - V_INF_MAX)
-            dv_total = dv_launch + dv_reentry
-
-            rp_valid = abs(rp_AU - rp_target) / rp_target < 0.10
-            reentry_valid = v_inf_return <= 15
-
-            # Score: dv_total + penalties
-            penalty_rp = 100 * max(0, abs(rp_AU - rp_target) / rp_target - 0.10)
-            penalty_reentry = 10 * max(0, v_inf_return - 15)
-            score = dv_total + penalty_rp + penalty_reentry
-
-            candidates.append({
-                "t0_mjd": t0_mjd,
-                "tf_mjd": round(tf_mjd, 2),
-                "tof_days": tof_days,
-                "branch": branch,
-                "prograde": prograde,
-                "long_way": long_way,
-                "a_AU": round(km_to_au(abs(a)), 6),
-                "e": round(e, 6),
-                "rp_AU": round(rp_AU, 6),
-                "rp_target_AU": rp_target,
-                "rp_error_rel": round(abs(rp_AU - rp_target) / rp_target, 6),
-                "rp_valid": bool(rp_valid),
-                "period_days": round(period_days, 1),
-                "v_inf_depart_kms": round(v_inf_depart, 4),
-                "v_inf_return_kms": round(v_inf_return, 4),
-                "reentry_valid": bool(reentry_valid),
-                "dv_launch_kms": round(dv_launch, 4),
-                "dv_reentry_kms": round(dv_reentry, 4),
-                "dv_total_kms": round(dv_total, 4),
-                "score": round(score, 2),
-                "constraints_satisfied": bool(rp_valid and reentry_valid and tof_days <= 730),
-            })
-
-    return candidates
+    return {
+        "t0_mjd": t0_mjd,
+        "tf_mjd": round(tf_mjd, 2),
+        "tof_days": tof_days,
+        "branch": branch,
+        "a_AU": round(km_to_au(abs(a)), 6),
+        "e": round(e, 6),
+        "rp_AU": round(rp_AU, 6),
+        "rp_error_rel": round(rp_error_rel, 6),
+        "rp_valid": bool(rp_valid),
+        "v_inf_depart_kms": round(v_inf_depart, 4),
+        "v_inf_return_kms": round(v_inf_return, 4),
+        "reentry_valid": bool(reentry_valid),
+        "dv_launch_kms": round(dv_launch, 4),
+        "dv_reentry_kms": round(dv_reentry, 4),
+        "dv_total_kms": round(dv_total, 4),
+        "constraints_satisfied": bool(rp_valid and reentry_valid and tof_days <= 730),
+    }
 
 
 def get_lunar_reference(t0_mjd, body_data, rp_design=0.3):
-    """Lunar-assist reference."""
     params = DesignParams(t0_mjd=t0_mjd, r_m=R_MOON+500, side="trailing", r_p=rp_design*AU_KM)
     traj = solve_trajectory(params, body_data, verbose=False)
     v_rel_return = _norm(np.array(traj.v_final) - np.array(traj.v_earth_final))
@@ -145,19 +115,121 @@ def get_lunar_reference(t0_mjd, body_data, rp_design=0.3):
     }
 
 
-def pick_best(candidates):
-    if not candidates:
-        return None, None, None
-    best_rp = min(candidates, key=lambda c: abs(c["rp_AU"] - c["rp_target_AU"]))
-    best_dv = min(candidates, key=lambda c: c["dv_total_kms"])
-    feasible = [c for c in candidates if c["constraints_satisfied"]]
-    best_feas = min(feasible, key=lambda c: c["score"]) if feasible else None
-    return best_rp, best_dv, best_feas
+def compute_pareto(candidates):
+    """Return list of Pareto-efficient candidates on (rp_error_rel, v_inf_return)."""
+    pts = [(c["rp_error_rel"], c["v_inf_return_kms"], i) for i, c in enumerate(candidates)]
+    pts.sort(key=lambda x: (x[0], x[1]))
+    pareto = []
+    best_y = 1e9
+    for x, y, i in pts:
+        if y < best_y:
+            best_y = y
+            pareto.append(candidates[i])
+    return pareto
+
+
+def plot_pareto(candidates, pareto, lunar, out_dir):
+    """Save Pareto frontier PNG."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    xs = [c["rp_error_rel"] for c in candidates]
+    ys = [c["v_inf_return_kms"] for c in candidates]
+    ax.scatter(xs, ys, s=5, alpha=0.3, label="All candidates", c="blue")
+
+    if pareto:
+        px = [c["rp_error_rel"] for c in pareto]
+        py = [c["v_inf_return_kms"] for c in pareto]
+        ax.plot(px, py, "r-", lw=1.5, alpha=0.7, label="Pareto frontier")
+
+    # Threshold lines
+    ax.axhline(15, color="green", ls="--", lw=0.8, alpha=0.6, label="v_inf_return=15 km/s")
+    for tol, ls, clr in [(0.05, ":", "orange"), (0.10, "--", "purple")]:
+        ax.axvline(tol, color=clr, ls=ls, lw=0.8, alpha=0.4,
+                   label=f"rp_error={tol:.0%}")
+
+    # Lunar reference
+    if lunar:
+        ax.scatter([lunar["rp_error_rel"]], [lunar["v_rel_return_kms"]],
+                   c="red", s=80, marker="*", zorder=8, label="Lunar reference")
+
+    ax.set_xlabel("rp error (relative to 0.3 AU)")
+    ax.set_ylabel("Return v_inf (km/s)")
+    ax.set_title("Direct Lambert: rp error vs return v_inf")
+    ax.legend(fontsize=7)
+    ax.grid(alpha=0.3)
+
+    plt.savefig(out_dir / "m5_no_lunar_lambert_pareto.png", dpi=120, bbox_inches="tight")
+    plt.close(fig)
+
+
+def search_lambert(t0_mjd, body_data, rp_target=0.3):
+    """Two-stage search: coarse (5d) then fine (0.25d) around promising zones."""
+    branches = ["prograde_short", "prograde_long", "retrograde_short", "retrograde_long"]
+    all_candidates = []
+
+    # Coarse scan
+    print("  Coarse scan (5d step)...")
+    coarse_tofs = list(range(100, 731, 5))
+    for tof in coarse_tofs:
+        for br in branches:
+            c = lambert_candidate(t0_mjd, tof, body_data, br, rp_target)
+            if c:
+                all_candidates.append(c)
+    print(f"    {len(all_candidates)} candidates")
+
+    # Identify promising zones: best rp match and v_inf_return near 15
+    if not all_candidates:
+        return all_candidates, [], []
+
+    # Score: penalize rp error + excess return v_inf
+    def score(c):
+        return 100 * abs(c["rp_error_rel"] - 0) + 10 * max(0, c["v_inf_return_kms"] - 15) + c["dv_total_kms"]
+
+    all_candidates.sort(key=score)
+    top_n = min(20, len(all_candidates))
+    promising = all_candidates[:top_n]
+    fine_centers = set(p["tof_days"] for p in promising)
+
+    print(f"  Fine scan ({len(fine_centers)} promising zones, 0.25d step)...")
+    fine_count = 0
+    for center in fine_centers:
+        fine_tofs = np.arange(max(100, center - 8), min(730, center + 8) + 0.01, 0.25)
+        for tof in fine_tofs:
+            tof_rounded = round(tof, 2)
+            for br in branches:
+                c = lambert_candidate(t0_mjd, tof_rounded, body_data, br, rp_target)
+                if c:
+                    all_candidates.append(c)
+                    fine_count += 1
+    print(f"    {fine_count} fine candidates")
+
+    # Remove duplicates (same t0, tof, branch)
+    seen = set()
+    deduped = []
+    for c in all_candidates:
+        key = (c["t0_mjd"], round(c["tof_days"], 2), c["branch"])
+        if key not in seen:
+            seen.add(key)
+            deduped.append(c)
+    all_candidates = deduped
+    print(f"    {len(all_candidates)} unique candidates total")
+
+    pareto = compute_pareto(all_candidates)
+    return all_candidates, pareto, coarse_tofs
 
 
 def main():
     bd = fetch_sem_vectors(use_cache=True)
     t0s = [61066.0, 61154.0]
+    out_dir = _REPO / "data" / "results"
+    os.makedirs(out_dir, exist_ok=True)
 
     results = []
     for t0 in t0s:
@@ -165,104 +237,106 @@ def main():
         print(f"  t0 = MJD {t0:.0f}")
         print(f"{'='*55}")
 
-        # Lunar reference
         lunar = get_lunar_reference(t0, bd)
-        print(f"  Lunar reference: rp={lunar['rp_actual_AU']:.4f} AU, dv_total={lunar['dv_total_kms']:.1f} km/s")
+        print(f"  Lunar: rp={lunar['rp_actual_AU']:.4f} AU, dv_total={lunar['dv_total_kms']:.1f} km/s")
 
-        # Lambert search
-        cands = search_lambert_candidates(t0, bd, tof_range=(100, 730, 5))
-        print(f"  Lambert candidates: {len(cands)}")
-        best_rp, best_dv, best_feas = pick_best(cands)
+        cands, pareto, _ = search_lambert(t0, bd)
+        feasible = [c for c in cands if c["constraints_satisfied"]]
+        near_feasible = [c for c in cands if c["rp_valid"] and 15 < c["v_inf_return_kms"] <= 25]
 
-        comparison_status = "none"
-        savings = None
-        interpretation = ""
+        # Best picks
+        best_rp = min(cands, key=lambda c: abs(c["rp_AU"] - 0.3)) if cands else None
+        best_vinf = min(cands, key=lambda c: abs(c["v_inf_return_kms"] - 15)) if cands else None
+        best_dv = min(cands, key=lambda c: c["dv_total_kms"]) if cands else None
+        best_feas = min(feasible, key=lambda c: c["dv_total_kms"]) if feasible else None
 
-        if cands:
-            print(f"\n  Best by rp match: rp={best_rp['rp_AU']:.4f} AU, dv_total={best_rp['dv_total_kms']:.1f}, tof={best_rp['tof_days']}d")
-            print(f"  Best by dv:       rp={best_dv['rp_AU']:.4f} AU, dv_total={best_dv['dv_total_kms']:.1f}, tof={best_dv['tof_days']}d")
+        # Comparison status
+        if feasible:
+            comp_status = "valid"
+            ref = feasible[0]  # best by dv
+            ls = (ref["dv_launch_kms"] - lunar["dv_launch_kms"]) / max(ref["dv_launch_kms"], 0.01)
+            ts = (ref["dv_total_kms"] - lunar["dv_total_kms"]) / max(ref["dv_total_kms"], 0.01)
+            savings = {"launch_saving_ratio": round(ls, 4), "total_saving_ratio": round(ts, 4)}
+            interp = "Feasible direct Lambert candidates exist at this t0."
+        elif near_feasible:
+            comp_status = "partial_tradeoff"
+            savings = None
+            interp = ("Lambert reaches rp≈0.3 AU but return v_inf exceeds 15 km/s. "
+                      "This is a trade-off between perihelion accuracy and reentry speed.")
+        elif best_rp and best_rp["rp_valid"]:
+            comp_status = "partial_tradeoff"
+            savings = None
+            interp = "Lambert reaches rp≈0.3 AU but return v_inf greatly exceeds 15 km/s."
+        else:
+            comp_status = "invalid_no_matching_perihelion"
+            savings = None
+            interp = "No Lambert candidate matches both rp≈0.3 AU and Earth return."
 
-            if best_feas:
-                print(f"  Best feasible:    rp={best_feas['rp_AU']:.4f} AU, dv_total={best_feas['dv_total_kms']:.1f}, tof={best_feas['tof_days']}d")
-
-            # Comparison logic
-            if best_feas:
-                comparison_status = "valid"
-                ls = (best_feas["dv_launch_kms"] - lunar["dv_launch_kms"]) / max(best_feas["dv_launch_kms"], 0.01)
-                ts = (best_feas["dv_total_kms"] - lunar["dv_total_kms"]) / max(best_feas["dv_total_kms"], 0.01)
-                savings = {"launch_saving_ratio": round(ls, 4), "total_saving_ratio": round(ts, 4),
-                           "ref": "lunar_reference", "baseline": "best_feasible_lambert"}
-            elif best_rp and best_rp["rp_valid"]:
-                comparison_status = "partial"
-                savings = None
-
-        if comparison_status == "none":
-            interpretation = ("At this fixed t0, direct Earth-to-Earth Lambert returns "
-                              "do not reproduce the same deep perihelion target within the searched time range.")
-        elif comparison_status == "partial":
-            interpretation = ("Lambert candidates reach rp ≈ 0.3 AU but do not simultaneously "
-                              "satisfy the v_inf_return ≤ 15 km/s constraint.")
-        elif comparison_status == "valid":
-            interpretation = ("Feasible direct Lambert candidates exist at this t0.")
+        print(f"  Candidates: {len(cands)}, feasible={len(feasible)}, near_feasible={len(near_feasible)}")
+        if best_rp:
+            print(f"  Best rp:     rp={best_rp['rp_AU']:.4f} AU, tof={best_rp['tof_days']}d, vinf_ret={best_rp['v_inf_return_kms']:.2f}")
+        if best_feas:
+            print(f"  Best feas:   rp={best_feas['rp_AU']:.4f} AU, dv={best_feas['dv_total_kms']:.1f}")
+        print(f"  Status: {comp_status}")
+        print(f"  {interp}")
 
         case = {
             "t0_mjd": t0,
             "lunar_reference": lunar,
             "num_candidates": len(cands),
+            "num_feasible": len(feasible),
+            "num_near_feasible": len(near_feasible),
             "best_by_rp": best_rp,
+            "best_by_return_vinf": best_vinf,
             "best_by_dv": best_dv,
             "best_feasible": best_feas,
-            "comparison_status": comparison_status,
+            "num_pareto": len(pareto),
+            "comparison_status": comp_status,
             "savings": savings,
-            "interpretation": interpretation,
+            "interpretation": interp,
         }
         results.append(case)
 
-    # Output
+        # Pareto plot
+        plot_pareto(cands, pareto, lunar, out_dir)
+
+    # Save JSON
     summary = {
-        "description": "Direct Earth-to-Earth Lambert baseline for M5 no-lunar comparison",
-        "search_params": {"tof_range_days": "100-730", "step_days": 5, "branches": 4},
+        "search_config": {"tof_coarse_step_days": 5, "tof_fine_step_days": 0.25,
+                          "branches": ["prograde_short", "prograde_long", "retrograde_short", "retrograde_long"]},
         "t0_cases": results,
     }
-
-    out_dir = _REPO / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-
     json_path = out_dir / "m5_no_lunar_lambert_baseline.json"
     with open(json_path, "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"\n[M5 Lambert] Saved to {json_path}")
+    print(f"\n[M5] -> {json_path}")
 
-    # CSV: all candidates
-    all_cands = []
+    # CSV all candidates
+    all_c = []
     for case in results:
-        all_cands.extend(search_lambert_candidates(case["t0_mjd"], bd, tof_range=(100, 730, 5)))
+        _, pareto, _ = search_lambert(case["t0_mjd"], bd)  # re-evaluate
+        all_c.extend(pareto)
     csv_path = out_dir / "m5_no_lunar_lambert_baseline.csv"
     with open(csv_path, "w", newline="") as f:
-        if all_cands:
-            w = csv.DictWriter(f, fieldnames=all_cands[0].keys())
+        if all_c:
+            w = csv.DictWriter(f, fieldnames=all_c[0].keys())
             w.writeheader()
-            w.writerows(all_cands)
-    print(f"[M5 Lambert] CSV -> {csv_path}")
+            w.writerows(all_c)
+    print(f"[M5] CSV -> {csv_path}")
 
-    print(f"\n{'='*55}")
-    print("Summary")
-    print(f"{'='*55}")
+    # Pareto JSON/CSV
     for case in results:
-        l = case["lunar_reference"]
-        print(f"\n  t0 = MJD {case['t0_mjd']:.0f}:")
-        print(f"    Lunar: rp={l['rp_actual_AU']:.4f} AU, dv_total={l['dv_total_kms']:.1f} km/s")
-        print(f"    Lambert candidates: {case['num_candidates']}")
-        if case["best_by_rp"]:
-            b = case["best_by_rp"]
-            print(f"    Best rp match: rp={b['rp_AU']:.4f} AU, dv={b['dv_total_kms']:.1f}, tof={b['tof_days']}d, branch={b['branch']}")
-        if case["best_feasible"]:
-            f = case["best_feasible"]
-            print(f"    Best feasible:  rp={f['rp_AU']:.4f} AU, dv={f['dv_total_kms']:.1f}, tof={f['tof_days']}d, branch={f['branch']}")
-        print(f"    Comparison: {case['comparison_status']}")
-        if case["savings"]:
-            print(f"    Savings: total={case['savings']['total_saving_ratio']:.2%}")
-        print(f"    {case['interpretation']}")
+        _, pareto, _ = search_lambert(case["t0_mjd"], bd)
+        pj = {"t0_mjd": case["t0_mjd"], "num_pareto": len(pareto), "pareto_candidates": pareto}
+        with open(out_dir / f"m5_no_lunar_lambert_pareto_t0{int(case['t0_mjd'])}.json", "w") as f:
+            json.dump(pj, f, indent=2)
+        if pareto:
+            pc = out_dir / f"m5_no_lunar_lambert_pareto_t0{int(case['t0_mjd'])}.csv"
+            with open(pc, "w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=pareto[0].keys())
+                w.writeheader()
+                w.writerows(pareto)
+            print(f"[M5] Pareto -> {pc}")
 
 
 if __name__ == "__main__":
