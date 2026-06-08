@@ -91,11 +91,6 @@ validate-m4: compile
 o3:
 	cd src && $(PYTHON) shooting_corrector.py
 
-# ---- O1: 3D comparison (optional) ----
-o1-3d:
-	@echo "=== O1: 3D vs 2D comparison ==="
-	cd src && $(PYTHON) experiments/o1_3d_comparison.py
-	@echo "O1 comparison done"
 
 # ---- PDF report (2 xelatex passes) ----
 pdf:
@@ -115,6 +110,46 @@ animation: figures
 	@echo "=== Generating orbit animation ==="
 	cd src && $(PYTHON) animation.py
 	@echo "Animation saved to data/results/"
+
+# ---- M5 no-lunar comparison ----
+m5-compare:
+	@echo "=== M5: no-lunar comparison ==="
+	cd src && $(PYTHON) experiments/m5_no_lunar_comparison.py
+	@echo "M5 comparison done"
+
+# ---- O1: 3D comparison ----
+o1-3d:
+	@echo "=== O1: 3D vs 2D comparison ==="
+	cd src && $(PYTHON) experiments/o1_3d_comparison.py
+	@echo "O1 done"
+
+# ---- O2: GR correction ----
+o2-gr:
+	@echo "=== O2: GR correction ==="
+	cd src && $(PYTHON) experiments/o2_relativity.py
+	@echo "O2 done"
+
+# ---- O4: Multi-gravity assist ----
+o4-mga:
+	@echo "=== O4: multi-gravity assist ==="
+	cd src && $(PYTHON) experiments/o4_multi_gravity_assist.py
+	@echo "O4 done"
+
+# ---- O6: Interactive demo screenshot ----
+o6-interactive:
+	@echo "=== O6: interactive demo screenshot ==="
+	cd src && $(PYTHON) interactive_demo.py --screenshot
+	@echo "O6 done"
+
+# ---- O7: Parallel scan ----
+o7-parallel:
+	@echo "=== O7: parallel scan ==="
+	cd src && $(PYTHON) experiments/o7_parallel_scan.py
+	@echo "O7 done"
+
+# ---- All bonuses (not in default all) ----
+bonus-all: o1-3d o2-gr o3 o4-mga animation o6-interactive o7-parallel
+	@echo "=== All optional extensions complete ==="
 
 # ---- Fast geometric launch-window scan (M6, ~60s) ----
 scan-fast:
