@@ -807,6 +807,7 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 算法：Levenberg--Marquardt 自适应阻尼 + 中心差分 Jacobian，无 scipy.optimize。11 个多起点搜索，最佳结果：
 
+egin{itemize}
     \item 初始偏差 4,938,329~km $\to$ 最终偏差 \textbf{66,210~km}（74.59$\times$ 改善）；
     \item $\Delta \bm{v}$ 范数 1.22~km/s，$\Delta t$ 偏移 $-$0.56~天；
     \item 速度残差 22.1~km/s（合理，未匹配速度）；
