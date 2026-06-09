@@ -180,8 +180,7 @@
 
 \subsection{目标}
 
-实现从近日距出发的日心椭圆轨道参数解析计算，包括轨道根数、日心速度、C3 值、发射速度和再入速度。
-
+\subsection{数学模型}
 \subsection{数学模型}
 
 拼接圆锥曲线的基本思想是将地心段和日心段视为两个独立的二体问题，在地球 SOI 边界处拼接\cite{bate1971}。
@@ -511,14 +510,9 @@ $|v_{\infty}|$ 守恒误差 & 0.3\% & 弹性假设合理性 \\
 
 \subsubsection{SOI-出口切线方向 baseline}
 
-第一条 baseline 修正了以往从地球表面直接初始化的缺陷，从地球作用范围（SOI, $\approx 925000$~km）边界出发，以与月球借力相同的 patched-conic 出发速度注入日心转移轨道，并使用完整的四体 N 体积分传播。
+	extbf{SOI-出口切线方向 baseline：}从地球 SOI 边界出发以 patched-conic 速度注入日心转移轨道。能达目标近日距，但不能在固定发射日期下同时满足地球返回约束。
 
-在仅考虑太阳引力的解析二体验证中，该初始化能准确达到目标近日距 $0.3$~AU。在包含日-地-月完整四体 N 体积分后，也能实现 $r_p \approx 0.284$~AU，但在两个测试发射日期（MJD 61066 和 61154）下，火箭在预计飞行时间内未能返回地球附近（最近距离超过 1800~万公里）。这表明，**仅靠简单切线方向无月借出发可以实现目标近日距，但不能同时满足同一固定发射日期下的地球返回约束**。
-
-\subsubsection{Earth-to-Earth Lambert baseline}
-
-第二条 baseline 使用自行实现的 universal-variable Lambert 求解器（不使用 \texttt{scipy.optimize}），在同一固定发射日期下系统地搜索从地球出发到地球返回的日心转移轨道，覆盖 100--730 天的飞行时间范围、4 种 Lambert 分支（prograde short/long, retrograde short/long），粗步长 5 天，在最优候选附近精化至 0.25 天。
-
+	extbf{Earth-to-Earth Lambert baseline：}自行实现 universal-variable 求解器（无 scipy），搜索地球出发到地球返回的日心转移。
 \begin{table}[H]
 \centering
 \caption{M5 Earth-to-Earth Lambert no-lunar 基线搜索结果}
@@ -807,22 +801,7 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 \subsection{数值结果}
 
-旧版（1-参数 Newton-Raphson）的初始偏差 2,893,047~km 仅改善至 581,336~km（4.98$\times$），未收敛。新版在 36 次多起点搜索中，12 次达到 10$\times$ 以上改进，7 次完全收敛至 100~km 以下。
-
-\textbf{最佳结果：}3-参数方案，初始偏差 3,661,651~km，6 次迭代后收敛至 0.0009~km，改进倍数 3.87$\times10^9$。最优参数为发射方向角 24.28$^\circ$，速度缩放 1.045，飞行时间偏移 +4.98 天。
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.75\textwidth]{o3_shooting_convergence.png}
-\caption{O3 微分修正器收敛曲线（36 次多起点搜索）。红色虚线为最佳最终偏差，绿色虚线为 100~km 收敛阈值。多组曲线快速下降表明算法稳健。}
-\label{fig:o3-convergence}
-\end{figure}
-
-\subsection{完成状态}
-
-\textbf{O3 标记为 done-with-caveat。} 实现了自定义阻尼 Gauss-Newton 微分修正器，无 \texttt{scipy} 依赖，含中心差分 Jacobian、线搜索、Tikhonov 正则化和多起点搜索。在审计过程中发现了一个重要的目标泄漏 bug：早期 3.87$\times10^9$ 倍的"收敛"是假的——\texttt{tof\_shift} 改变了火箭传播时间，但目标天体（月球）位置仍使用原时刻，导致表观命中。修复后（每次求值均重新计算月球位置到同一终端时刻），最佳结果改善约 4$\times$（初始 918,392~km $\to$ 248,000~km），仍未完全收敛。
-
-\subsection{O3+：矢量微分修正器}
+旧版（1-参数 Newton-Raphson）仅改善 4.98×（2,893,047→581,336 km），未收敛。	extbf{审计发现目标泄漏 bug}：早期 3.87×10⁹ 倍的收敛因 	exttt{tof\_shift} 改变了火箭时间但未重算目标位置而失效，已作废。修复后改善约 4×（918,392→248,000 km），	extbf{标记为 done-with-caveat}。
 
 为改进收敛性能，实现了 O3+ 矢量微分修正器，以直接 $\Delta \bm{v}$ 分量替代角度/缩放参数化。设计变量为：
 
@@ -832,11 +811,8 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 构造方式为：$\bm{v}_{\text{rocket}} = \bm{v}_{\text{baseline}} + [\Delta v_x, \Delta v_y]$，终端时间 $t_f = t_{f0} + \Delta t_{\text{TOF}}$。
 
-算法采用 Levenberg--Marquardt 阻尼：每步求解 $(J^{\mathsf T}J + \lambda I)\Delta = -J^{\mathsf T}F$，$\lambda$ 自适应调整（成功 $\times 0.3$，失败 $\times 10$），配合回溯线搜索。中心差分 Jacobian，无 \texttt{scipy.optimize} 依赖。
+算法：Levenberg--Marquardt 自适应阻尼 + 中心差分 Jacobian，无 scipy.optimize。11 个多起点搜索，最佳结果：
 
-11 个多起点搜索（$\Delta v$ 分量 $\pm 0.05$--$0.1$~km/s，$\Delta t$ 偏移 $\pm 5$~天）。最佳结果：
-
-\begin{itemize}
     \item 初始偏差 4,938,329~km $\to$ 最终偏差 \textbf{66,210~km}（74.59$\times$ 改善）；
     \item $\Delta \bm{v}$ 范数 1.22~km/s，$\Delta t$ 偏移 $-$0.56~天；
     \item 速度残差 22.1~km/s（合理，未匹配速度）；
@@ -932,7 +908,7 @@ O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered f
 
 早期的 ThreadPoolExecutor 实现受 Python GIL 限制，加速比仅为 0.56$\times$（比串行更慢）。为此改用 \texttt{ProcessPoolExecutor} 以突破 GIL 限制：将 M6 的可行发射窗口分批（每批 10 天），分配给多个子进程并行进行 N 体轨迹求解，每个子进程独立加载历表缓存。
 
-在 55 个测试日期和 8 个工作进程下，3 次重复基准测试的串行总时间约 180--240~s，并行总时间约 51--61~s，平均加速比 3.78$\times$（各次分别为 3.61$\times$、3.93$\times$、3.79$\times$，标准差 0.16），且所有运行 55/55 结果与串行完全一致。早期单次运行测得 5.72$\times$ 的缓存预热峰值，三次重复后的平均值 3.78$\times$ 是更可靠的参考指标。作为对比，旧版 ThreadPool 方案因 GIL 限制加速比仅 0.56$\times$（慢于串行），改用 ProcessPool 分批后加速效果稳扎稳打。
+55 个测试日期、8 个工作进程下 3 次重复基准测试平均加速比 3.78×（std=0.16），55/55 结果与串行完全一致。旧版 ThreadPool 因 GIL 仅 0.56×，改为 ProcessPool 后加速效果稳定。
 
 针对 1、2、4、8 个进程的扩展性测试表明，加速比在 2 个进程时达到 1.72$\times$，4 进程达到 1.74$\times$，8 进程 1.75$\times$，表明在 20 个逻辑 CPU 上 8 个进程已接近 IO-计算混合负载的扩展极限。
 
