@@ -31,7 +31,7 @@ REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 .PHONY: o2-gr o4-mga o6-interactive o7-parallel o7-surrogate bonus-all
 
 # ---- Default: compile + generate figures + build PDF ----
-all: compile m3 figures m5-lambert pdf
+all: compile m3 figures m5-fair m5-lambert pdf
 	@echo "=== all: compile + m3 + figures + pdf done ==="
 	@echo "  -> $(words $(REPORT_IMAGES)) figures found in data/results/"
 
@@ -166,7 +166,7 @@ audit:
 	if [ $$missing -eq 0 ]; then echo "  All figures present."; else echo "  WARNING: $$missing figure(s) missing!"; fi
 	@echo ""
 	@echo "--- M5 result files ---"
-	@for f in data/results/m5_fair_no_lunar_baseline.json data/results/m5_fair_no_lunar_baseline.csv data/results/m5_no_lunar_lambert_baseline.json data/results/m5_no_lunar_lambert_baseline.csv data/results/m5_no_lunar_lambert_pareto.json data/results/m5_no_lunar_lambert_pareto.png; do \
+	@for f in data/results/m5_fair_no_lunar_baseline.json data/results/m5_fair_no_lunar_baseline.csv data/results/m5_no_lunar_lambert_baseline.json data/results/m5_no_lunar_lambert_baseline.csv data/results/m5_no_lunar_lambert_pareto_t061066.json data/results/m5_no_lunar_lambert_pareto.png data/results/m5_no_lunar_lambert_pareto_t061154.json; do \
 		if [ -f "$$f" ]; then echo "  [OK] $$f"; else echo "  [MISS] $$f"; fi; \
 	done
 	@echo ""
