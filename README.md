@@ -133,7 +133,7 @@ FinalProject/
 - 三段 Lambert：地球出发→月球→金星→地球返回
 - **O4 已冻结（commit 18fa865），不覆盖**
 
-### O4+ — 多次借力优化器 [done]
+### O4+ — 多次借力优化器 [done; no feasible powered candidate found]
 - 在 O4 的 Lambert 链基础上允许 powered flyby residual（Moon/Venus 小速度脉冲）
 - 两阶段优化：粗网格 19200 组合 + pattern search 精修
 - **142 个 Lambert 成功候选，0 个 feasible_powered**

@@ -921,7 +921,7 @@ O4+ 在冻结的 O4 Lambert 链基础上，允许 Moon 和 Venus 飞越处存在
 
 O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered flyby residual，也难以实现可行的轨道方案。主要瓶颈为金星的转向能力不足，在目标参数下需要的金星飞越 $v_{\infty}$ 水平导致偏转缺口始终超过 15$^\circ$，对应的速度脉冲代价超过 5~km/s。
 
-\noindent\textbf{O4+ 标记为 done。}完成了两阶段 MGA-Lambert 优化器构建和求解。未找到 feasible\_powered 候选，与 O4 的结论一致。O4 保持冻结，O4+ 是独立增强任务。
+\noindent\textbf{O4+ 标记为 done（优化器完成，但未找到 feasible\_powered 候选）。}完成了两阶段 MGA-Lambert 优化器构建和求解，但在当前约束下未找到 feasible\_powered 候选，与 O4 的结论一致。O4 保持冻结，O4+ 是独立增强任务。
 
 \medskip
 \noindent\textit{注：}O4+ 使用简化 $\Delta v$ 预算（出发段以 $v_{\infty}$ 为发射成本代理，再入段以超过 15~km/s 的部分为减速需求），未做完整 $C_3$ 计算和大气制动详细建模。
@@ -1027,7 +1027,7 @@ M8 可视化 & done & 8 张图（4 基础 + 4 诊断） \\
 O3 微分修正器 & done-with-caveat & Multi-param GN, scipy-free, 审计发现旧结果目标泄漏, 修复后~4x改善\\
 O3+ 矢量修正器 & done & 3-param dvx/dvy/$\Delta$t, LM 74.59x, final $<$ 100k km \\
 O4 多次借力探索 & frozen exploratory & Earth-Moon-Venus-Earth 三段 Lambert 链搜索，98 候选，无 feasible-ish \\
-O4+ powered MGA & done & 142 Lambert 候选，0 feasible\_powered，确认 O4 结论 \\
+O4+ powered MGA & done (optimizer) & 142 Lambert 候选，0 feasible\_powered，确认 O4 结论 \\
 O5 轨道动画 & 完成 & 45 秒 GIF（FFmpeg/Pillow） \\
 O7 并行扫描 & 完成 & ProcessPool 3.78$\times$加速(3次基准), Ridge $R^2=0.90$ \\
 \hline
