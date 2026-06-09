@@ -10,9 +10,9 @@
 \usepackage[utf8]{inputenc}
 
 % ── 页面 ──
-\usepackage[top=2.5cm, bottom=2.5cm, left=2.8cm, right=2.8cm]{geometry}
+\usepackage[top=2.3cm, bottom=2.3cm, left=2.5cm, right=2.5cm]{geometry}
 \usepackage{setspace}
-\onehalfspacing
+\setstretch{1.25}
 
 % ── 数学 ──
 \usepackage{amsmath,amssymb,amsfonts}
@@ -545,7 +545,6 @@ $t_0$ & 候选数 & Feasible & Near-Feasible & 最佳 $r_p$ (AU) & 飞行时间 
 
 \textbf{结论：} M5 回归测试通过，baseline 对比完成，\textbf{标记为 done-with-caveat}。
 
-\newpage
 
 % ============================================================
 \section{发射窗口优化（M6）}
@@ -657,7 +656,6 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 \textbf{结论：} M7 回归测试通过，完成基本灵敏度分析，\textbf{标记为 done}。
 
 \newpage
-\subsubsection{步长收敛分析}
 
 为了评估数值积分步长对轨迹求解结果的影响，在 $h = 3600, 1800, 900, 450$~s 四个步长上运行了完整的 M5 轨道求解。
 
@@ -762,7 +760,6 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 \textbf{M8 标记为 done。} 共生成 8 张静态图（4 张基础 + 4 张新增诊断），覆盖轨道、借力、窗口、灵敏度、残差、能量漂移、日期的律曲线和参数等值线所有维度。
 
 \newpage
-
 % ============================================================
 \section{选做项：自定义微分修正器（O3）}
 \label{sec:o3}
