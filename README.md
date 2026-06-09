@@ -114,15 +114,18 @@ FinalProject/
 - 详见 `figure_manifest.json`
 
 ### O3 — 自定义微分修正器 [done-with-caveat]
-- 从 1-param angle（旧 4.98× 改进）升级为多参数 damped Gauss-Newton
-- 2-param: departure_angle_rad, v_inf_scale；3-param: + tof_shift_days
-- 中心差分 Jacobian + line search + Tikhonov fallback（无 scipy）
-- 审计确认：旧版 1e9× 收敛因目标泄漏失效（tof_shift 偏移火箭但未重新计算目标）
-- 修复后最终偏差改善约 4×（从 918k km → 248k km）
-- 独立验证一致（difference=0 km），速度残差合理（6.2 km/s）
-- 框架功能完整（无 scipy，多参数，多起点，完整诊断）
-- 文件：`src/experiments/o3_differential_corrector.py`
-- 运行：`make o3`
+- 从 1-param angle 升级为多参数 damped Gauss-Newton（2-param: angle + scale）
+- 审计发现目标泄漏 bug 并修复；改善约 4×（离收敛尚远）
+- 框架完整（无 scipy，Jacobian, line search, Tikhonov, multi-start）
+- 文件：`src/experiments/o3_differential_corrector.py`；运行：`make o3`
+
+### O3+ — 矢量微分修正器 [done]
+- 直接 delta_v 速度修正 + Levenberg-Marquardt 阻尼（无 scipy）
+- 3-param: delta_vx, delta_vy, tof_shift_days
+- **74.59× 改善，最终偏差 66,210 km < 100,000 km 阈值**
+- 11 个多起点，5/11 useful（改善 ≥ 10×）
+- dv_norm=1.22 km/s，速度残差合理（22.1 km/s）
+- 文件：`src/experiments/o3plus_vector_differential_corrector.py`；运行：`make o3plus`
 
 ### O4 — 多次借力链搜索 [exploratory]
 - Earth-Moon-Venus-Earth patched-conic 链搜索

@@ -208,21 +208,13 @@
 - **结果**：30 天传播后 Moon z 分量约 39,000 km（5.1° 倾角）；Earth 2D→3D 差异约 12,600 km
 - **人工审定**：标注为 diagnostic，不替代主线 2D 结果
 
-### O3 自定义微分修正器升级
+### O3/O3+ 微分修正器
 
-- **Claude Code 角色**：重写完整微分修正器
-- **旧版**：1-param Newton-Raphson，初始 miss=2.89M km → 581k km，仅 4.98× 改进，未收敛
-- **新版关键决策**：
-  - 2-param 参数化 (departure_angle_rad + v_inf_scale) + 可选的 tof_shift_days
-  - 中心差分 Jacobian（无 scipy.optimize）
-  - 带 line search 的阻尼 Gauss-Newton（6 级 alpha 回溯）
-  - 病态 Jacobian 时自动启用 Tikhonov 正则化 fallback
-  - 9 个 2D 种子 × 3 TOF shift = 36 多起点搜索
-- **结果**：
-  - 审计发现目标泄漏 bug：旧版 tof_shift 偏移火箭但未重算目标，导致虚假收敛
-  - 修复后（每次求值同时重算目标天体位置）最佳 ~4x 改善（918k → 248k km）
-  - 失败模式记录（Jacobian condition number, line search 失败等）
-- **人工审定**：标记为 done-with-caveat，诚实报告目标泄漏审计发现
+- **Claude Code 角色**：实现两个微分修正器
+- **O3 (angle/scale)**：2-param+3-param damped Gauss-Newton。审计发现目标泄漏 bug（旧 3.87e9x 无效），修复后～4x 改善。状态：done-with-caveat
+- **O3+ (vector dv)**：直接 delta_v 速度修正 + Levenberg-Marquardt 自适应阻尼。3-param (dvx, dvy, tof_shift)。**74.59x 改善，最终偏差 66,210 km < 100k 阈值**。无 scipy，含中心差分 Jacobian、回溯线搜索、自适应 lambda 调整。11 个多起点，5/11 useful。状态：done
+- **共同特性**：target 每次求值均重新计算（无泄漏），独立验证一致，速度诊断合理
+- **人工审定**：O3 告知 done-with-caveat，O3+ 告知 done
 
 ### O4 多次借力链搜索
 
