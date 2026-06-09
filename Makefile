@@ -146,6 +146,10 @@ m5-global-baseline:
 m6-pareto:
 	@echo "=== M6 Pareto window diagnostic ==="
 	cd src && $(PYTHON) experiments/m6_pareto_window_diagnostic.py
+figure-manifest:
+	@echo "=== Generating figure manifest ==="
+	cd src && $(PYTHON) experiments/generate_figure_manifest.py
+
 polish-diagnostics: delta-v-audit m5-global-baseline m6-pareto
 	@echo "=== Polish diagnostics complete ==="
 # ---- Fast geometric launch-window scan (M6) ----

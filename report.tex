@@ -817,6 +817,13 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 \textbf{O3+ 标记为 done。} 矢量修正器以直接速度修正和 Levenberg--Marquardt 阻尼获得了显著改善。修正器未集成到 M5/M6 主流程，仅作为独立的微分修正能力展示。
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.62\textwidth]{o3plus_vector_convergence.png}
+\caption{O3+ 矢量微分修正器在修复目标泄漏后的收敛曲线（11 个多起点）。最佳 run 将 Moon-position miss 降至 66,210~km，低于 100,000~km 收敛阈值。}
+\label{fig:o3plus-convergence}
+\end{figure}
+
 
 \subsection{任务背景}
 
@@ -922,6 +929,12 @@ O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered f
 \subsection{完成状态}
 
 \textbf{O7 标记为 done。}ProcessPool 并行加速效果显著（3 次重复基准平均 3.78$\times$，55/55 结果一致），代理预筛选器提供了有效的趋势预测（$R^2=0.90$），两者组合可加速未来的大规模发射窗口参数扫描。旧版 ThreadPool 方案因 GIL 限制加速比仅 0.56$\times$，作为反例保留。
+
+\subsection{其他选做项}
+
+\paragraph{O1 三维扩展对照。} 将主线 2D 模型与轻量 3D Sun--Earth--Moon 传播结果对比，展示月球倾角（约 5.1$^\circ$）和面外运动对轨道的影响。30 天传播后 Moon 的 $z$ 分量约 39,000~km，Earth 的 2D--3D 差异约 12,600~km。该诊断不替代主线 2D 结果。
+
+\paragraph{O2 相对论诊断。} 在日心引力加速度中加入一阶 Schwarzschild 修正项。修正幅值 $a_{\mathrm{GR}}/a_{\mathrm{N}}\approx 6.7\times10^{-8}$，对近日距的影响 $<1$~km。相对论效应在本项目粗略轨道设计尺度下可忽略。
 
 \newpage
 
