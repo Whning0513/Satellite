@@ -12,7 +12,7 @@
 % ── 页面 ──
 \usepackage[top=2.3cm, bottom=2.3cm, left=2.5cm, right=2.5cm]{geometry}
 \usepackage{setspace}
-\setstretch{1.25}
+\setstretch{1.2}
 
 % ── 数学 ──
 \usepackage{amsmath,amssymb,amsfonts}
@@ -55,7 +55,9 @@
 % ── 自定义 ──
 \usepackage{titlesec}
 \titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
+	itlespacing\section{0pt}{6pt}{3pt}
 \titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+	itlespacing\subsection{0pt}{4pt}{2pt}
 \usepackage{fancyhdr}
 \pagestyle{fancy}
 \fancyhf{}
@@ -73,7 +75,6 @@
 
 \maketitle
 \thispagestyle{empty}
-\newpage
 
 % ============================================================
 \section{摘要}
@@ -294,7 +295,6 @@ $h = 10^{-3}$ 时位置误差为 $8.27\times10^{-5}$，能量漂移约 $5\times1
 
 \textbf{结论：} M2 回归测试通过，位置误差和能量漂移均达标，\textbf{标记为 done}。
 
-\newpage
 
 % ============================================================
 \section{JPL Horizons 历表对照（M3）}
@@ -349,7 +349,6 @@ $h = 10^{-3}$ 时位置误差为 $8.27\times10^{-5}$，能量漂移约 $5\times1
 
 \textbf{M3 标记为 done。} 日心系残差法将 Earth 和 Moon 的最大位置误差控制在 $< 6000$~km 以内。如需进一步降低残差，可加入大行星摄动或使用更高精度的积分器。
 
-\newpage
 
 % ============================================================
 \section{月球借力模型（M4）}
@@ -655,7 +654,6 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 
 \textbf{结论：} M7 回归测试通过，完成基本灵敏度分析，\textbf{标记为 done}。
 
-\newpage
 
 为了评估数值积分步长对轨迹求解结果的影响，在 $h = 3600, 1800, 900, 450$~s 四个步长上运行了完整的 M5 轨道求解。
 
@@ -759,7 +757,6 @@ $v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
 
 \textbf{M8 标记为 done。} 共生成 8 张静态图（4 张基础 + 4 张新增诊断），覆盖轨道、借力、窗口、灵敏度、残差、能量漂移、日期的律曲线和参数等值线所有维度。
 
-\newpage
 % ============================================================
 \section{选做项：自定义微分修正器（O3）}
 \label{sec:o3}
@@ -819,7 +816,6 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 \textbf{O3+ 标记为 done。} 矢量修正器以直接速度修正和 Levenberg--Marquardt 阻尼获得了显著改善。修正器未集成到 M5/M6 主流程，仅作为独立的微分修正能力展示。
 
-\newpage
 
 \subsection{任务背景}
 
@@ -899,7 +895,6 @@ O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered f
 \medskip
 \noindent\textit{注：}O4+ 使用简化 $\Delta v$ 预算（出发段以 $v_{\infty}$ 为发射成本代理，再入段以超过 15~km/s 的部分为减速需求），未做完整 $C_3$ 计算和大气制动详细建模。
 
-\newpage
 
 \subsection{基于 ProcessPoolExecutor 的分批并行扫描}
 
