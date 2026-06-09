@@ -59,7 +59,10 @@ FinalProject/
 │       ├── o4_multi_gravity_assist.py # O4: Moon-Venus chain search
 │       ├── o7_worker.py          # O7: ProcessPool worker
 │       ├── o7_parallel_scan.py   # O7: ProcessPool parallel scan
-│       └── o7_surrogate_prefilter.py # O7: Ridge surrogate (no sklearn)
+│       ├── o7_surrogate_prefilter.py # O7: Ridge surrogate (no sklearn)
+│       ├── m5_global_no_lunar_baseline.py # M5 global no-lunar baseline diagnostic
+│       └── m6_pareto_window_diagnostic.py # M6 Pareto trade-off diagnostic
+├── delta_v_budget.py       # Δv budget unified module
 └── PROJECT_DETAIL_DUMP.md  # 项目细节快照（供审查者参考）
 ```
 
@@ -156,6 +159,15 @@ FinalProject/
 - Top-15 召回率 33.3% — 可捕捉趋势但不可替代物理 N 体扫描
 - 文件：`src/experiments/o7_worker.py`、`o7_parallel_scan.py`、`o7_surrogate_prefilter.py`
 - 运行：`make o7-parallel` / `make o7-surrogate`
+
+---
+
+### Diagnostics (do not replace M1-M8)
+- `make delta-v-audit`: Unified Δv budget classification and comparison to Qian 33.4
+- `make m5-global-baseline`: Broader no-lunar baseline search (supports existing M5 caveat)
+- `make m6-pareto`: Pareto trade-off analysis for launch windows
+- `make polish-diagnostics`: Run all three
+- Files: `src/delta_v_budget.py`, `src/experiments/m5_global_no_lunar_baseline.py`, `src/experiments/m6_pareto_window_diagnostic.py`
 
 ---
 

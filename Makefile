@@ -136,8 +136,18 @@ o7-benchmark:
 	cd src && $(PYTHON) experiments/o7_parallel_scan.py --repeat 3
 
 bonus-all: o1-3d o2-gr o3 o3plus o4-mga o4plus animation o6-interactive o7-parallel o7-surrogate
-	@echo "=== All optional extensions complete ==="
-
+# ---- Delta-v / baseline diagnostics (do not replace M1-M8) ----
+delta-v-audit:
+	@echo "=== Delta-v budget unified audit ==="
+	cd src && $(PYTHON) delta_v_budget.py --self-test
+m5-global-baseline:
+	@echo "=== M5 global no-lunar baseline diagnostic ==="
+	cd src && $(PYTHON) experiments/m5_global_no_lunar_baseline.py
+m6-pareto:
+	@echo "=== M6 Pareto window diagnostic ==="
+	cd src && $(PYTHON) experiments/m6_pareto_window_diagnostic.py
+polish-diagnostics: delta-v-audit m5-global-baseline m6-pareto
+	@echo "=== Polish diagnostics complete ==="
 # ---- Fast geometric launch-window scan (M6) ----
 scan-fast:
 	@echo "=== Running fast window scan (M6) ==="
