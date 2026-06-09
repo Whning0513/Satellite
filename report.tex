@@ -384,9 +384,7 @@ e = 1 + \frac{r_p v_{\infty}^2}{GM_{\text{Moon}}},\quad
 
 \subsection{代码实现}
 
-解析模型位于 \texttt{src/lunar\_swingby.py}，核心函数为 \texttt{compute\_swingby()} 和 \texttt{compute\_swingby\_turn\_angle()}。
-
-数值仿真函数 \texttt{simulate\_swingby\_nbody()} 使用 \texttt{vv\_step\_nbody} 进行四体（日-地-月-火箭）直接积分，自动追踪月球 SOI 入口和出口，从入/出口的相对速度计算偏转角。
+解析和数值借力模型的实现位于 \path{src/lunar_swingby.py}。
 
 \subsection{数值验证}
 
@@ -514,11 +512,11 @@ $|v_{\infty}|$ 守恒误差 & 0.3\% & 弹性假设合理性 \\
 	extbf{Earth-to-Earth Lambert baseline：}自行实现 universal-variable 求解器（无 scipy），搜索地球出发到地球返回的日心转移。
 \begin{table}[H]
 \centering
-\caption{M5 Earth-to-Earth Lambert no-lunar 基线搜索结果}
+\caption{M5 Lambert no-lunar baseline search}
 \label{tab:m5-lambert}
-\begin{tabular}{ccccccc}
+\begin{tabular}{lcccccc}
 \toprule
-$t_0$ & 候选数 & Feasible & Near-Feasible & 最佳 $r_p$ (AU) & 飞行时间 (d) & 返回 $v_{\infty}$ (km/s) & 状态 \\
+$t_0$ & 候选 & F & Near-F & $r_p$ (AU) & TOF (d) & $v_{\infty}$(km/s) & 状态 \\
 \midrule
 61066 & 358 & 0 & 14 & 0.3011 & 271.5 & 26.24 & 部分权衡 \\
 61154 & 380 & 0 & 0 & 0.4721 & 287.5 & 64.06 & 无匹配近日距 \\
@@ -597,6 +595,8 @@ MJD & 对准角 & 实现 $r_p$ (AU) & 成功 \\
 \subsection{讨论}
 
 所有 top-5 窗口均成功通过 N 体验证。最佳窗口 MJD~61154.0 的月球对准角仅 0.51$^\circ$，几何条件极好。实现近日距 0.275~AU 与设计值 0.3~AU 有 8.33\% 的误差，原因是评分函数仅基于几何对准，未精确补偿月球借力后的轨道变化。不同窗口的实现近日距在 0.27--0.28~AU 间波动，说明近日距对发射窗口有一定敏感性。
+
+	这里的 $\Delta v_{m total}$ 是发射和再入速度之和（含日心返回速度差），与钱学森对称拼接圆锥曲线总 $\Delta v$ 预算定义不同，口径不可直接比较。
 
 \textbf{结论：} M6 回归测试通过，\textbf{标记为 done}。
 
@@ -980,30 +980,31 @@ O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered f
 \centering
 \caption{完成状态总表}
 \label{tab:summary}
-\begin{tabular}{lcl}
+{\small
+\begin{tabular}{lcc}
 \toprule
-模块 & 状态 & 简要说明 \\
+模块 & 状态 & 说明 \\
 \midrule
-M1 拼接圆锥曲线 & done & 相对误差 $<0.1\%$ \\
-M2 N 体 Velocity-Verlet & done & 位置误差 $8.27\times10^{-5}$，能量漂移 $<10^{-14}$ \\
-M3 JPL Horizons 对照 & done & 日心系残差法：Earth $<5900$~km，Moon $<5900$~km \\
-M4 月球借力 & done & 解析+数值模型交叉验证，偏转角差异 $2.29^\circ$ \\
-M5 单点轨道求解 & done & $r_p = 0.2843$~AU，系统误差 5.2\% \\
-M6 发射窗口优化 & done & 最佳 MJD~61154.0，top-5 N 体验证全部成功 \\
-M7 灵敏度分析 & done & 基本扰动分析 + 20 MC 样本 \\
-M8 可视化 & done & 8 张图（4 基础 + 4 诊断） \\
+M1 patched conic & done & err $<0.1\%$ \\
+M2 VV integrator & done & pos err $8.3\times10^{-5}$ \\
+M3 Horizons & done & max $<5900$ km \\
+M4 lunar swingby & done & anly-num diff $2.29^\circ$ \\
+M5 trajectory & done & $r_p=0.2843$ AU \\
+M6 launch window & done & best MJD 61154.0 \\
+M7 sensitivity & done & 3-param sweep + conv \\
+M8 figures & done & 8 png \\
 \hline
-O3 微分修正器 & done-with-caveat & Multi-param GN, scipy-free, 审计发现旧结果目标泄漏, 修复后~4x改善\\
-O3+ 矢量修正器 & done & 3-param dvx/dvy/$\Delta$t, LM 74.59x, final $<$ 100k km \\
-O4 多次借力探索 & frozen exploratory & Earth-Moon-Venus-Earth 三段 Lambert 链搜索，98 候选，无 feasible-ish \\
-O4+ powered MGA & done (optimizer) & 142 Lambert 候选，0 feasible\_powered，确认 O4 结论 \\
-O5 轨道动画 & 完成 & 45 秒 GIF（FFmpeg/Pillow） \\
-O7 并行扫描 & 完成 & ProcessPool 3.78$\times$加速(3次基准), Ridge $R^2=0.90$ \\
+O3 corrector & done-w-cav & target-leak fixed, $\sim4\times$ \\
+O3+ vector & done & LM 74.6$\times$, $<100$k km \\
+O4 MGA search & frozen expl & 98 cand, 0 feas, frozen \\
+O4+ MGA opt & done(opt) & 0 feasible$-$powered \\
+O5 animation & done & 45 s GIF \\
+O7 parallel scan & done & 3.78$\times$ + Ridge $R^2$=0.90 \\
 \hline
-报告、Makefile & done & 本报告 $\leq40$ 页 \\
+report+Makefile & done & $\leq40$ pp \\
 \bottomrule
 \end{tabular}
-\end{table}
+}\end{table}
 
 \newpage
 
