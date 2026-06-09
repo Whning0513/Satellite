@@ -229,6 +229,20 @@
   - 无候选达到 feasible-ish，因高 v_inf 下月球偏转角（~3°）和金星偏转角（~8°）不足
 - **人工审定**：诚实标记为 exploratory，明确了 Moon/Venus 转向的物理限制
 
+### O4+ 多次借力优化器
+
+- **Claude Code 角色**：独立实现两阶段 MGA-Lambert 优化器
+- **关键决策**：
+  - 在 O4 的基础上允许 powered flyby residual（小速度脉冲）
+  - 粗网格 19200 组合 + 自定义 pattern search 精修（无 scipy）
+  - 简化 Δv 预算（发射 v_inf + 飞越脉冲 + 再入 penalty）
+  - 直接速度修正 + Levenberg-Marquardt 阻尼
+- **结果**：
+  - 142 个 Lambert 成功候选
+  - **0 个 feasible_powered**（所有约束同时满足）
+  - 确认 O4 结论：Earth-Moon-Venus-Earth 链即使允许飞越残余脉冲也难以实现
+- **人工审定**：标为 done，明确不覆盖 O4（O4 保持冻结在 18fa865）
+
 ### O7 并行扫描与 Surrogate 预筛选
 
 - **Claude Code 角色**：独立实现全套方案

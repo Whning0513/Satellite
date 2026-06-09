@@ -902,6 +902,30 @@ F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
 
 \textbf{O4 标记为 exploratory。}完成了多体链搜索框架和三次 Lambert 转移计算，考虑了飞越可行性判断。但由于 analytic Venus 近似和高 $v_{\infty}$ 下的偏转角限制，未找到同时满足所有约束的完整可行链。真实的多次借力设计需要在精确历表和高保真 N 体模型下进行。
 
+\subsection{O4+：Powered MGA-Lambert 多次借力优化器}
+
+O4+ 在冻结的 O4 Lambert 链基础上，允许 Moon 和 Venus 飞越处存在小的 powered flyby residual（速度脉冲），从而放宽了纯借力的可行性限制。采用两阶段优化：粗网格搜索（5 个发射窗口 $\times$ 6 个月球转移时间 $\times$ 10 个金星转移时间 $\times$ 8 个返回时间 $\times$ 2$^3$ 个 Lambert 分支 $\approx$ 19200 组合）和 Pattern search 精修（最多 3000 次求值，6 级收缩）。
+
+目标函数为总 $\Delta v$ 加上约束惩罚项。计算时不依赖 \texttt{scipy.optimize}。
+
+\subsubsection{数值结果}
+
+网格搜索获得 142 个 Lambert 成功候选，其中 0 个达到 feasible\_powered（所有硬约束同时满足）。Pattern search 精修后最优候选参数：
+
+\begin{itemize}
+    \item t$_0$ = MJD~61065.4，近日距 0.0137~AU（撞日，不可接受）；
+    \item 出发 $v_{\infty}$ = 10.66~km/s，返回 $v_{\infty}$ = 26.65~km/s；
+    \item 月球 powered residual 3.80~km/s，金星 17.45~km/s；
+    \item 总 $\Delta v$ = 43.56~km/s。
+\end{itemize}
+
+O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered flyby residual，也难以实现可行的轨道方案。主要瓶颈为金星的转向能力不足，在目标参数下需要的金星飞越 $v_{\infty}$ 水平导致偏转缺口始终超过 15$^\circ$，对应的速度脉冲代价超过 5~km/s。
+
+\noindent\textbf{O4+ 标记为 done。}完成了两阶段 MGA-Lambert 优化器构建和求解。未找到 feasible\_powered 候选，与 O4 的结论一致。O4 保持冻结，O4+ 是独立增强任务。
+
+\medskip
+\noindent\textit{注：}O4+ 使用简化 $\Delta v$ 预算（出发段以 $v_{\infty}$ 为发射成本代理，再入段以超过 15~km/s 的部分为减速需求），未做完整 $C_3$ 计算和大气制动详细建模。
+
 \newpage
 
 \subsection{基于 ProcessPoolExecutor 的分批并行扫描}
@@ -1002,7 +1026,8 @@ M8 可视化 & done & 8 张图（4 基础 + 4 诊断） \\
 \hline
 O3 微分修正器 & done-with-caveat & Multi-param GN, scipy-free, 审计发现旧结果目标泄漏, 修复后~4x改善\\
 O3+ 矢量修正器 & done & 3-param dvx/dvy/$\Delta$t, LM 74.59x, final $<$ 100k km \\
-O4 多次借力探索 & exploratory & Earth-Moon-Venus-Earth 三段 Lambert 链搜索，98 候选，无 feasible-ish \\
+O4 多次借力探索 & frozen exploratory & Earth-Moon-Venus-Earth 三段 Lambert 链搜索，98 候选，无 feasible-ish \\
+O4+ powered MGA & done & 142 Lambert 候选，0 feasible\_powered，确认 O4 结论 \\
 O5 轨道动画 & 完成 & 45 秒 GIF（FFmpeg/Pillow） \\
 O7 并行扫描 & 完成 & ProcessPool 3.78$\times$加速(3次基准), Ridge $R^2=0.90$ \\
 \hline

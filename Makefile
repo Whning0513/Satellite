@@ -80,11 +80,13 @@ m5-lambert:
 validate-m5: m5-fair m5-lambert
 	@echo "=== M5 validation complete ==="
 
-# ---- O3: Shooting corrector (optional) ----
+# ---- O3/O3+/O4+: Differential and MGA correctors (optional) ----
 o3:
 	cd src && $(PYTHON) experiments/o3_differential_corrector.py
 o3plus:
 	cd src && $(PYTHON) experiments/o3plus_vector_differential_corrector.py
+o4plus:
+	cd src && $(PYTHON) experiments/o4plus_powered_mga_optimizer.py
 
 # ---- PDF report (2 xelatex passes) ----
 pdf:
@@ -133,7 +135,7 @@ o7-benchmark:
 	@echo "=== O7: repeated benchmark (3 runs) ==="
 	cd src && $(PYTHON) experiments/o7_parallel_scan.py --repeat 3
 
-bonus-all: o1-3d o2-gr o3 o3plus o4-mga animation o6-interactive o7-parallel o7-surrogate
+bonus-all: o1-3d o2-gr o3 o3plus o4-mga o4plus animation o6-interactive o7-parallel o7-surrogate
 	@echo "=== All optional extensions complete ==="
 
 # ---- Fast geometric launch-window scan (M6) ----

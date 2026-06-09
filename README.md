@@ -127,7 +127,19 @@ FinalProject/
 - dv_norm=1.22 km/s，速度残差合理（22.1 km/s）
 - 文件：`src/experiments/o3plus_vector_differential_corrector.py`；运行：`make o3plus`
 
-### O4 — 多次借力链搜索 [exploratory]
+### O4 — 多次借力链搜索 [frozen exploratory]
+- Earth-Moon-Venus-Earth patched-conic 链搜索
+- Venus 历表：analytic circular fallback（无网络时离线可用）
+- 三段 Lambert：地球出发→月球→金星→地球返回
+- **O4 已冻结（commit 18fa865），不覆盖**
+
+### O4+ — 多次借力优化器 [done]
+- 在 O4 的 Lambert 链基础上允许 powered flyby residual（Moon/Venus 小速度脉冲）
+- 两阶段优化：粗网格 19200 组合 + pattern search 精修
+- **142 个 Lambert 成功候选，0 个 feasible_powered**
+- 确认 O4 结论：Earth-Moon-Venus-Earth 链即使允许 powered flyby residual 也难以实现
+- O4+ 不覆盖 O4，是独立增强任务
+- 文件：`src/experiments/o4plus_powered_mga_optimizer.py`；运行：`make o4plus`
 - Earth-Moon-Venus-Earth patched-conic 链搜索
 - Venus 历表：analytic circular fallback（无网络时离线可用）
 - 三段 Lambert：地球出发→月球→金星→地球返回

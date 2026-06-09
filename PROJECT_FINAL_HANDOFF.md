@@ -103,7 +103,7 @@ Current fixed-date Lambert search is sufficient. Do not re-enter M5 without a pr
 
 | Priority | Item | Problem | Suggested approach |
 |----------|------|---------|-------------------|
-| **1** | O4 multi-gravity assist | Lambert chain framework built (98 candidates). No feasible-ish candidate due to Moon/Venus turn deficit at high v_inf. Analytic circular Venus fallback. | **O4 is frozen at commit `18fa865` as a completed exploratory multi-gravity-assist Lambert-chain search.** Any future powered flyby optimizer or full MGA optimization should be treated as O4+, a separate extension task, not as a replacement of O4. |
+| **1** | O4 multi-gravity assist | Lambert chain framework built (98 candidates). No feasible-ish candidate due to Moon/Venus turn deficit at high v_inf. Analytic circular Venus fallback. | **O4 frozen at `18fa865`. O4+ (powered MGA optimizer) built as separate extension: 142 Lambert candidates, 0 feasible-powered. Confirms O4 conclusion.** |
 | ~~2~~ | ~~O7 parallel scan~~ | ~~resolved~~ | ProcessPool mean 3.78x + Ridge R2=0.8956 surrogate prefilter implemented (3-run benchmark, 55/55 identical)
 | ~~3~~ | ~~O3/O3+ correctors~~ | ~~resolved~~ | O3 (done-with-caveat, leak-fix documented) + O3+ (done, vector LM converged < 100k km). Both frozen. |
 | **4** | Final push | No remote configured | Create Gitea repo, push both `master` and `all-bonus-complete` |
