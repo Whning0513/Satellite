@@ -136,6 +136,7 @@ o7-benchmark:
 	cd src && $(PYTHON) experiments/o7_parallel_scan.py --repeat 3
 
 bonus-all: o1-3d o2-gr o3 o3plus o4-mga o4plus animation o6-interactive o7-parallel o7-surrogate
+	@echo "=== All optional extensions complete ==="
 # ---- Delta-v / baseline diagnostics (do not replace M1-M8) ----
 delta-v-audit:
 	@echo "=== Delta-v budget unified audit ==="
@@ -149,6 +150,17 @@ m6-pareto:
 figure-manifest:
 	@echo "=== Generating figure manifest ==="
 	cd src && $(PYTHON) experiments/generate_figure_manifest.py
+
+test:
+	@echo "=== Unit tests ==="
+	$(PYTHON) -m unittest discover -s tests
+
+schema-check:
+	@echo "=== Schema check ==="
+	cd src && $(PYTHON) experiments/check_result_schemas.py
+
+quick-check: compile delta-v-audit figure-manifest schema-check test
+	@echo "=== Quick engineering check complete ==="
 
 polish-diagnostics: delta-v-audit m5-global-baseline m6-pareto
 	@echo "=== Polish diagnostics complete ==="
