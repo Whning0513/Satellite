@@ -162,6 +162,22 @@ schema-check:
 quick-check: compile delta-v-audit figure-manifest schema-check test
 	@echo "=== Quick engineering check complete ==="
 
+repair-m5:
+	@echo "=== M5 fair saving ratio search ==="
+	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
+
+repair-m6:
+	@echo "=== M6 constrained window refine ==="
+	cd src && $(PYTHON) experiments/m6_constrained_window_refine.py
+
+repair-m3:
+	@echo "=== M3 residual improvement ==="
+	cd src && $(PYTHON) experiments/m3_residual_improvement.py
+
+repair-m7:
+	@echo "=== M7 extended MC (200 samples) ==="
+	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py
+
 polish-diagnostics: delta-v-audit m5-global-baseline m6-pareto
 	@echo "=== Polish diagnostics complete ==="
 # ---- Fast geometric launch-window scan (M6) ----
