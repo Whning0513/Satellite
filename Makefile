@@ -184,6 +184,13 @@ repair-m3:
 	@echo "=== M3 residual improvement ==="
 	cd src && $(PYTHON) experiments/m3_residual_improvement.py
 
+repair-m3-actual:
+	@echo "=== M3 actual Jupiter residual (5-body propagation) ==="
+	cd src && $(PYTHON) experiments/m3_actual_jupiter_residual.py
+
+repair-m6-actual:
+	@echo "=== M6 actual constrained search (no proxy) ==="
+	cd src && $(PYTHON) experiments/m6_actual_constrained_search.py
 repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
 	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py

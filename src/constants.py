@@ -102,6 +102,14 @@ VENUS_ORBIT_RADIUS_KM = VENUS_ORBIT_RADIUS_AU * AU_KM
 VENUS_PERIOD_DAYS = 224.701           # 金星轨道周期 (天)
 V_VENUS_ORBIT = 35.02                 # 金星公转速度 (km/s)
 
+# Jupiter
+GM_JUPITER = 126712764.8       # Jupiter gravitational parameter (km³/s²)
+JUPITER_ORBIT_RADIUS_AU = 5.202887  # Jupiter semi-major axis (AU)
+JUPITER_PERIOD_DAYS = 4332.59      # Jupiter orbital period (days)
+
+# Saturn GM (for possible future use)
+GM_SATURN = 37931207.8
+
 # 坐标变换
 # 地球表面第二宇宙速度平方
 V2_SQ = V_ESCAPE_EARTH ** 2
