@@ -5,23 +5,30 @@
 | 项目 | M3 | M6 |
 |------|-----|-----|
 | Previous method | Ratio estimate (5900 × 460 / 2500) | Geometric proxy (score = 15 + 0.3 × moon_dist / 384400) |
-| New method | Actual 5-body propagation (SEM + Jupiter + Venus) | Actual solve_trajectory for top 10 dates |
-| Actual propagation | ✅ Full year, daily sampling, dt=900s | ✅ Full N-body trajectory per candidate |
-| Outcome | 5912 → **1401 km** (**76.3% improvement**) | 0/10 strict feasible (all return_vinf > 53 km/s) |
+| New method | **Fidelity hierarchy** (3-body / 5-body / full planetary) | Actual solve_trajectory for top 10 dates |
+| Actual propagation | ✅ All three models, same year/sampling | ✅ Full N-body trajectory per candidate |
+| 3-body residual | **5912 km** (baseline, passes 6000 km) | — |
+| 5-body residual | **1401 km** (76.3% improvement) | — |
+| Full planetary residual | **126 km** (97.9% improvement) | — |
+| Strict feasible candidates | — | **0 / 10** (all return_vinf > 53 km/s) |
 
 ---
 
-## M3 actual repair
+## M3 model hierarchy (fidelity chain)
 
-- **actual propagation:** ✅ — Sun+Earth+Moon+Jupiter+Venus with GM_JUPITER, GM_VENUS
-- **bodies included:** Sun, Earth, Moon, Jupiter, Venus
-- **sampling:** 1 year, every 10 days, dt=900s, same residual definition as M3
-- **baseline residual (3-body):** 5912 km (Earth+Moon max)
-- **improved residual (5-body):** **1401 km** (Earth+Moon max)
-- **improvement:** 4510 km, 76.3%
-- **can replace main M3:** `"candidate"` — 1401 km is well below the 6000 km threshold
-- **status:** `improved`
-- **verdict:** The actual 5-body propagation shows a dramatic improvement over the 3-body baseline. The old ratio estimate (5900 × 460 / 2500 ≈ 1086 km) was close but slightly optimistic. The actual result (1401 km) is within 30% of the estimate. The Jupiter+Venus integration could replace the main M3 result, but formal replacement would require updating the regression test and validation threshold.
+M3 is now represented as a **fidelity hierarchy**, not a single replacement result:
+
+| Level | Model | Bodies | Max residual | Improvement vs 3-body | Pass threshold | Role |
+|-------|-------|--------|------------:|---------------------:|:------------:|------|
+| 1 | SEM_3body | Sun, Earth, Moon | 5912 km | baseline | ✅ | Minimum baseline |
+| 2 | SEM_Jupiter_Venus_5body | Sun, Earth, Moon, Jupiter, Venus | 1401 km | 76.3% | ✅ | Higher fidelity with perturbations |
+| 3 | SEM_full_planetary | Sun + 8 planets + Moon | **126 km** | **97.9%** | ✅ | Full solar-system diagnostic |
+
+- **SEM_3body** remains the minimal baseline model and passes the 6000 km threshold.
+- **SEM_Jupiter_Venus_5body** shows that Jupiter+Venus perturbations explain most (~76%) of the 3-body residual.
+- **SEM_full_planetary** (10-body) reduces the residual to just 126 km, confirming that planetary perturbations account for essentially all remaining error in the 3-body model.
+- All three models use actual N-body propagation (not estimates), the same 1-year sampling, dt=900s, and the same M3 residual definition (heliocentric relative error).
+- This hierarchy replaces the earlier "ratio estimate" (5900 × 460 / 2500 ≈ 1086 km) which was not an actual propagation result.
 
 ---
 
@@ -44,7 +51,7 @@
 | Check | Result |
 |-------|--------|
 | compile | ✅ |
-| repair-m3-actual | ✅ (17s total) |
+| repair-m3-actual (hierarchy) | ✅ (60s — includes full planetary + data fetch) |
 | repair-m6-actual | ✅ (instant — reuses cached trajectories) |
 | schema-check | ✅ (0 errors) |
 | make audit | ✅ |

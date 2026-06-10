@@ -20,7 +20,7 @@
 |------|--------|----------|--------|
 | **M1** patched conic | ✅ done | `patched_conic.py`; error 0.08% vs Qian 0.2 AU | 无 |
 | **M2** N-body integrator | ✅ done | `nbody.py`; pos_err 8.27e-5, energy drift <5e-15 | 无 |
-| **M3** JPL Horizons | ✅ done, near threshold | 3D + heliocentric compare; Earth 5,897 km, Moon 5,900 km ≤6,000 km; ablation E0–E6 | 阈值 98.3%；主要来自缺失行星摄动 |
+| **M3** JPL Horizons | ✅ done (model hierarchy) | 3D + heliocentric compare; 3-body baseline: 5,912 km ≤6,000 km; 5-body (Jup+Ven): 1,401 km; full planetary: 126 km | 3-body passes threshold; hierarchy shows residual entirely from missing planetary perturbations |
 | **M4** lunar swingby | ✅ done-with-local-validation | 60 组 perifocal+DOP853 扫描; finite-SOI error 0.0°; median inf_err 0.03° | 月心局部二体，非完整 N-body swingby |
 | **M5** trajectory + no-lunar comparison | ✅ done-with-caveat | 三层 baseline: patched-conic(废弃)、SOI-exit、Earth-to-Earth Lambert | 旧 -430% saving 已废弃；MJD 61066 找到 rp=0.3011 AU 但 return v_inf=26.24 >15；MJD 61154 无匹配；不计算 saving ratio |
 | **M6** launch window | ✅ done | 366 天扫描 + top-5 N 体 + Δv audit + lexicographic ranking | 最佳 Δv 和最佳平衡窗口不同；rp 误差 5–10% |

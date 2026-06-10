@@ -78,12 +78,13 @@ FinalProject/
 - 支持 N 体系统（日-地-月-探测器）
 - 二体圆轨道基准：位置误差 8.27e-5（< 1e-4），能量漂移 < 5e-15
 
-### M3 — JPL Horizons 历表对照 [done, near threshold]
-- 2026 年 366 天 Sun-Earth-Moon 历表对比
-- **3D 传播 + 日心系残差法**消除 SSB 漂移
-- 最大位置残差 ≈ 5,900 km（≤ 6,000 km 阈值）
-- 残余主要来自省略行星摄动（木星），非数值积分误差
-- 详见 FINAL_AUDIT.md §4（error budget）
+### M3 — JPL Horizons 历表对照 [model hierarchy]
+- 同一定义、同一采样下的保真度递进链
+- **SEM_3body**（基线）：天文 5912 km，通过 6000 km 阈值
+- **SEM+Jupiter+Venus_5body**：实际积分，残差 1401 km（改善 76.3%）
+- **SEM_full_planetary**（10 体）：残差仅 126 km（改善 97.9%）
+- 证明 3-body 残差主要由省略大行星摄动（木星）引起，非数值误差
+- 详见 `data/results/m3_model_hierarchy.json`
 
 ### M4 — 月球借力分析 [done-with-local-validation]
 - 双曲线偏折解析公式

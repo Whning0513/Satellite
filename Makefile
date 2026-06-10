@@ -185,8 +185,12 @@ repair-m3:
 	cd src && $(PYTHON) experiments/m3_residual_improvement.py
 
 repair-m3-actual:
-	@echo "=== M3 actual Jupiter residual (5-body propagation) ==="
-	cd src && $(PYTHON) experiments/m3_actual_jupiter_residual.py
+	@echo "=== M3 model hierarchy (3-body / 5-body / full planetary) ==="
+	cd src && $(PYTHON) experiments/m3_model_hierarchy.py
+
+m3-hierarchy:
+	@echo "=== M3 model hierarchy ==="
+	cd src && $(PYTHON) experiments/m3_model_hierarchy.py
 
 repair-m6-actual:
 	@echo "=== M6 actual constrained search (no proxy) ==="
