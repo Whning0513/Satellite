@@ -167,10 +167,14 @@ repair-m5:
 	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
 
 repair-m5-real:
-	@echo "=== Real M5 DSM no-lunar baseline search + budget + saving ratio ==="
+	@echo "=== M5 DSM no-lunar search + budget (return-event) + saving ratio ==="
 	cd src && $(PYTHON) experiments/m5_dsm_no_lunar_search.py
 	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+return-event-audit:
+	@echo "=== Return event audit (M5 + M6 lunar) ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_event_audit.py
+	cd src && $(PYTHON) experiments/m6_lunar_return_event_audit.py
 
 m5-budget-sensitivity:
 	@echo "=== M5 budget sensitivity analysis ==="
