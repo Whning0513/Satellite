@@ -40,6 +40,9 @@ report.pdf
 # Data results (regression outputs, figures)
 data/results/
 
+# JPL Horizons cache
+data/cache/
+
 # OS
 .DS_Store
 Thumbs.db
