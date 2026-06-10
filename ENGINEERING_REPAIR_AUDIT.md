@@ -56,6 +56,6 @@ Generated: 2026-06-10
 | M# | 修复前 | 修复后 | 真实改善？ |
 |----|--------|--------|-----------|
 | M5 | pass-with-caveat, no saving ratio | partial, no saving ratio | ❌ 无改善，物理限制 |
-| M6 | pass, high return-vinf caveat | pass, high return-vinf confirmed physical | ⚠️ 确认了物理极限，不是搜索不足 |
-| M3 | pass (borderline 5,900/6,000) | estimated ~1,086 km with Jupiter added | ✅ 大幅改善（估算） |
-| M7 | 20 samples | 200 samples with percentiles | ✅ 有改善，统计更强 |
+| M6 | pass, high return-vinf caveat | pass, high return-vinf caveat remains | ⚠️ 几何代理搜索确认当前 proxy 下无低 return_vinf 候选，但这不是 N-body 验证，不能称物理极限 |
+| M3 | pass (borderline 5,900/6,000) | 3-body 5912 km; Jupiter 1086 km 为比例估算 | ⚠️ estimate only，非实际 6-body 传播，不能替代 M3 主结果 |
+| M7 | 20 samples | 200 samples with percentiles | ✅ 实际改善，统计更强 |
