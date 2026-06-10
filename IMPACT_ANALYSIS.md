@@ -1,4 +1,4 @@
-# Impact Analysis: M5 DSM Saving Ratio Repair
+# Impact Analysis: M5 DSM Saving Ratio Repair (Corrected)
 
 ## Old M5 status
 
@@ -8,40 +8,52 @@
 
 ## New M5 status
 
-- M5.4: **fully satisfied** — 203 strict-fair DSM no-lunar candidates found by the ellipse-sampled DSM search
-- M5.5: **fully satisfied** — formal saving ratio = **-224.7%**
+- **M5 fixed-date comparison completed.**
+- 203 strict-fair DSM no-lunar candidates found, including **18 at the same launch date** as the lunar candidate (t0 = MJD 61066).
+- The formal fixed-date saving ratio is **−187.3%** (negative, meaning no-lunar is cheaper under the proxy).
+- **The cross-date −224.7% value previously reported is invalid** because it compared DSM at t0=61125 vs lunar at t0=61066.
 
-## Saving ratio detail
+## Fixed-date comparison detail
 
-| Component | No-Lunar DSM | Lunar-Assisted |
-|-----------|-------------|----------------|
-| departure_vinf (proxy launch) | 9.64 km/s | 10.12 km/s |
-| DSM Δv | 12.84 km/s | 0 (gravity assist, free) |
-| return_vinf | 13.78 km/s | 77.88 km/s |
-| return braking proxy | 0 km/s | 62.88 km/s |
-| **total dv proxy** | **22.48 km/s** | **73.00 km/s** |
-| **saving ratio** | **—** | **-224.7%** |
+Both trajectories launched at t0 = MJD 61066.
 
-**Negative ratio means the no-lunar baseline has LOWER total Δv proxy than the lunar-assisted trajectory.** This is not a bug: the lunar trajectory's return v_rel_earth of 77.88 km/s incurs a 62.88 km/s braking penalty under the uniform budget proxy, far outweighing the 0.21 km/s departure v_inf savings the moon assist provides.
+| Component | Lunar | No-Lunar DSM |
+|-----------|-------|-------------|
+| departure_vinf | 10.12 km/s | 10.01 km/s |
+| dsm / lunar residual | 0.00 km/s (gravity assist) | 15.40 km/s (DSM) |
+| return_vinf | 77.88 km/s | 5.97 km/s |
+| return braking proxy | 62.88 km/s | 0.00 km/s |
+| **total_dv_proxy** | **73.00 km/s** | **25.41 km/s** |
+| **saving ratio** | — | **-187.3%** |
+
+## Budget sensitivity (3 modes, all negative)
+
+| Mode | Lunar total | No-lunar total | Saving ratio | Lunar saves? |
+|------|-----------:|---------------:|------------:|:----------:|
+| A: threshold braking | 73.00 | 25.41 | -187.3% | No |
+| B: full return braking | 88.00 | 31.38 | -180.5% | No |
+| C: entry speed proxy | 73.80 | 25.41 | -190.5% | No |
+
+All three reasonable budget proxies give negative saving ratios. The conclusion that the current lunar candidate does not save Δv under uniform proxy is robust.
+
+## Important caveat
+
+The negative ratio is a result of the **proxy budget definition**: it penalises high return speed heavily (62.88 km/s braking term). In a real mission with aerocapture, advanced thermal protection, or propulsive braking the trade-off would be different. What the proxy shows is that the DSM no-lunar trajectory achieves a much more benign return geometry (return_vinf = 5.97 km/s vs 77.88 km/s) at the cost of a 15.40 km/s deep-space manoeuvre — which under this budget formula is the cheaper option.
 
 ## Files that need report update
 
 - `report.tex` — M5 section:
-  - Replace "no fair no-lunar baseline found" with the 203-candidate DSM search result
-  - Replace "saving ratio N/A" with "-224.7%"
-  - Add explanation of why the ratio is negative (return v_inf domination)
-  - The physical conclusion ("moon assist changes direction at perihelion") remains valid
-  
+  - Replace "no fair no-lunar baseline found" with the 18-candidate fixed-date DSM search result
+  - Replace "saving ratio N/A" with "-187.3%" and explain the negative sign
+  - Note that the cross-date global best gives -224.7% but this is not the formal fixed-date ratio
+  - The physical conclusion ("moon assist changes velocity direction at swingby") remains valid
+
 ## Are old conclusions invalidated?
 
-**No.** The core physics conclusion — that the lunar gravity assist provides a beneficial velocity change (~0.41 km/s) that helps the spacecraft reach the targeted 0.3 AU perihelion — is unchanged. What changed is that under the **uniform proxy budget**, the no-lunar DSM trajectory achieves much lower total proxy Δv because the DSM enables a benign return geometry (return v_inf = 13.78 km/s, no braking needed) compared to the lunar trajectory's extreme return speed (77.88 km/s).
-
-The negative saving ratio is an artifact of the proxy budget penalizing high return speeds heavily. In a real mission with aerocapture or advanced braking, the lunar trajectory might still be preferable. But per the uniform budget definition, the DSM no-lunar solution is "cheaper."
+**The core physics is unchanged.** The lunar gravity assist provides ~0.41 km/s velocity change at the Moon. What changed is the **budget accounting**: under a uniform proxy that counts `departure_vinf + residual + max(0, return_vinf − 15)`, the DSM no-lunar trajectory (return_vinf = 5.97 km/s) is cheaper than the lunar trajectory (return_vinf = 77.88 km/s) because the braking term dominates.
 
 ## Action items
 
 1. Do NOT modify report.tex in this cycle
-2. After rebuilding, the M5 section should include both:
-   - Acknowledgement that 203 strict-fair DSM baselines were found
-   - Formal saving ratio = -224.7%, with explanation
-   - The physical tradeoff between departure v_inf savings and return braking penalty
+2. Use the corrected fixed-date ratio (−187.3%) when report.tex is updated
+3. Ensure cross-date −224.7% is never cited as the formal M5 ratio

@@ -172,6 +172,10 @@ repair-m5-real:
 	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
 
+m5-budget-sensitivity:
+	@echo "=== M5 budget sensitivity analysis ==="
+	cd src && $(PYTHON) experiments/m5_budget_sensitivity.py
+
 repair-m6:
 	@echo "=== M6 constrained window refine ==="
 	cd src && $(PYTHON) experiments/m6_constrained_window_refine.py
