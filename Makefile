@@ -199,6 +199,18 @@ repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
 	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py
 
+benchmark-return-audit:
+	@echo "=== Return v_inf frame/energy audit ==="
+	cd src && $(PYTHON) experiments/return_vinf_frame_energy_audit.py
+
+benchmark-m3-leakage:
+	@echo "=== M3 Horizons leakage/independence audit ==="
+	cd src && $(PYTHON) experiments/m3_horizons_leakage_audit.py
+
+benchmark-audit:
+	$(MAKE) benchmark-return-audit
+	$(MAKE) benchmark-m3-leakage
+
 polish-diagnostics: delta-v-audit m5-global-baseline m6-pareto
 	@echo "=== Polish diagnostics complete ==="
 # ---- Fast geometric launch-window scan (M6) ----
