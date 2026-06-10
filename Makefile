@@ -166,6 +166,16 @@ repair-m5:
 	@echo "=== M5 fair saving ratio search ==="
 	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
 
+repair-m5-real:
+	@echo "=== Real M5 DSM no-lunar baseline search + budget + saving ratio ==="
+	cd src && $(PYTHON) experiments/m5_dsm_no_lunar_search.py
+	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
+	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+
+m5-budget-sensitivity:
+	@echo "=== M5 budget sensitivity analysis ==="
+	cd src && $(PYTHON) experiments/m5_budget_sensitivity.py
+
 repair-m6:
 	@echo "=== M6 constrained window refine ==="
 	cd src && $(PYTHON) experiments/m6_constrained_window_refine.py
