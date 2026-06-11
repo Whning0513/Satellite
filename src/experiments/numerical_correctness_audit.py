@@ -658,11 +658,13 @@ def audit_m7() -> list[AuditRecord]:
         )
     )
 
-    mc_json = _load_json("m7_monte_carlo_extended.json")
+    smoke_json = _load_json("m7_extended_monte_carlo_smoke.json")
+    full_json = _load_json("m7_extended_monte_carlo.json")
+    mc_json = full_json or smoke_json
     entries.append(
         _entry(
             module="M7",
-            quantity="extended_mc_present",
+            quantity="extended_mc_result_present",
             project_value=mc_json is not None,
             independent_value=True,
             relative_error=None,
@@ -672,7 +674,11 @@ def audit_m7() -> list[AuditRecord]:
             status="WARN" if mc_json is None else "PASS",
             classification="UNRESOLVED" if mc_json is None else "ACTUAL_RESULT",
             action="recompute" if mc_json is None else "keep",
-            notes="Extended 200-sample Monte Carlo JSON is missing on this branch." if mc_json is None else "Extended MC JSON present.",
+            notes=(
+                "Neither smoke nor full M7 Monte Carlo JSON is present."
+                if mc_json is None
+                else f"using {'full' if full_json is not None else 'smoke'} M7 Monte Carlo JSON"
+            ),
         )
     )
     if mc_json is not None:
@@ -713,6 +719,32 @@ def audit_m7() -> list[AuditRecord]:
                 classification="ACTUAL_RESULT" if event_guard_ok else "UNRESOLVED",
                 action="keep" if event_guard_ok else "fix",
                 notes=f"event_semantics={semantics}",
+            )
+        )
+        classification = mc_json.get("classification")
+        if classification == "FULL_MC_ACTUAL_RESULT":
+            status = "PASS"
+            notes = "full N=200 Monte Carlo result present"
+        elif classification == "SMOKE_SEMANTICS_RESULT":
+            status = "WARN"
+            notes = "smoke semantics result present; full N=200 result still pending"
+        else:
+            status = "WARN"
+            notes = f"non-full M7 classification={classification!r}"
+        entries.append(
+            _entry(
+                module="M7",
+                quantity="mc_result_identity",
+                project_value=classification,
+                independent_value="FULL_MC_ACTUAL_RESULT",
+                relative_error=None,
+                unit="enum",
+                frame="Monte Carlo result identity",
+                event="extended_mc",
+                status=status,
+                classification="ACTUAL_RESULT" if status == "PASS" else "UNRESOLVED",
+                action="keep" if status == "PASS" else "recompute",
+                notes=notes,
             )
         )
     return entries

@@ -252,7 +252,23 @@ repair-m6-actual:
 
 repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
-	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py
+	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --output ../data/results/m7_extended_monte_carlo.json
+
+m7-mc-profile:
+	@echo "=== M7 MC profile (n=20) ==="
+	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 20 --seed 202606 --profile --output ../data/results/m7_extended_monte_carlo_profile.json
+
+m7-mc-smoke:
+	@echo "=== M7 MC smoke (n=20) ==="
+	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 20 --seed 202606 --smoke --output ../data/results/m7_extended_monte_carlo_smoke.json
+
+m7-mc-full:
+	@echo "=== M7 MC full (n=200) ==="
+	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --output ../data/results/m7_extended_monte_carlo.json
+
+check-m7-return-semantics:
+	@echo "=== Check M7 return-event semantics ==="
+	cd src && $(PYTHON) experiments/check_m7_return_semantics.py
 
 benchmark-return-audit:
 	@echo "=== Return v_inf frame/energy audit ==="
