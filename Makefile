@@ -182,6 +182,12 @@ complete-lunar-return-search:
 	cd src && $(PYTHON) experiments/m6_complete_lunar_return_search.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
 
+m5-lunar-best-fixed-date-compare:
+	@echo "=== M5 best lunar fixed-date comparison ==="
+	cd src && $(PYTHON) experiments/m5_best_lunar_candidate_verify.py
+	cd src && $(PYTHON) experiments/m5_fixed_date_no_lunar_for_lunar_best.py
+	cd src && $(PYTHON) experiments/m5_fixed_date_lunar_vs_no_lunar_t61037.py
+
 lunar-return-completion:
 	@echo "=== Lunar return completion (M5 + M6) ==="
 	cd src && $(PYTHON) experiments/m5_lunar_return_completion.py
