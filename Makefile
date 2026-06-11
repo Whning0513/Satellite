@@ -167,10 +167,33 @@ repair-m5:
 	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
 
 repair-m5-real:
-	@echo "=== Real M5 DSM no-lunar baseline search + budget + saving ratio ==="
+	@echo "=== M5 DSM no-lunar search + budget (return-event) + saving ratio ==="
 	cd src && $(PYTHON) experiments/m5_dsm_no_lunar_search.py
 	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+return-event-audit:
+complete-lunar-return-search:
+	@echo "=== Complete lunar return search (M5 + M6) ==="
+	cd src && $(PYTHON) experiments/m5_complete_lunar_return_search.py
+	cd src && $(PYTHON) experiments/m6_complete_lunar_return_search.py
+	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+
+lunar-return-completion:
+	@echo "=== Lunar return completion (M5 + M6) ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_completion.py
+	cd src && $(PYTHON) experiments/m5_lunar_completed_vs_no_lunar.py
+	cd src && $(PYTHON) experiments/m6_lunar_return_completion.py
+
+check-invalidated-results:
+	@echo "=== Check invalidated formal results ==="
+	cd src && $(PYTHON) experiments/check_invalidated_formal_results.py
+
+return-semantics-test:
+	@echo "=== Event semantics unit tests ==="
+	$(PYTHON) -m unittest tests.test_event_semantics
+	@echo "=== Return event audit (M5 + M6 lunar) ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_event_audit.py
+	cd src && $(PYTHON) experiments/m6_lunar_return_event_audit.py
 
 m5-budget-sensitivity:
 	@echo "=== M5 budget sensitivity analysis ==="
@@ -198,6 +221,18 @@ repair-m6-actual:
 repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
 	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py
+
+benchmark-return-audit:
+	@echo "=== Return v_inf frame/energy audit ==="
+	cd src && $(PYTHON) experiments/return_vinf_frame_energy_audit.py
+
+benchmark-m3-leakage:
+	@echo "=== M3 Horizons leakage/independence audit ==="
+	cd src && $(PYTHON) experiments/m3_horizons_leakage_audit.py
+
+benchmark-audit:
+	$(MAKE) benchmark-return-audit
+	$(MAKE) benchmark-m3-leakage
 
 polish-diagnostics: delta-v-audit m5-global-baseline m6-pareto
 	@echo "=== Polish diagnostics complete ==="

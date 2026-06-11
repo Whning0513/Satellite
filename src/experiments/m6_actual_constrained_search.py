@@ -99,11 +99,15 @@ def main():
         swingby_dv = traj.swingby.dv_mag if traj.swingby else 0.0
         v_launch = traj.v_launch
 
-        total_dv = dep_vinf + swingby_dv + max(0, ret_vinf - V_RET_MAX)
+        # Check if this is a valid Earth return event
+        from event_semantics import compute_earth_return_vinf
+        r_sun_ret, _ = interpolate_state_at_mjd(body_data, "Sun", t0 + traj.t_total_days)
+        return_check = compute_earth_return_vinf(
+            traj.r_final, traj.v_final,
+            traj.r_earth_final, traj.v_earth_final)
 
-        feasible = bool(rp_err <= 10
-                        and ret_vinf <= V_RET_MAX
-                        and dep_vinf <= V_DEP_MAX)
+        total_dv = dep_vinf + swingby_dv + max(0, ret_vinf - V_RET_MAX)
+        feasible = bool(rp_err <= 10 and ret_vinf <= V_RET_MAX and dep_vinf <= V_DEP_MAX)
 
         result = {
             "t0_mjd": t0,
@@ -112,6 +116,10 @@ def main():
             "rp_err_pct": round(rp_err, 2),
             "dep_vinf_kms": round(float(dep_vinf), 4),
             "return_vinf_kms": round(float(ret_vinf), 4),
+            "return_vinf_event_valid": return_check["valid_return_event"],
+            "return_vinf_note": (
+                None if return_check["valid_return_event"]
+                else "measured at perihelion/deep-space, not Earth return"),
             "v_reentry_kms": round(float(reentry), 4),
             "swingby_dv_kms": round(float(swingby_dv), 4),
             "v_launch_kms": round(float(v_launch), 4),
