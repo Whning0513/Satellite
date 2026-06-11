@@ -34,7 +34,7 @@ def main():
     print(f"  Lunar candidates in window: {len(lunar_rows)}")
     lunar_valid = [r for r in lunar_rows if r["valid_earth_return"] == "True"]
     print(f"  Lunar Earth returns: {len(lunar_valid)}")
-    lunar_t0s = set(r["t0_mjd"] for r in lunar_valid)
+    lunar_t0s = set(round(float(r["t0_mjd"]), 0) for r in lunar_valid)
 
     # ── No-lunar DSM data from main search (broad, not just t0=61037) ──
     dsm_path = RESULTS / "m5_dsm_no_lunar_search.json"
@@ -58,12 +58,11 @@ def main():
         deep_fair_count = deep.get("valid_fair_candidates", 0)
 
     # ── Build window comparison ──
-    t0_values = list(range(61031, 61051, 3))
+    t0_values = [float(x) for x in range(61031, 61051, 3)]
     window_comparison = []
     no_lunar_had_any = False
     both_valid_dates = []
-    for t0 in t0_values:
-        t0_f = float(t0)
+    for t0_f in t0_values:
         has_lunar = t0_f in lunar_t0s
         # Get best no-lunar at this t0
         no_lun = None
@@ -72,15 +71,14 @@ def main():
             no_lun = min(dsm_at_t0, key=lambda c: c["total_dv_proxy_kms"])
             no_lunar_had_any = True
         else:
-            # Check if deep search had one at t0=61037
-            if t0 == 61037 and deep_fair_count > 0:
+            if t0_f == 61037.0 and deep_fair_count > 0:
                 no_lun = {"note": f"deep_search_fair_count_{deep_fair_count}"}
                 no_lunar_had_any = True
 
-        entry = {"t0_mjd": t0, "lunar_valid": bool(has_lunar),
+        entry = {"t0_mjd": t0_f, "lunar_valid": bool(has_lunar),
                  "no_lunar_valid": bool(no_lun)}
-        if has_lunar and no_lun and t0 == 61037 and deep_fair_count > 0:
-            both_valid_dates.append(t0)
+        if has_lunar and no_lun and t0_f == 61037.0 and deep_fair_count > 0:
+            both_valid_dates.append(t0_f)
         window_comparison.append(entry)
 
     print(f"\n  Lunar-only dates: {len([e for e in window_comparison if e['lunar_valid'] and not e['no_lunar_valid']])}")
@@ -102,7 +100,7 @@ def main():
 
     # Conclusion
     if both_valid_dates:
-        conclusion = f"Both-valid at {both_valid_dates}; saving ratio computed per-date basis."
+        conclusion = f"Both-valid at {both_valid_dates}; saving ratio computed at t0=61037."
     elif lunar_valid and no_lunar_had_any:
         conclusion = "Both exist but not at same t0; cross-date formal ratio not allowed."
     elif lunar_valid and not no_lunar_had_any:
