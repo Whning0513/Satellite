@@ -166,10 +166,18 @@ repair-m5:
 	@echo "=== M5 fair saving ratio search ==="
 	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
 
+repair-m5-real-fast:
+	@echo "=== M5 saving ratio (fast — requires existing JSON) ==="
+	cd src && $(PYTHON) experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+
 repair-m5-real:
-	@echo "=== M5 DSM no-lunar search + budget (return-event) + saving ratio ==="
-	cd src && $(PYTHON) experiments/m5_dsm_no_lunar_search.py
-	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
+	@echo "=== M5 complete pipeline: lunar search + no-lunar DSM + saving ratio ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_local_refine.py
+	cd src && $(PYTHON) experiments/m5_best_lunar_candidate_verify.py
+	cd src && $(PYTHON) experiments/m5_no_lunar_t61037_deep_search.py
+	cd src && $(PYTHON) experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+	cd src && $(PYTHON) experiments/m5_same_window_lunar_no_lunar_pareto.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
 return-event-audit:
 lunar-return-local-refine:

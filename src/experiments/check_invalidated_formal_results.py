@@ -11,11 +11,23 @@ def check(fp):
     n = fp.name
 
     if n == "m5_saving_ratio_resolved.json":
-        # Lunar return must be marked as invalid
-        if d.get("lunar_return_event_valid", True) == True:
-            ERRORS.append(f"[FAIL] {n}: lunar_return_event_valid should be False")
-        if not d.get("status", "").startswith("lunar_return"):
-            ERRORS.append(f"[FAIL] {n}: status should be lunar_return_* not {d.get('status')}")
+        status = d.get("status", "")
+        # Accept either positive ratio or documented null
+        if status == "formal_fixed_date_positive_ratio":
+            # Check that ratio is actually present and positive
+            ratio = d.get("formal_fixed_date_ratio")
+            if ratio is None:
+                ERRORS.append(f"[FAIL] {n}: status=positive_ratio but ratio is None")
+            elif ratio < 0:
+                ERRORS.append(f"[FAIL] {n}: status=positive_ratio but ratio={ratio} < 0")
+            elif abs(ratio + 1.873) < 0.01:
+                ERRORS.append(f"[FAIL] {n}: ratio={ratio} matches old invalid -1.873")
+        elif status == "lunar_return_event_missing":
+            # Legacy/fallback: ratio must be None
+            if d.get("formal_fixed_date_ratio") is not None:
+                ERRORS.append(f"[FAIL] {n}: status=missing but ratio is not None")
+        else:
+            ERRORS.append(f"[FAIL] {n}: unknown status '{status}'")
 
     if n == "m5_lunar_budget_recomputed.json":
         if d.get("budget_valid", True) == True:
