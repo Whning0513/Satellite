@@ -166,17 +166,44 @@ repair-m5:
 	@echo "=== M5 fair saving ratio search ==="
 	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
 
+repair-m5-real-fast:
+	@echo "=== M5 saving ratio (fast — requires existing JSON) ==="
+	cd src && $(PYTHON) experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+
 repair-m5-real:
-	@echo "=== M5 DSM no-lunar search + budget (return-event) + saving ratio ==="
-	cd src && $(PYTHON) experiments/m5_dsm_no_lunar_search.py
-	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
+	@echo "=== M5 complete pipeline: lunar search + no-lunar DSM + saving ratio ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_local_refine.py
+	cd src && $(PYTHON) experiments/m5_best_lunar_candidate_verify.py
+	cd src && $(PYTHON) experiments/m5_no_lunar_t61037_deep_search.py
+	cd src && $(PYTHON) experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+	cd src && $(PYTHON) experiments/m5_same_window_lunar_no_lunar_pareto.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
 return-event-audit:
+lunar-return-local-refine:
+	@echo "=== M5 lunar return local refine ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_local_refine.py
+
 complete-lunar-return-search:
 	@echo "=== Complete lunar return search (M5 + M6) ==="
 	cd src && $(PYTHON) experiments/m5_complete_lunar_return_search.py
 	cd src && $(PYTHON) experiments/m6_complete_lunar_return_search.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+
+m5-lunar-best-fixed-date-compare:
+	@echo "=== M5 best lunar fixed-date comparison ==="
+	cd src && $(PYTHON) experiments/m5_best_lunar_candidate_verify.py
+	cd src && $(PYTHON) experiments/m5_fixed_date_no_lunar_for_lunar_best.py
+	cd src && $(PYTHON) experiments/m5_fixed_date_lunar_vs_no_lunar_t61037.py
+
+m5-t61037-deep-compare:
+	@echo "=== M5 t0=61037 deep no-lunar + comparison ==="
+	cd src && $(PYTHON) experiments/m5_no_lunar_t61037_deep_search.py
+	cd src && $(PYTHON) experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+
+m5-same-window-pareto:
+	@echo "=== M5 same-window lunar vs no-lunar Pareto ==="
+	cd src && $(PYTHON) experiments/m5_same_window_lunar_no_lunar_pareto.py
 
 lunar-return-completion:
 	@echo "=== Lunar return completion (M5 + M6) ==="
@@ -218,6 +245,7 @@ m3-hierarchy:
 repair-m6-actual:
 	@echo "=== M6 actual constrained search (no proxy) ==="
 	cd src && $(PYTHON) experiments/m6_actual_constrained_search.py
+
 repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
 	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py
