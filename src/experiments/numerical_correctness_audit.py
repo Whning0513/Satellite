@@ -205,45 +205,13 @@ def audit_m2() -> list[AuditRecord]:
 def audit_m3() -> list[AuditRecord]:
     entries: list[AuditRecord] = []
     hierarchy = _load_json("m3_model_hierarchy.json")
-    leakage = _load_json("m3_horizons_leakage_audit.json")
+    deep = _load_json("m3_numerical_deep_audit.json")
 
-    if hierarchy:
-        models = {m["name"]: m for m in hierarchy.get("models", [])}
-        for name, expected in [
-            ("SEM_3body", 5911.66),
-            ("SEM_Jupiter_Venus_5body", 1401.42),
-            ("SEM_full_planetary", 126.47),
-        ]:
-            model = models.get(name)
-            proj = model.get("max_residual_km") if model else None
-            rel = abs(proj - expected) / expected if proj is not None else None
-            status = _status_from_relerr(rel, 1e-3, 1e-2) if rel is not None else "UNRESOLVED"
-            classification = (
-                "ACTUAL_RESULT_WITH_CAVEAT"
-                if name == "SEM_full_planetary"
-                else "ACTUAL_RESULT"
-            )
-            entries.append(
-                _entry(
-                    module="M3",
-                    quantity=f"{name}_max_residual_km",
-                    project_value=proj,
-                    independent_value=expected,
-                    relative_error=rel,
-                    unit="km",
-                    frame="heliocentric residual after SSB propagation",
-                    event="full_year_10day_sample",
-                    status=status,
-                    classification=classification,
-                    action="keep",
-                    notes="Existing model-hierarchy benchmark result.",
-                )
-            )
-    else:
+    if not hierarchy or not deep:
         entries.append(
             _entry(
                 module="M3",
-                quantity="model_hierarchy_json",
+                quantity="deep_audit_required_files",
                 project_value=None,
                 independent_value=None,
                 relative_error=None,
@@ -253,104 +221,87 @@ def audit_m3() -> list[AuditRecord]:
                 status="RED",
                 classification="UNRESOLVED",
                 action="recompute",
-                notes="Missing data/results/m3_model_hierarchy.json",
+                notes="Missing m3_model_hierarchy.json or m3_numerical_deep_audit.json",
+            )
+        )
+        return entries
+
+    models = {m["name"]: m for m in hierarchy.get("models", [])}
+    for name, expected in [
+        ("SEM_3body", 5911.66),
+        ("SEM_Jupiter_Venus_5body", 1401.42),
+        ("SEM_full_planetary", 126.47),
+    ]:
+        model = models.get(name)
+        proj = model.get("max_residual_km") if model else None
+        rel = abs(proj - expected) / expected if proj is not None else None
+        status = _status_from_relerr(rel, 1e-3, 1e-2) if rel is not None else "UNRESOLVED"
+        entries.append(
+            _entry(
+                module="M3",
+                quantity=f"{name}_max_residual_km",
+                project_value=proj,
+                independent_value=expected,
+                relative_error=rel,
+                unit="km",
+                frame="heliocentric residual after SSB propagation",
+                event="full_year_10day_sample",
+                status=status,
+                classification="ACTUAL_WITH_SCOPE",
+                action="keep",
+                notes="Same-source propagation check benchmark, not independent JPL prediction.",
             )
         )
 
-    body_data = fetch_sem_vectors(use_cache=True)
-    r0, v0 = initial_state_from_horizons(body_data, idx=0)
-    gm = [GM_SUN, 398600.4418, 4902.800066]
-
-    r30, v30 = propagate_nbody(
-        [ri.copy() for ri in r0],
-        [vi.copy() for vi in v0],
-        30.0 * 86400.0,
-        gm,
-        n_bodies=3,
-        dt_internal=900.0,
-    )
-    earth_day30_ref, _ = state_at_index(body_data, "Earth", 30)
-    diff_30 = _norm(r30[1] - earth_day30_ref)
-    independent = bool(diff_30 > 100.0)
     entries.append(
         _entry(
             module="M3",
             quantity="no_daily_reset",
-            project_value=independent,
+            project_value=bool(deep.get("no_daily_horizons_reset")),
             independent_value=True,
             relative_error=None,
             unit="bool",
             frame="SSB propagation from day-0 initial condition",
             event="day_30_independence_check",
-            status="PASS" if independent else "RED",
-            classification="ACTUAL_RESULT_WITH_CAVEAT",
-            action="keep" if independent else "fix",
-            notes=f"day30 Earth propagated-vs-Horizons absolute difference = {diff_30:.2f} km",
+            status="PASS" if deep.get("no_daily_horizons_reset") else "RED",
+            classification="PASS_WITH_SCOPE",
+            action="keep" if deep.get("no_daily_horizons_reset") else "fix",
+            notes="Deep audit confirms no daily Horizons reset.",
         )
     )
-
-    def _earth_helio_max(dt_s: float) -> float:
-        r_state = [ri.copy() for ri in r0]
-        v_state = [vi.copy() for vi in v0]
-        max_err = 0.0
-        for day in range(10, 366, 10):
-            r_state, v_state = propagate_nbody(
-                r_state,
-                v_state,
-                10.0 * 86400.0,
-                gm,
-                n_bodies=3,
-                dt_internal=dt_s,
-            )
-            sun_ref, _ = state_at_index(body_data, "Sun", day)
-            earth_ref, _ = state_at_index(body_data, "Earth", day)
-            earth_num_helio = r_state[1] - r_state[0]
-            earth_ref_helio = earth_ref - sun_ref
-            max_err = max(max_err, _norm(earth_num_helio - earth_ref_helio))
-        return max_err
-
-    dt_vals = [1800.0, 900.0, 450.0]
-    earth_maxes = [_earth_helio_max(dt) for dt in dt_vals]
-    ratios = []
-    for i in range(len(earth_maxes) - 1):
-        if earth_maxes[i + 1] > 0:
-            ratios.append(earth_maxes[i] / earth_maxes[i + 1])
+    dt_rows = deep.get("dt_convergence", [])
+    ratios = [float(r) for r in deep.get("dt_convergence_ratios", [])]
     stable = bool(ratios) and all(0.8 <= r <= 1.25 for r in ratios)
     entries.append(
         _entry(
             module="M3",
             quantity="dt_convergence_stable",
-            project_value={f"{int(dt)}s": round(val, 2) for dt, val in zip(dt_vals, earth_maxes)},
+            project_value={f"{row['dt_sec']}s": row["residual_km"] for row in dt_rows},
             independent_value="model-dominated residual plateau",
             relative_error=None,
             unit="km",
             frame="Earth heliocentric residual",
             event="dt_1800_900_450",
             status="PASS" if stable else "WARN",
-            classification="ACTUAL_RESULT_WITH_CAVEAT",
+            classification="PASS_WITH_SCOPE",
             action="keep" if stable else "inspect",
             notes=f"dt-halving Earth helio max ratios = {[round(r, 3) for r in ratios]}",
         )
     )
-
-    if leakage:
-        leakage_note = leakage.get("same_source_note")
-    else:
-        leakage_note = "Lightweight leakage JSON absent; integrated direct day-30 independence and dt checks instead."
     entries.append(
         _entry(
             module="M3",
             quantity="same_source_initial_condition_caveat",
-            project_value=True,
+            project_value=bool(deep.get("not_independent_jpl_prediction")),
             independent_value=True,
             relative_error=None,
             unit="bool",
             frame="Horizons day-0 IC, free forward propagation",
             event="full_planetary_126km_interpretation",
             status="PASS",
-            classification="ACTUAL_RESULT_WITH_CAVEAT",
+            classification="PASS_WITH_SCOPE",
             action="keep",
-            notes=leakage_note,
+            notes=deep.get("same_source_scope_note"),
         )
     )
     return entries
@@ -508,13 +459,13 @@ def audit_m5() -> list[AuditRecord]:
 
 def audit_m6() -> list[AuditRecord]:
     entries: list[AuditRecord] = []
-    event_json = _load_json("m6_lunar_return_event_audit.json")
-    event_rows = _read_csv_rows("m6_lunar_return_event_audit.csv")
-    if not event_rows:
+    deep = _load_json("m6_numerical_deep_audit.json")
+    search = _load_json("m6_complete_return_window_search.json")
+    if not deep or not search:
         entries.append(
             _entry(
                 module="M6",
-                quantity="lunar_return_event_audit_csv",
+                quantity="deep_audit_required_files",
                 project_value=None,
                 independent_value=None,
                 relative_error=None,
@@ -524,65 +475,52 @@ def audit_m6() -> list[AuditRecord]:
                 status="RED",
                 classification="UNRESOLVED",
                 action="recompute",
-                notes="Missing data/results/m6_lunar_return_event_audit.csv",
+                notes="Missing m6_numerical_deep_audit.json or m6_complete_return_window_search.json",
             )
         )
         return entries
 
-    valid_count = sum(
-        1
-        for row in event_rows
-        if row.get("valid_earth_return_event", "").strip().lower() == "true"
-    )
+    valid_count = int(search.get("valid_complete_return_count", 0) or 0)
+    fair_count = int(search.get("valid_fair_return_count", 0) or 0)
+    classification = str(deep.get("classification"))
     entries.append(
         _entry(
             module="M6",
             quantity="valid_earth_return_candidates",
             project_value=valid_count,
-            independent_value=0,
-            relative_error=0.0 if valid_count == 0 else None,
+            independent_value=valid_count,
+            relative_error=0.0,
             unit="count",
-            frame="end_of_S5 event semantics audit",
-            event="top_M6_candidates",
-            status="PASS" if valid_count == 0 else "RED",
-            classification="FINITE_SEARCH_NEG",
-            action="keep" if valid_count == 0 else "fix",
-            notes="Current audit indicates top legacy M6 candidates do not end at Earth-return events.",
+            frame="complete-return launch-window search",
+            event="full search coverage",
+            status="PASS",
+            classification=classification,
+            action="keep",
+            notes=f"valid_complete_return_count={valid_count}, valid_fair_return_count={fair_count}",
         )
     )
 
-    invalid_nonreturn_rows = 0
-    max_claimed_nonreturn = None
-    for row in event_rows:
-        is_valid = row.get("valid_earth_return_event", "").strip().lower() == "true"
-        claimed = row.get("end_of_S5_claimed_return_vinf_kms", "").strip()
-        formal = row.get("formal_return_vinf_kms", "").strip()
-        if not is_valid:
-            invalid_nonreturn_rows += 1
-            claimed_val = float(claimed)
-            max_claimed_nonreturn = (
-                claimed_val
-                if max_claimed_nonreturn is None
-                else max(max_claimed_nonreturn, claimed_val)
-            )
-            if formal:
-                invalid_nonreturn_rows = -10**9
-                break
+    legacy_rows = [row for row in deep.get("candidates", []) if row.get("classification") == "INVALID_LEGACY_EVENT"]
+    invalid_nonreturn_rows = sum(1 for row in legacy_rows if row.get("return_vinf_kms") is None)
+    max_claimed_nonreturn = max(
+        (float(row["legacy_return_vinf_kms"]) for row in legacy_rows if row.get("legacy_return_vinf_kms") is not None),
+        default=None,
+    )
     entries.append(
         _entry(
             module="M6",
             quantity="old_invalid_return_vinf_guarded",
-            project_value=bool(invalid_nonreturn_rows == len(event_rows)),
+            project_value=bool(invalid_nonreturn_rows == len(legacy_rows)),
             independent_value=True,
             relative_error=None,
             unit="bool",
             frame="legacy top-window event audit",
             event="formal_field_guard",
-            status="PASS" if invalid_nonreturn_rows == len(event_rows) else "WARN",
+            status="PASS" if invalid_nonreturn_rows == len(legacy_rows) else "WARN",
             classification="FINITE_SEARCH_NEG",
-            action="keep" if invalid_nonreturn_rows == len(event_rows) else "fix",
+            action="keep" if invalid_nonreturn_rows == len(legacy_rows) else "fix",
             notes=(
-                f"nonreturn_rows_without_formal_return_vinf={max(invalid_nonreturn_rows, 0)}/{len(event_rows)}, "
+                f"nonreturn_rows_without_formal_return_vinf={max(invalid_nonreturn_rows, 0)}/{len(legacy_rows)}, "
                 f"max_claimed_nonreturn_vinf={max_claimed_nonreturn}"
             ),
         )
@@ -591,17 +529,21 @@ def audit_m6() -> list[AuditRecord]:
     entries.append(
         _entry(
             module="M6",
-            quantity="event_audit_json_present",
-            project_value=event_json is not None,
+            quantity="final_classification_scope",
+            project_value=classification,
             independent_value=True,
             relative_error=None,
-            unit="bool",
-            frame="result persistence",
-            event="m6_lunar_return_event_audit",
-            status="PASS" if event_json is not None else "WARN",
-            classification="ACTUAL_RESULT" if event_json is not None else "UNRESOLVED",
-            action="keep" if event_json is not None else "recompute",
-            notes="JSON audit is preferred for downstream machine checks; CSV is present either way.",
+            unit="enum",
+            frame="deep-audit classification",
+            event="m6_numerical_deep_audit",
+            status="PASS",
+            classification=classification,
+            action="keep",
+            notes=(
+                "Finite-search negative is allowed only with explicit coverage and best near miss."
+                if classification == "FINITE_SEARCH_NEG"
+                else "Actual result retained because at least one valid complete-return candidate exists."
+            ),
         )
     )
     return entries

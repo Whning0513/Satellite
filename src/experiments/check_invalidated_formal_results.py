@@ -128,6 +128,47 @@ def check(fp):
         if d.get("num_pure_returns", -1) != 0:
             ERRORS.append(f"[FAIL] {n}: num_pure_returns should be 0")
 
+    if n == "m6_complete_return_window_search.json":
+        if d.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is not True:
+            ERRORS.append(f"[FAIL] {n}: missing event semantics guard")
+        for c in d.get("candidates", []):
+            valid = c.get("valid_return_event")
+            ret = c.get("return_vinf_kms")
+            total = c.get("total_vinf_basis_kms")
+            classification = c.get("classification")
+            if valid is not True:
+                if ret is not None:
+                    ERRORS.append(f"[FAIL] {n}: {c.get('candidate_id')} invalid event has formal return_vinf_kms={ret}")
+                if total is not None:
+                    ERRORS.append(f"[FAIL] {n}: {c.get('candidate_id')} invalid event has formal total_vinf_basis_kms={total}")
+            if ret is not None and (_near(ret, 77.88, 0.2) or ret >= 80.0):
+                ERRORS.append(f"[FAIL] {n}: old invalid high return_vinf leaked into formal field: {ret}")
+            if classification == "ACTUAL_RESULT" and valid is not True:
+                ERRORS.append(f"[FAIL] {n}: ACTUAL_RESULT candidate must have valid_return_event=true")
+
+    if n == "m6_numerical_deep_audit.json":
+        if d.get("status") == "RED":
+            ERRORS.append(f"[FAIL] {n}: status is RED")
+        if d.get("classification") == "FINITE_SEARCH_NEG":
+            if d.get("search_space") is None:
+                ERRORS.append(f"[FAIL] {n}: FINITE_SEARCH_NEG missing search_space")
+            if d.get("best_near_miss") is None:
+                ERRORS.append(f"[FAIL] {n}: FINITE_SEARCH_NEG missing best_near_miss")
+        for c in d.get("candidates", []):
+            if c.get("classification") == "INVALID_LEGACY_EVENT" and c.get("return_vinf_kms") is not None:
+                ERRORS.append(f"[FAIL] {n}: legacy invalid row leaked formal return_vinf_kms")
+            formal = c.get("return_vinf_kms")
+            if formal is not None and (_near(formal, 77.88, 0.2) or formal >= 80.0):
+                ERRORS.append(f"[FAIL] {n}: forbidden formal return_vinf present: {formal}")
+
+    if n == "m3_numerical_deep_audit.json":
+        if d.get("no_daily_horizons_reset") is not True:
+            ERRORS.append(f"[FAIL] {n}: no_daily_horizons_reset must be true")
+        if d.get("classification") == "INDEPENDENT_JPL_VALIDATION":
+            ERRORS.append(f"[FAIL] {n}: must not claim independent JPL validation")
+        if d.get("classification") != "SAME_SOURCE_PROPAGATION_CHECK":
+            ERRORS.append(f"[FAIL] {n}: classification must be SAME_SOURCE_PROPAGATION_CHECK")
+
 resolved = RESULTS / "m5_saving_ratio_resolved.json"
 compare = RESULTS / "m5_t61037_lunar_vs_no_lunar_deep_compare.json"
 if compare.exists() and resolved.exists():

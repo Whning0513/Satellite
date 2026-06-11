@@ -171,6 +171,103 @@ def check_m7_outputs():
         _warn_missing("m7_mc_profile")
 
 
+def check_m3_outputs():
+    full = _load("m3_numerical_deep_audit.json")
+    if full is None:
+        ERRORS.append("[FAIL] m3_numerical_deep_audit.json: required file not found for M3 deep validation")
+        return
+
+    _check(
+        "m3_numerical_deep_audit.json",
+        full.get("uses_day0_initial_condition_only") is True,
+        "uses_day0_initial_condition_only must be true",
+    )
+    _check(
+        "m3_numerical_deep_audit.json",
+        full.get("no_daily_horizons_reset") is True,
+        "no_daily_horizons_reset must be true",
+    )
+    _check(
+        "m3_numerical_deep_audit.json",
+        full.get("classification") == "SAME_SOURCE_PROPAGATION_CHECK",
+        f"expected SAME_SOURCE_PROPAGATION_CHECK, got {full.get('classification')!r}",
+    )
+    _check(
+        "m3_numerical_deep_audit.json",
+        full.get("not_independent_jpl_prediction") is True,
+        "not_independent_jpl_prediction must be true",
+    )
+    for key in [
+        "residual_3body_km",
+        "residual_5body_km",
+        "residual_full_planetary_km",
+        "ssb_absolute_residual_km",
+        "heliocentric_residual_km",
+        "dt_convergence",
+        "frame_definitions",
+    ]:
+        _check("m3_numerical_deep_audit.json", key in full, f"missing required key {key}")
+    dt_rows = full.get("dt_convergence", [])
+    _check(
+        "m3_numerical_deep_audit.json",
+        isinstance(dt_rows, list) and len(dt_rows) >= 3,
+        "dt_convergence must contain at least 3 rows",
+    )
+
+
+def check_m6_outputs():
+    full = _load("m6_numerical_deep_audit.json")
+    if full is None:
+        ERRORS.append("[FAIL] m6_numerical_deep_audit.json: required file not found for M6 deep validation")
+        return
+
+    _check(
+        "m6_numerical_deep_audit.json",
+        full.get("classification") in ("ACTUAL_RESULT", "FINITE_SEARCH_NEG"),
+        f"unexpected classification {full.get('classification')!r}",
+    )
+    _check(
+        "m6_numerical_deep_audit.json",
+        full.get("status") in ("PASS", "WARN"),
+        f"status should be PASS/WARN, got {full.get('status')!r}",
+    )
+    for key in [
+        "search_space",
+        "candidate_count",
+        "legacy_candidate_count",
+        "complete_search_candidate_count",
+        "best_near_miss",
+        "event_semantics",
+        "candidates",
+    ]:
+        _check("m6_numerical_deep_audit.json", key in full, f"missing required key {key}")
+
+    semantics = full.get("event_semantics", {})
+    _check(
+        "m6_numerical_deep_audit.json",
+        semantics.get("return_vinf_defined_only_at_earth_return") is True,
+        "missing return-event semantics guard",
+    )
+    if full.get("classification") == "FINITE_SEARCH_NEG":
+        _check("m6_numerical_deep_audit.json", full.get("search_space") is not None, "FINITE_SEARCH_NEG missing search_space")
+        _check("m6_numerical_deep_audit.json", full.get("best_near_miss") is not None, "FINITE_SEARCH_NEG missing best_near_miss")
+
+    search = _load("m6_complete_return_window_search.json")
+    if search is None:
+        ERRORS.append("[FAIL] m6_complete_return_window_search.json: required file not found")
+        return
+    _check(
+        "m6_complete_return_window_search.json",
+        search.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is True,
+        "missing return-event semantics guard",
+    )
+    _check(
+        "m6_complete_return_window_search.json",
+        search.get("status") in ("valid_complete_return_found", "finite_search_negative"),
+        f"unexpected status {search.get('status')!r}",
+    )
+
+
 def check_o4plus():
     d = _load("o4plus_powered_mga_optimizer.json")
     if d is None:
@@ -241,6 +338,8 @@ def main():
     check_m6_pareto()
     check_o3plus()
     check_o7_parallel()
+    check_m3_outputs()
+    check_m6_outputs()
     check_m7_outputs()
 
     print(f"\n  Errors:   {len(ERRORS)}")

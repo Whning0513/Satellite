@@ -158,6 +158,26 @@ numerical-audit:
 	@echo "=== Numerical correctness audit ==="
 	cd src && $(PYTHON) experiments/numerical_correctness_audit.py
 
+m6-complete-window-search:
+	@echo "=== M6 complete-return window search ==="
+	cd src && $(PYTHON) experiments/m6_complete_return_window_search.py
+
+m6-deep-audit:
+	@echo "=== M6 numerical deep audit ==="
+	cd src && $(PYTHON) experiments/m6_numerical_deep_audit.py
+
+check-m6-return-semantics:
+	@echo "=== Check M6 return-event semantics ==="
+	cd src && $(PYTHON) experiments/check_m6_return_semantics.py
+
+m3-deep-audit:
+	@echo "=== M3 numerical deep audit ==="
+	cd src && $(PYTHON) experiments/m3_numerical_deep_audit.py
+
+check-m3-horizons-semantics:
+	@echo "=== Check M3 Horizons semantics ==="
+	cd src && $(PYTHON) experiments/check_m3_horizons_semantics.py
+
 schema-check:
 	@echo "=== Schema check ==="
 	cd src && $(PYTHON) experiments/check_result_schemas.py

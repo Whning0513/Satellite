@@ -29,18 +29,25 @@ REQUIRED_SOURCE_FILES = [
     "src/validation.py",
     "src/event_semantics.py",
     "src/experiments/check_invalidated_formal_results.py",
+    "src/experiments/check_m3_horizons_semantics.py",
+    "src/experiments/check_m6_return_semantics.py",
     "src/experiments/check_m7_return_semantics.py",
     "src/experiments/check_result_schemas.py",
     "src/experiments/check_makefile_targets.py",
     "src/experiments/check_m5_fresh_reproducibility.py",
+    "src/experiments/m3_numerical_deep_audit.py",
     "src/experiments/m5_saving_ratio_resolver.py",
     "src/experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py",
+    "src/experiments/m6_complete_return_window_search.py",
+    "src/experiments/m6_numerical_deep_audit.py",
     "src/experiments/m7_extended_monte_carlo.py",
 ]
 
 REQUIRED_RESULT_FILES = [
+    "data/results/m3_numerical_deep_audit.json",
     "data/results/m5_t61037_lunar_vs_no_lunar_deep_compare.json",
     "data/results/m5_saving_ratio_resolved.json",
+    "data/results/m6_numerical_deep_audit.json",
     "data/results/m7_extended_monte_carlo.json",
 ]
 
@@ -54,6 +61,11 @@ REQUIRED_TARGETS = [
     "m5-lunar-best-fixed-date-compare",
     "m5-t61037-deep-compare",
     "m5-same-window-pareto",
+    "m6-complete-window-search",
+    "m6-deep-audit",
+    "check-m6-return-semantics",
+    "m3-deep-audit",
+    "check-m3-horizons-semantics",
     "check-invalidated-results",
     "return-semantics-test",
     "figure-manifest",
@@ -194,6 +206,24 @@ def check_m7_return_semantics() -> None:
     sys.stderr.write(proc.stderr)
     if proc.returncode != 0:
         FAILURES.append("check_m7_return_semantics.py reported failures")
+
+
+def check_m6_return_semantics() -> None:
+    print("\n--- M6 return semantics ---")
+    proc = run_cmd([sys.executable, "src/experiments/check_m6_return_semantics.py"])
+    sys.stdout.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        FAILURES.append("check_m6_return_semantics.py reported failures")
+
+
+def check_m3_horizons_semantics() -> None:
+    print("\n--- M3 Horizons semantics ---")
+    proc = run_cmd([sys.executable, "src/experiments/check_m3_horizons_semantics.py"])
+    sys.stdout.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        FAILURES.append("check_m3_horizons_semantics.py reported failures")
 
 
 def check_figure_manifest() -> None:
@@ -387,6 +417,8 @@ def main() -> int:
     check_makefile_targets()
     check_results_exist()
     check_m5_positive_ratio()
+    check_m3_horizons_semantics()
+    check_m6_return_semantics()
     check_m7_return_semantics()
     check_invalidated_values()
     check_m5_fresh_repro_guard()
