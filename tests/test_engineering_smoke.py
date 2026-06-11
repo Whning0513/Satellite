@@ -119,6 +119,22 @@ class TestMakefileTargets(unittest.TestCase):
         )
         self.assertEqual(r.returncode, 0, msg=r.stderr)
 
+    def test_check_makefile_targets(self):
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, str(REPO / "src/experiments/check_makefile_targets.py")],
+            capture_output=True, text=True, cwd=str(REPO),
+        )
+        self.assertEqual(r.returncode, 0, msg=r.stdout + r.stderr)
+
+    def test_check_m5_fresh_reproducibility(self):
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, str(REPO / "src/experiments/check_m5_fresh_reproducibility.py")],
+            capture_output=True, text=True, cwd=str(REPO),
+        )
+        self.assertEqual(r.returncode, 0, msg=r.stdout + r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

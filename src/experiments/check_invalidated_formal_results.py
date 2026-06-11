@@ -1,9 +1,13 @@
 """Checks active JSON results for invalidated lunar return values."""
-import json, sys, os
+import json, sys
 from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 RESULTS = _REPO / "data" / "results"
 ERRORS = []
+
+
+def _near(value, target, tol):
+    return value is not None and abs(value - target) <= tol
 
 def check(fp):
     if not fp.exists(): return
@@ -20,14 +24,62 @@ def check(fp):
                 ERRORS.append(f"[FAIL] {n}: status=positive_ratio but ratio is None")
             elif ratio < 0:
                 ERRORS.append(f"[FAIL] {n}: status=positive_ratio but ratio={ratio} < 0")
-            elif abs(ratio + 1.873) < 0.01:
+            elif _near(ratio, -1.873262, 1e-6):
                 ERRORS.append(f"[FAIL] {n}: ratio={ratio} matches old invalid -1.873")
+            elif not _near(ratio, 0.557881, 1e-6):
+                ERRORS.append(f"[FAIL] {n}: positive ratio expected 0.557881, got {ratio}")
+            if d.get("same_t0_mjd") != 61037.0:
+                ERRORS.append(f"[FAIL] {n}: same_t0_mjd must be 61037.0")
+            if d.get("same_budget_basis") is not True:
+                ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
+            if d.get("ratio_basis") != "vinf_basis":
+                ERRORS.append(f"[FAIL] {n}: ratio_basis must be vinf_basis")
+            if d.get("lunar_valid_return_event") is not True:
+                ERRORS.append(f"[FAIL] {n}: lunar_valid_return_event must be true")
+            if d.get("no_lunar_valid_return_event") is not True:
+                ERRORS.append(f"[FAIL] {n}: no_lunar_valid_return_event must be true")
+            if d.get("classification") != "ACTUAL_RESULT":
+                ERRORS.append(f"[FAIL] {n}: classification must be ACTUAL_RESULT")
         elif status == "lunar_return_event_missing":
             # Legacy/fallback: ratio must be None
             if d.get("formal_fixed_date_ratio") is not None:
                 ERRORS.append(f"[FAIL] {n}: status=missing but ratio is not None")
         else:
             ERRORS.append(f"[FAIL] {n}: unknown status '{status}'")
+
+    if n == "m5_t61037_lunar_vs_no_lunar_deep_compare.json":
+        ratio = d.get("formal_ratio_vinf_basis")
+        if ratio is None:
+            ERRORS.append(f"[FAIL] {n}: compare JSON missing formal_ratio_vinf_basis")
+        elif not _near(ratio, 0.557881, 1e-6):
+            ERRORS.append(f"[FAIL] {n}: compare ratio expected 0.557881, got {ratio}")
+        if d.get("same_t0") != 61037:
+            ERRORS.append(f"[FAIL] {n}: same_t0 must be 61037")
+        if d.get("same_budget_basis") is not True:
+            ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
+        if d.get("budget_basis") != "vinf_basis":
+            ERRORS.append(f"[FAIL] {n}: budget_basis must be vinf_basis")
+        if d.get("lunar_valid") is not True:
+            ERRORS.append(f"[FAIL] {n}: lunar_valid must be true")
+        if d.get("no_lunar_valid") is not True:
+            ERRORS.append(f"[FAIL] {n}: no_lunar_valid must be true")
+
+    if n == "m5_best_lunar_candidate_verify.json":
+        event_check = d.get("event_check", {})
+        state = d.get("state_at_return", {})
+        budget = d.get("budget", {})
+        if event_check.get("valid_return_event") is not True:
+            ERRORS.append(f"[FAIL] {n}: valid_return_event must be true")
+        if event_check.get("event_type") != "earth_return":
+            ERRORS.append(f"[FAIL] {n}: event_type must be earth_return")
+        if state.get("return_vinf_kms") is None:
+            ERRORS.append(f"[FAIL] {n}: return_vinf_kms missing at Earth-return event")
+        if budget.get("return_vinf_kms") is None:
+            ERRORS.append(f"[FAIL] {n}: budget.return_vinf_kms missing at Earth-return event")
+        if _near(state.get("return_vinf_kms"), 77.88, 0.1) or _near(budget.get("return_vinf_kms"), 77.88, 0.1):
+            ERRORS.append(f"[FAIL] {n}: old invalid 77.88 km/s return_vinf leaked into formal Earth-return result")
+        if _near(budget.get("total_dv_proxy_vinf_basis"), 73.0, 0.2):
+            ERRORS.append(f"[FAIL] {n}: old invalid lunar total ~73 km/s leaked into formal result")
 
     if n == "m5_lunar_budget_recomputed.json":
         if d.get("budget_valid", True) == True:
@@ -50,6 +102,17 @@ def check(fp):
                         f"[FAIL] {n}: t0={c['t0_mjd']} return_vinf_kms={c['return_vinf_kms']} "
                         f"(invalid perihelion-measured)")
 
+    if n == "m5_no_lunar_t61037_deep_search.json":
+        best = d.get("best_valid")
+        if d.get("classification") != "ACTUAL_RESULT":
+            ERRORS.append(f"[FAIL] {n}: classification must be ACTUAL_RESULT")
+        if d.get("status") != "valid_found":
+            ERRORS.append(f"[FAIL] {n}: status must be valid_found")
+        if not best:
+            ERRORS.append(f"[FAIL] {n}: best_valid missing")
+        elif _near(best.get("total_dv_proxy_kms"), 73.0, 0.2):
+            ERRORS.append(f"[FAIL] {n}: old invalid total ~73 km/s leaked into no-lunar result")
+
     if n == "m5_lunar_return_completion.json":
         pure = d.get("pure_lunar_free_return", {})
         if pure.get("valid_earth_return_found", True) == True:
@@ -64,6 +127,16 @@ def check(fp):
             ERRORS.append(f"[FAIL] {n}: classification should be FINITE_SEARCH_NEG")
         if d.get("num_pure_returns", -1) != 0:
             ERRORS.append(f"[FAIL] {n}: num_pure_returns should be 0")
+
+resolved = RESULTS / "m5_saving_ratio_resolved.json"
+compare = RESULTS / "m5_t61037_lunar_vs_no_lunar_deep_compare.json"
+if compare.exists() and resolved.exists():
+    resolved_json = json.loads(resolved.read_text(encoding="utf-8"))
+    compare_json = json.loads(compare.read_text(encoding="utf-8"))
+    if compare_json.get("formal_ratio_vinf_basis") is not None and resolved_json.get("formal_fixed_date_ratio") is None:
+        ERRORS.append(
+            "[FAIL] m5_saving_ratio_resolved.json: compare JSON is positive but resolved ratio is null"
+        )
 
 for jp in sorted(Path(RESULTS).glob("*.json")):
     check(jp)

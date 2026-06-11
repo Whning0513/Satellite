@@ -5,7 +5,7 @@ Lightweight schema check for existing result JSON files.
 Does NOT regenerate any result — only checks what exists.
 """
 
-import json, os, math, sys
+import json, math, sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -13,12 +13,41 @@ RESULTS = _REPO / "data" / "results"
 
 ERRORS = []
 WARNINGS = []
+OPTIONAL_MISSING = []
+OPTIONAL_MISSING_SEEN = set()
+
+OPTIONAL_FILES = {
+    "o4plus_powered_mga_optimizer.json": "optional diagnostic file",
+    "m5_global_no_lunar_baseline.json": "optional diagnostic file",
+    "m6_pareto_window_diagnostic.json": "optional diagnostic file",
+    "o3plus_vector_corrector.json": "optional diagnostic file",
+    "o7_parallel_scan.json": "optional diagnostic file",
+}
+OPTIONAL_LABELS = {
+    "o4plus": "o4plus_powered_mga_optimizer.json",
+    "m5_global": "m5_global_no_lunar_baseline.json",
+    "m6_pareto": "m6_pareto_window_diagnostic.json",
+    "o3plus": "o3plus_vector_corrector.json",
+    "o7_parallel": "o7_parallel_scan.json",
+}
+
+
+def _warn_missing(path_rel):
+    canonical = OPTIONAL_LABELS.get(path_rel, path_rel)
+    if canonical in OPTIONAL_MISSING_SEEN:
+        return
+    OPTIONAL_MISSING_SEEN.add(canonical)
+    reason = OPTIONAL_FILES.get(canonical, "optional file")
+    OPTIONAL_MISSING.append(f"[OPTIONAL] {canonical} — {reason} not generated")
 
 
 def _check(path_rel, condition, msg):
     path = RESULTS / path_rel
     if not path.exists():
-        WARNINGS.append(f"[SKIP] {path_rel} — file not found")
+        if path_rel in OPTIONAL_FILES or path_rel in OPTIONAL_LABELS:
+            _warn_missing(path_rel)
+        else:
+            ERRORS.append(f"[FAIL] {path_rel}: required file not found")
         return
     if not condition:
         ERRORS.append(f"[FAIL] {path_rel}: {msg}")
@@ -29,7 +58,10 @@ def _check(path_rel, condition, msg):
 def _load(path_rel):
     path = RESULTS / path_rel
     if not path.exists():
-        WARNINGS.append(f"[SKIP] {path_rel} — file not found")
+        if path_rel in OPTIONAL_FILES or path_rel in OPTIONAL_LABELS:
+            _warn_missing(path_rel)
+        else:
+            ERRORS.append(f"[FAIL] {path_rel}: required file not found")
         return None
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -66,18 +98,20 @@ def check_figure_manifest():
     d = _load("figure_manifest.json")
     if d is None:
         return
+    entries = d["figure_manifest"] if isinstance(d, dict) and "figure_manifest" in d else d
     _check("figure_manifest.json",
-           isinstance(d, list) and len(d) >= 8,
+           isinstance(entries, list) and len(entries) >= 8,
            "should have at least 8 entries")
     _check("figure_manifest.json",
-           all(fig.get("exists") for fig in d),
+           all(isinstance(fig, dict) for fig in entries),
+           "entries must be objects")
+    _check("figure_manifest.json",
+           all(fig.get("exists") for fig in entries),
            "some referenced figures missing")
 
 
 def check_o4plus():
-    d = _load("../results/o4plus_powered_mga_optimizer.json")
-    if d is None:
-        d = _load("o4plus_powered_mga_optimizer.json")
+    d = _load("o4plus_powered_mga_optimizer.json")
     if d is None:
         return
     _check("o4plus", "best_candidate" in d, "missing best_candidate")
@@ -135,8 +169,6 @@ def main():
     for fn in [
         "delta_v_budget_unified.json",
         "figure_manifest.json",
-        "o3plus_vector_corrector.json",
-        "o7_parallel_scan.json",
     ]:
         path = RESULTS / fn
         _check(fn, path.exists() if path.exists() else True,
@@ -151,9 +183,11 @@ def main():
     check_o7_parallel()
 
     print(f"\n  Errors:   {len(ERRORS)}")
-    print(f"  Warnings: {len(WARNINGS)}")
+    print(f"  Warnings: {len(WARNINGS) + len(OPTIONAL_MISSING)}")
 
     for w in WARNINGS:
+        print(f"    {w}")
+    for w in OPTIONAL_MISSING:
         print(f"    {w}")
 
     if ERRORS:

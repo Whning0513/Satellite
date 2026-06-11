@@ -29,6 +29,8 @@ if lunar_ok and nl_fair > 0 and nl_best:
     out = {
         "same_t0": 61037,
         "lunar_valid": True, "no_lunar_valid": True,
+        "same_budget_basis": True,
+        "budget_basis": "vinf_basis",
         "formal_ratio_vinf_basis": round(ratio_v, 6),
         "lunar_total_vinf_basis": lb["total_dv_proxy_vinf_basis"],
         "lunar_total_launch_equivalent": le,
@@ -43,6 +45,8 @@ else:
         "same_t0": 61037,
         "lunar_valid": bool(lunar_ok),
         "no_lunar_valid": nl_fair > 0,
+        "same_budget_basis": True,
+        "budget_basis": "vinf_basis",
         "formal_ratio_vinf_basis": None,
         "lunar_total_vinf_basis": lunar_vinf,
         "no_lunar_fair_count": nl_fair,

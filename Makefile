@@ -21,13 +21,12 @@
 #   audit      — security + figure-reference + M5-files + repo-size check
 #   clean      — remove cache / build artifacts
 
-SHELL := /bin/bash
 PYTHON := python
 REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 
 .PHONY: all compile validate validate-m3 validate-m4 validate-m5
 .PHONY: m1 m2 m3 m4 m5 m6 m7 m8 o3 o1-3d m5-fair m5-lambert
-.PHONY: pdf figures scan-fast animation audit clean
+.PHONY: pdf figures scan-fast animation audit audit-posix-legacy clean
 .PHONY: o2-gr o4-mga o6-interactive o7-parallel o7-surrogate bonus-all
 
 # ---- Default: compile + generate figures + build PDF ----
@@ -166,6 +165,10 @@ schema-check:
 quick-check: compile delta-v-audit figure-manifest schema-check test
 	@echo "=== Quick engineering check complete ==="
 
+m5-fresh-repro-test:
+	@echo "=== M5 fresh reproducibility guard ==="
+	cd src && $(PYTHON) experiments/check_m5_fresh_reproducibility.py
+
 repair-m5:
 	@echo "=== M5 fair saving ratio search ==="
 	cd src && $(PYTHON) experiments/m5_fair_saving_ratio_search.py
@@ -292,6 +295,10 @@ scan-fast:
 
 # ---- Comprehensive audit ----
 audit:
+	@echo "=== Portable audit ==="
+	$(PYTHON) src/experiments/portable_audit.py
+
+audit-posix-legacy:
 	@echo "=== Audit check ==="
 	@echo ""
 	@echo "--- Security ---"
@@ -323,9 +330,4 @@ audit:
 
 # ---- Clean ----
 clean:
-	@find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	@find . -name "*.pyc" -delete
-	@rm -f report.aux report.log report.out report.toc report.pdf
-	@rm -f data/results/*.png data/results/*.gif data/results/*.json 2>/dev/null; true
-	@rm -rf src/__pycache__ 2>/dev/null; true
-	@echo "Cleaned __pycache__, .pyc, LaTeX artifacts, and data/results/"
+	$(PYTHON) src/experiments/portable_clean.py

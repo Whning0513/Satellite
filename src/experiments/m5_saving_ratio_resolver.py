@@ -51,6 +51,7 @@ def main():
         print(f"    saving ratio: {ratio:.6f} ({ratio*100:.1f}%)")
         print(f"    basis: vinf_basis (excess hyperbolic speed)")
         print(f"    same t0: {comp.get('same_t0')}")
+        print(f"    same budget basis: {comp.get('same_budget_basis', True)}")
         print(f"    lunar saves delta_v: {ratio > 0}")
 
         out = {
@@ -61,6 +62,7 @@ def main():
             "formal_fixed_date_ratio_percent": round(ratio * 100, 1),
             "ratio_basis": "vinf_basis",
             "same_t0_mjd": 61037.0,
+            "same_budget_basis": bool(comp.get("same_budget_basis", True)),
             "lunar_total_vinf_basis_kms": round(lunar_total, 4),
             "lunar_valid_return_event": bool(lunar_ok),
             "no_lunar_total_vinf_basis_kms": round(no_lunar_total, 4),
@@ -97,6 +99,7 @@ def main():
             "task": "M5 saving ratio resolved (fallback)",
             "status": "lunar_return_event_missing",
             "formal_fixed_date_ratio": None,
+            "same_budget_basis": False,
             "reason": "Validated fixed-date comparison not available.",
             "classification": "UNRESOLVED",
             "invalid_historical_ratio_due_to_wrong_return_event": -1.873262,
