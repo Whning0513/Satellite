@@ -155,6 +155,10 @@ test:
 	@echo "=== Unit tests ==="
 	$(PYTHON) -m unittest discover -s tests
 
+numerical-audit:
+	@echo "=== Numerical correctness audit ==="
+	cd src && $(PYTHON) experiments/numerical_correctness_audit.py
+
 schema-check:
 	@echo "=== Schema check ==="
 	cd src && $(PYTHON) experiments/check_result_schemas.py
