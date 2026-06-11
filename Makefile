@@ -172,6 +172,15 @@ repair-m5-real:
 	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
 return-event-audit:
+lunar-return-completion:
+	@echo "=== Lunar return completion (M5 + M6) ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_completion.py
+	cd src && $(PYTHON) experiments/m5_lunar_completed_vs_no_lunar.py
+	cd src && $(PYTHON) experiments/m6_lunar_return_completion.py
+
+return-semantics-test:
+	@echo "=== Event semantics unit tests ==="
+	$(PYTHON) -m unittest tests.test_event_semantics
 	@echo "=== Return event audit (M5 + M6 lunar) ==="
 	cd src && $(PYTHON) experiments/m5_lunar_return_event_audit.py
 	cd src && $(PYTHON) experiments/m6_lunar_return_event_audit.py
