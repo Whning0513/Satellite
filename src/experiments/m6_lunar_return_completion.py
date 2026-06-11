@@ -127,8 +127,15 @@ def main():
               f"completed_cands={len(cands)}, "
               f"best_total={cands[0]['total']:.2f}" if cands else f"t0={t0:.0f}: pure={pure['valid_return_event']}, no completed")
 
-    out = {"task": "M6 lunar return completion", "results": all_results,
-           "classification": "ACTUAL_RESULT"}
+    n_completed = sum(1 for r in all_results if r["completed_candidates"] > 0)
+    out = {"task": "M6 lunar return completion",
+           "results": all_results,
+           "num_pure_returns": 0,
+           "num_completed_dates": n_completed,
+           "classification": "FINITE_SEARCH_NEG",
+           "pure_return_classification": "UNRESOLVED (no Earth return found)",
+           "completed_classification": "DIAGNOSTIC (high total, powered return)",
+           }
     out_dir = _REPO / "data" / "results"
     os.makedirs(out_dir, exist_ok=True)
     jp = out_dir / "m6_lunar_return_completion.json"

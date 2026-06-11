@@ -178,6 +178,10 @@ lunar-return-completion:
 	cd src && $(PYTHON) experiments/m5_lunar_completed_vs_no_lunar.py
 	cd src && $(PYTHON) experiments/m6_lunar_return_completion.py
 
+check-invalidated-results:
+	@echo "=== Check invalidated formal results ==="
+	cd src && $(PYTHON) experiments/check_invalidated_formal_results.py
+
 return-semantics-test:
 	@echo "=== Event semantics unit tests ==="
 	$(PYTHON) -m unittest tests.test_event_semantics

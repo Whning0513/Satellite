@@ -75,9 +75,26 @@ def main():
     dsm_residual = best["dsm_delta_v_kms"]
 
     dep_lunar = lunar["budget"]["departure_vinf_kms"]
-    ret_lunar = lunar["budget"]["return_vinf_kms"]
+    ret_lunar = lunar["budget"]["return_vinf_kms"]  # may be None
     dep_dsm = best["departure_vinf_kms"]
     ret_dsm = best["return_vinf_kms"]
+
+    # Check if lunar budget is valid
+    lunar_budget_valid = lunar.get("budget_valid", False)
+
+    if not lunar_budget_valid or ret_lunar is None:
+        print("\n  [SKIP] Lunar budget invalid — no Earth-return event.")
+        print("  Budget sensitivity cannot be computed with lunar at perihelion.")
+        out = {
+            "task": "M5 budget sensitivity (INVALIDATED — lunar return missing)",
+            "lunar_return_event_valid": False,
+            "note": "Lunar trajectory has no Earth return. Cannot compute sensitivity.",
+            }
+        jp = RESULTS / "m5_budget_sensitivity.json"
+        with open(jp, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=2, ensure_ascii=False)
+        print(f"\nSaved: {jp}")
+        return
 
     modes = {}
 

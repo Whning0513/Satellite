@@ -210,15 +210,17 @@ def main():
             "formal_return_vinf_kms": None,
             "formal_saving_ratio": None,
             "status": "return_event_missing",
+            "classification": "FINITE_SEARCH_NEG",
         },
         "lunar_plus_return_dsm": {
             "num_candidates": len(candidates),
             "num_fair": len(fair),
             "best_fair": fair[0] if fair else None,
             "status": "completed" if fair else "no_candidate",
+            "classification": "ACTUAL_RESULT (powered return, separate mission class)",
         },
         "comparison_with_no_lunar_dsm": comparison,
-        "classification": "ACTUAL_RESULT",
+        "reference_ratio_classification": "DIAGNOSTIC",
     }
 
     out_dir = _REPO / "data" / "results"
