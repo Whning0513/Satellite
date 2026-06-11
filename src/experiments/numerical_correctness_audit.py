@@ -551,31 +551,39 @@ def audit_m6() -> list[AuditRecord]:
         )
     )
 
-    invalid_formal = 0
-    max_invalid = None
+    invalid_nonreturn_rows = 0
+    max_claimed_nonreturn = None
     for row in event_rows:
+        is_valid = row.get("valid_earth_return_event", "").strip().lower() == "true"
         claimed = row.get("end_of_S5_claimed_return_vinf_kms", "").strip()
-        if claimed:
+        formal = row.get("formal_return_vinf_kms", "").strip()
+        if not is_valid:
+            invalid_nonreturn_rows += 1
             claimed_val = float(claimed)
-            if claimed_val >= 70.0 and row.get("valid_earth_return_event", "").strip().lower() != "true":
-                invalid_formal += 1
-                max_invalid = claimed_val if max_invalid is None else max(max_invalid, claimed_val)
+            max_claimed_nonreturn = (
+                claimed_val
+                if max_claimed_nonreturn is None
+                else max(max_claimed_nonreturn, claimed_val)
+            )
+            if formal:
+                invalid_nonreturn_rows = -10**9
+                break
     entries.append(
         _entry(
             module="M6",
             quantity="old_invalid_return_vinf_guarded",
-            project_value=bool(invalid_formal == len(event_rows)),
+            project_value=bool(invalid_nonreturn_rows == len(event_rows)),
             independent_value=True,
             relative_error=None,
             unit="bool",
             frame="legacy top-window event audit",
             event="formal_field_guard",
-            status="PASS" if invalid_formal == len(event_rows) else "WARN",
+            status="PASS" if invalid_nonreturn_rows == len(event_rows) else "WARN",
             classification="FINITE_SEARCH_NEG",
-            action="keep" if invalid_formal == len(event_rows) else "fix",
+            action="keep" if invalid_nonreturn_rows == len(event_rows) else "fix",
             notes=(
-                f"invalid_formal_like_values={invalid_formal}/{len(event_rows)}, "
-                f"max_claimed_nonreturn_vinf={max_invalid}"
+                f"nonreturn_rows_without_formal_return_vinf={max(invalid_nonreturn_rows, 0)}/{len(event_rows)}, "
+                f"max_claimed_nonreturn_vinf={max_claimed_nonreturn}"
             ),
         )
     )
@@ -687,6 +695,24 @@ def audit_m7() -> list[AuditRecord]:
                 classification="ACTUAL_RESULT" if aligned else "UNRESOLVED",
                 action="keep" if aligned else "fix",
                 notes=f"reference_candidate={ref}",
+            )
+        )
+        semantics = mc_json.get("event_semantics", {})
+        event_guard_ok = bool(semantics.get("return_vinf_defined_only_at_earth_return"))
+        entries.append(
+            _entry(
+                module="M7",
+                quantity="extended_mc_return_event_semantics",
+                project_value=event_guard_ok,
+                independent_value=True,
+                relative_error=None,
+                unit="bool",
+                frame="Monte Carlo return-event semantics",
+                event="extended_mc",
+                status="PASS" if event_guard_ok else "RED",
+                classification="ACTUAL_RESULT" if event_guard_ok else "UNRESOLVED",
+                action="keep" if event_guard_ok else "fix",
+                notes=f"event_semantics={semantics}",
             )
         )
     return entries
