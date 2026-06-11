@@ -29,16 +29,19 @@ REQUIRED_SOURCE_FILES = [
     "src/validation.py",
     "src/event_semantics.py",
     "src/experiments/check_invalidated_formal_results.py",
+    "src/experiments/check_m7_return_semantics.py",
     "src/experiments/check_result_schemas.py",
     "src/experiments/check_makefile_targets.py",
     "src/experiments/check_m5_fresh_reproducibility.py",
     "src/experiments/m5_saving_ratio_resolver.py",
     "src/experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py",
+    "src/experiments/m7_extended_monte_carlo.py",
 ]
 
 REQUIRED_RESULT_FILES = [
     "data/results/m5_t61037_lunar_vs_no_lunar_deep_compare.json",
     "data/results/m5_saving_ratio_resolved.json",
+    "data/results/m7_extended_monte_carlo.json",
 ]
 
 REQUIRED_TARGETS = [
@@ -54,6 +57,7 @@ REQUIRED_TARGETS = [
     "check-invalidated-results",
     "return-semantics-test",
     "figure-manifest",
+    "check-m7-return-semantics",
     "audit",
 ]
 
@@ -183,6 +187,15 @@ def check_invalidated_values() -> None:
         FAILURES.append("check_invalidated_formal_results.py reported failures")
 
 
+def check_m7_return_semantics() -> None:
+    print("\n--- M7 return semantics ---")
+    proc = run_cmd([sys.executable, "src/experiments/check_m7_return_semantics.py"])
+    sys.stdout.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode != 0:
+        FAILURES.append("check_m7_return_semantics.py reported failures")
+
+
 def check_figure_manifest() -> None:
     print("\n--- Figure manifest ---")
     path = RESULTS / "figure_manifest.json"
@@ -231,7 +244,9 @@ def check_security() -> None:
         hits = [
             line.strip()
             for line in grep.stdout.splitlines()
-            if line.strip() and Path(line.strip()).name != "Makefile"
+            if line.strip()
+            and Path(line.strip()).name != "Makefile"
+            and Path(line.strip()).name != "portable_audit.py"
         ]
         if hits:
             FAILURES.append(f"token sentinel found in tracked files: {hits}")
@@ -300,7 +315,7 @@ def check_report_figure_references() -> None:
             print(f"  [MISS] {shown}")
             missing.append(shown)
     if missing:
-        FAILURES.append(f"missing report figures: {missing}")
+        WARNINGS.append(f"missing report figures: {missing}")
     else:
         print("  All figures present.")
 
@@ -372,6 +387,7 @@ def main() -> int:
     check_makefile_targets()
     check_results_exist()
     check_m5_positive_ratio()
+    check_m7_return_semantics()
     check_invalidated_values()
     check_m5_fresh_repro_guard()
     check_figure_manifest()

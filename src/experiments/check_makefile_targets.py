@@ -25,6 +25,7 @@ REQUIRED_TARGETS = {
     "m5-same-window-pareto": True,
     "check-invalidated-results": True,
     "return-semantics-test": True,
+    "check-m7-return-semantics": True,
     "figure-manifest": True,
     "audit": True,
 }

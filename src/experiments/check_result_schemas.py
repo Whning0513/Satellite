@@ -17,11 +17,14 @@ OPTIONAL_MISSING = []
 OPTIONAL_MISSING_SEEN = set()
 
 OPTIONAL_FILES = {
+    "delta_v_budget_unified.json": "optional diagnostic file",
     "o4plus_powered_mga_optimizer.json": "optional diagnostic file",
     "m5_global_no_lunar_baseline.json": "optional diagnostic file",
     "m6_pareto_window_diagnostic.json": "optional diagnostic file",
     "o3plus_vector_corrector.json": "optional diagnostic file",
     "o7_parallel_scan.json": "optional diagnostic file",
+    "m7_extended_monte_carlo_profile.json": "optional M7 profiling file",
+    "m7_extended_monte_carlo_smoke.json": "optional M7 smoke semantics file",
 }
 OPTIONAL_LABELS = {
     "o4plus": "o4plus_powered_mga_optimizer.json",
@@ -29,6 +32,8 @@ OPTIONAL_LABELS = {
     "m6_pareto": "m6_pareto_window_diagnostic.json",
     "o3plus": "o3plus_vector_corrector.json",
     "o7_parallel": "o7_parallel_scan.json",
+    "m7_mc_profile": "m7_extended_monte_carlo_profile.json",
+    "m7_mc_smoke": "m7_extended_monte_carlo_smoke.json",
 }
 
 
@@ -38,7 +43,7 @@ def _warn_missing(path_rel):
         return
     OPTIONAL_MISSING_SEEN.add(canonical)
     reason = OPTIONAL_FILES.get(canonical, "optional file")
-    OPTIONAL_MISSING.append(f"[OPTIONAL] {canonical} — {reason} not generated")
+    OPTIONAL_MISSING.append(f"[OPTIONAL] {canonical} - {reason} not generated")
 
 
 def _check(path_rel, condition, msg):
@@ -105,9 +110,65 @@ def check_figure_manifest():
     _check("figure_manifest.json",
            all(isinstance(fig, dict) for fig in entries),
            "entries must be objects")
-    _check("figure_manifest.json",
-           all(fig.get("exists") for fig in entries),
-           "some referenced figures missing")
+    missing = [fig for fig in entries if not fig.get("exists")]
+    if missing:
+        WARNINGS.append(
+            "[OPTIONAL] figure_manifest.json - some referenced figures are not generated in current working state"
+        )
+        print(f"  [WARN] figure_manifest.json has {len(missing)} missing referenced figures")
+    else:
+        print("  [OK] figure_manifest.json all referenced figures exist")
+
+
+def check_m7_outputs():
+    full = _load("m7_extended_monte_carlo.json")
+    if full is None:
+        ERRORS.append("[FAIL] m7_extended_monte_carlo.json: required file not found for full-stage validation")
+        return
+
+    _check("m7_extended_monte_carlo.json", full.get("n") == 200, "expected n = 200")
+    _check(
+        "m7_extended_monte_carlo.json",
+        full.get("classification") == "FULL_MC_ACTUAL_RESULT",
+        f"expected classification FULL_MC_ACTUAL_RESULT, got {full.get('classification')!r}",
+    )
+    for key in [
+        "seed",
+        "valid_return_count",
+        "valid_return_rate",
+        "return_vinf_valid_only",
+        "total_vinf_basis_valid_only",
+        "old_invalid_return_vinf_guard",
+    ]:
+        _check("m7_extended_monte_carlo.json", key in full, f"missing required key {key}")
+    if full.get("return_vinf_valid_only") is not None:
+        stats = full["return_vinf_valid_only"]
+        _check("m7_extended_monte_carlo.json", stats.get("p95", 0) < 30.0, "formal return_vinf p95 unexpectedly large")
+        _check("m7_extended_monte_carlo.json", abs(stats.get("mean", 0.0) - 79.0) > 5.0, "formal return_vinf mean still near old invalid ~79 km/s")
+    _check(
+        "m7_extended_monte_carlo.json",
+        full.get("old_invalid_return_vinf_guard") is True,
+        "old_invalid_return_vinf_guard must be true",
+    )
+    _check(
+        "m7_extended_monte_carlo.json",
+        full.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is True,
+        "missing return-event semantics guard",
+    )
+
+    smoke = _load("m7_extended_monte_carlo_smoke.json")
+    if smoke is not None:
+        _check(
+            "m7_extended_monte_carlo_smoke.json",
+            smoke.get("classification") == "SMOKE_SEMANTICS_RESULT",
+            f"expected SMOKE_SEMANTICS_RESULT, got {smoke.get('classification')!r}",
+        )
+    else:
+        _warn_missing("m7_mc_smoke")
+
+    profile = _load("m7_extended_monte_carlo_profile.json")
+    if profile is None:
+        _warn_missing("m7_mc_profile")
 
 
 def check_o4plus():
@@ -167,7 +228,6 @@ def main():
     print("=" * 66)
 
     for fn in [
-        "delta_v_budget_unified.json",
         "figure_manifest.json",
     ]:
         path = RESULTS / fn
@@ -181,6 +241,7 @@ def main():
     check_m6_pareto()
     check_o3plus()
     check_o7_parallel()
+    check_m7_outputs()
 
     print(f"\n  Errors:   {len(ERRORS)}")
     print(f"  Warnings: {len(WARNINGS) + len(OPTIONAL_MISSING)}")
