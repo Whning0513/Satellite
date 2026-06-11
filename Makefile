@@ -172,6 +172,10 @@ repair-m5-real:
 	cd src && $(PYTHON) experiments/m5_lunar_budget_recompute.py
 	cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
 return-event-audit:
+lunar-return-local-refine:
+	@echo "=== M5 lunar return local refine ==="
+	cd src && $(PYTHON) experiments/m5_lunar_return_local_refine.py
+
 complete-lunar-return-search:
 	@echo "=== Complete lunar return search (M5 + M6) ==="
 	cd src && $(PYTHON) experiments/m5_complete_lunar_return_search.py
@@ -218,6 +222,7 @@ m3-hierarchy:
 repair-m6-actual:
 	@echo "=== M6 actual constrained search (no proxy) ==="
 	cd src && $(PYTHON) experiments/m6_actual_constrained_search.py
+
 repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
 	cd src && $(PYTHON) experiments/m7_monte_carlo_extended.py
