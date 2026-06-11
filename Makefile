@@ -188,6 +188,15 @@ m5-lunar-best-fixed-date-compare:
 	cd src && $(PYTHON) experiments/m5_fixed_date_no_lunar_for_lunar_best.py
 	cd src && $(PYTHON) experiments/m5_fixed_date_lunar_vs_no_lunar_t61037.py
 
+m5-t61037-deep-compare:
+	@echo "=== M5 t0=61037 deep no-lunar + comparison ==="
+	cd src && $(PYTHON) experiments/m5_no_lunar_t61037_deep_search.py
+	cd src && $(PYTHON) experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+
+m5-same-window-pareto:
+	@echo "=== M5 same-window lunar vs no-lunar Pareto ==="
+	cd src && $(PYTHON) experiments/m5_same_window_lunar_no_lunar_pareto.py
+
 lunar-return-completion:
 	@echo "=== Lunar return completion (M5 + M6) ==="
 	cd src && $(PYTHON) experiments/m5_lunar_return_completion.py
