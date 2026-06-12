@@ -82,6 +82,16 @@ def _run_3body_helio_ssb(body_data: dict, dt_s: float, max_days: int = 365, samp
     }
 
 
+def _model_block(name: str, residual_km: float | None, helio_km: float | None, ssb_km: float | None, frame: str) -> dict:
+    return {
+        "model_name": name,
+        "frame": frame,
+        "residual_km": residual_km,
+        "heliocentric_residual_km": helio_km,
+        "ssb_residual_km": ssb_km,
+    }
+
+
 def main() -> None:
     body_data = fetch_sem_vectors(use_cache=True)
     hierarchy = _load("m3_model_hierarchy.json")
@@ -126,34 +136,52 @@ def main() -> None:
         if earth_helio_vals[i + 1] > 0:
             ratios.append(round(earth_helio_vals[i] / earth_helio_vals[i + 1], 4))
 
+    models_payload = {
+        "3body_sun_earth_moon": _model_block(
+            "3body_sun_earth_moon",
+            model_3.get("max_residual_km"),
+            model_3.get("max_residual_km"),
+            dt_metrics[1]["Moon_ssb_max_km"],
+            "heliocentric residual after subtracting Sun state; companion SSB residual from same 3-body propagation",
+        ),
+        "5body_sem_jupiter_venus": _model_block(
+            "5body_sem_jupiter_venus",
+            model_5.get("max_residual_km"),
+            model_5.get("max_residual_km"),
+            None,
+            "heliocentric residual from model hierarchy output",
+        ),
+        "full_planetary": _model_block(
+            "full_planetary",
+            model_full.get("max_residual_km"),
+            model_full.get("max_residual_km"),
+            None,
+            "heliocentric residual from same-source full planetary propagation check",
+        ),
+    }
+
     summary_rows = [
         {
-            "metric": "residual_3body_km",
-            "value": model_3.get("max_residual_km"),
+            "metric": "models.3body_sun_earth_moon.heliocentric_residual_km",
+            "value": models_payload["3body_sun_earth_moon"]["heliocentric_residual_km"],
             "frame": "heliocentric",
             "unit": "km",
         },
         {
-            "metric": "residual_5body_km",
-            "value": model_5.get("max_residual_km"),
-            "frame": "heliocentric",
-            "unit": "km",
-        },
-        {
-            "metric": "residual_full_planetary_km",
-            "value": model_full.get("max_residual_km"),
-            "frame": "heliocentric",
-            "unit": "km",
-        },
-        {
-            "metric": "ssb_absolute_residual_km",
-            "value": dt_metrics[1]["Moon_ssb_max_km"],
+            "metric": "models.3body_sun_earth_moon.ssb_residual_km",
+            "value": models_payload["3body_sun_earth_moon"]["ssb_residual_km"],
             "frame": "SSB absolute",
             "unit": "km",
         },
         {
-            "metric": "heliocentric_residual_km",
-            "value": dt_metrics[1]["Moon_helio_max_km"],
+            "metric": "models.5body_sem_jupiter_venus.heliocentric_residual_km",
+            "value": models_payload["5body_sem_jupiter_venus"]["heliocentric_residual_km"],
+            "frame": "heliocentric",
+            "unit": "km",
+        },
+        {
+            "metric": "models.full_planetary.heliocentric_residual_km",
+            "value": models_payload["full_planetary"]["heliocentric_residual_km"],
             "frame": "heliocentric",
             "unit": "km",
         },
@@ -172,16 +200,15 @@ def main() -> None:
         "task": "M3 numerical deep audit",
         "uses_day0_initial_condition_only": True,
         "no_daily_horizons_reset": bool(no_daily_reset),
-        "residual_3body_km": model_3.get("max_residual_km"),
-        "residual_5body_km": model_5.get("max_residual_km"),
-        "residual_full_planetary_km": model_full.get("max_residual_km"),
-        "ssb_absolute_residual_km": dt_metrics[1]["Moon_ssb_max_km"],
-        "heliocentric_residual_km": dt_metrics[1]["Moon_helio_max_km"],
+        "models": models_payload,
         "frame_definitions": {
-            "ssb_absolute_residual_km": "absolute barycentric position difference",
             "heliocentric_residual_km": "relative position difference after subtracting Sun state",
+            "ssb_residual_km": "absolute barycentric position difference",
         },
-        "dt_convergence": dt_rows,
+        "dt_convergence": {
+            "model": "3body_or_missing_perturbation_test",
+            "values": dt_rows,
+        },
         "dt_convergence_ratios": ratios,
         "dt_convergence_interpretation": (
             "Ratios near 1 indicate the 3-body residual is dominated by missing perturbations, "
@@ -207,9 +234,9 @@ def main() -> None:
     print(f"Saved: {json_path}")
     print(f"Saved: {csv_path}")
     print(f"no_daily_horizons_reset = {payload['no_daily_horizons_reset']}")
-    print(f"residual_3body_km = {payload['residual_3body_km']}")
-    print(f"residual_5body_km = {payload['residual_5body_km']}")
-    print(f"residual_full_planetary_km = {payload['residual_full_planetary_km']}")
+    print(f"residual_3body_km = {payload['models']['3body_sun_earth_moon']['residual_km']}")
+    print(f"residual_5body_km = {payload['models']['5body_sem_jupiter_venus']['residual_km']}")
+    print(f"residual_full_planetary_km = {payload['models']['full_planetary']['residual_km']}")
 
 
 if __name__ == "__main__":

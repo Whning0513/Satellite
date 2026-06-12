@@ -198,16 +198,35 @@ def check_m3_outputs():
         "not_independent_jpl_prediction must be true",
     )
     for key in [
-        "residual_3body_km",
-        "residual_5body_km",
-        "residual_full_planetary_km",
-        "ssb_absolute_residual_km",
-        "heliocentric_residual_km",
+        "models",
         "dt_convergence",
         "frame_definitions",
     ]:
         _check("m3_numerical_deep_audit.json", key in full, f"missing required key {key}")
-    dt_rows = full.get("dt_convergence", [])
+    models = full.get("models", {})
+    for model_key in ["3body_sun_earth_moon", "5body_sem_jupiter_venus", "full_planetary"]:
+        block = models.get(model_key)
+        _check("m3_numerical_deep_audit.json", isinstance(block, dict), f"missing model block {model_key}")
+        if isinstance(block, dict):
+            for key in ["frame", "residual_km", "heliocentric_residual_km"]:
+                _check("m3_numerical_deep_audit.json", key in block, f"{model_key} missing required key {key}")
+    _check(
+        "m3_numerical_deep_audit.json",
+        "ssb_residual_km" in models.get("3body_sun_earth_moon", {}),
+        "3body_sun_earth_moon missing ssb_residual_km",
+    )
+    _check(
+        "m3_numerical_deep_audit.json",
+        "heliocentric_residual_km" not in full and "ssb_absolute_residual_km" not in full,
+        "top-level unlabeled residual fields should not exist",
+    )
+    dt_obj = full.get("dt_convergence", {})
+    _check(
+        "m3_numerical_deep_audit.json",
+        isinstance(dt_obj, dict) and dt_obj.get("model") == "3body_or_missing_perturbation_test",
+        "dt_convergence.model must identify the 3-body test",
+    )
+    dt_rows = dt_obj.get("values", []) if isinstance(dt_obj, dict) else []
     _check(
         "m3_numerical_deep_audit.json",
         isinstance(dt_rows, list) and len(dt_rows) >= 3,
@@ -223,7 +242,7 @@ def check_m6_outputs():
 
     _check(
         "m6_numerical_deep_audit.json",
-        full.get("classification") in ("ACTUAL_RESULT", "FINITE_SEARCH_NEG"),
+        full.get("classification") in ("ACTUAL_RESULT", "ACTUAL_RESULT_M5_DERIVED_WINDOW", "FINITE_SEARCH_NEG"),
         f"unexpected classification {full.get('classification')!r}",
     )
     _check(
@@ -232,6 +251,15 @@ def check_m6_outputs():
         f"status should be PASS/WARN, got {full.get('status')!r}",
     )
     for key in [
+        "candidate_source",
+        "source_file",
+        "source_grid_reused",
+        "independent_m6_search",
+        "m6_interpretation",
+        "search_window_mjd",
+        "t0_values",
+        "rm_values_km",
+        "side_values",
         "search_space",
         "candidate_count",
         "legacy_candidate_count",
@@ -239,6 +267,7 @@ def check_m6_outputs():
         "best_near_miss",
         "event_semantics",
         "candidates",
+        "independent_spotcheck",
     ]:
         _check("m6_numerical_deep_audit.json", key in full, f"missing required key {key}")
 
@@ -251,16 +280,52 @@ def check_m6_outputs():
     if full.get("classification") == "FINITE_SEARCH_NEG":
         _check("m6_numerical_deep_audit.json", full.get("search_space") is not None, "FINITE_SEARCH_NEG missing search_space")
         _check("m6_numerical_deep_audit.json", full.get("best_near_miss") is not None, "FINITE_SEARCH_NEG missing best_near_miss")
+    if full.get("classification") == "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+        _check(
+            "m6_numerical_deep_audit.json",
+            full.get("candidate_source") == "m5_lunar_return_local_refine_grid",
+            f"expected candidate_source m5_lunar_return_local_refine_grid, got {full.get('candidate_source')!r}",
+        )
+        _check(
+            "m6_numerical_deep_audit.json",
+            full.get("source_grid_reused") is True and full.get("independent_m6_search") is False,
+            "M5-derived deep audit must declare reused source grid and non-independent search",
+        )
 
     search = _load("m6_complete_return_window_search.json")
     if search is None:
         ERRORS.append("[FAIL] m6_complete_return_window_search.json: required file not found")
         return
+    for key in [
+        "candidate_source",
+        "source_file",
+        "source_grid_reused",
+        "independent_m6_search",
+        "m6_interpretation",
+        "search_window_mjd",
+        "t0_values",
+        "rm_values_km",
+        "side_values",
+        "not_a_legacy_perihelion_vinf_search",
+    ]:
+        _check("m6_complete_return_window_search.json", key in search, f"missing required provenance key {key}")
     _check(
         "m6_complete_return_window_search.json",
         search.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is True,
         "missing return-event semantics guard",
     )
+    if search.get("source_grid_reused") is True:
+        _check(
+            "m6_complete_return_window_search.json",
+            search.get("classification") == "ACTUAL_RESULT_M5_DERIVED_WINDOW",
+            f"expected ACTUAL_RESULT_M5_DERIVED_WINDOW, got {search.get('classification')!r}",
+        )
+    spot = _load("m6_independent_spotcheck.json")
+    if spot is None:
+        ERRORS.append("[FAIL] m6_independent_spotcheck.json: required file not found")
+    else:
+        _check("m6_independent_spotcheck.json", spot.get("candidates_recomputed", 0) >= 2, "too few spotchecked candidates")
+        _check("m6_independent_spotcheck.json", spot.get("status") in ("PASS", "WARN"), f"unexpected status {spot.get('status')!r}")
     _check(
         "m6_complete_return_window_search.json",
         search.get("status") in ("valid_complete_return_found", "finite_search_negative"),

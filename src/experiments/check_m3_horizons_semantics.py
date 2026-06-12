@@ -35,23 +35,42 @@ def main() -> int:
     if data.get("not_independent_jpl_prediction") is not True:
         ERRORS.append("[FAIL] m3_numerical_deep_audit.json: not_independent_jpl_prediction must be true")
 
-    for key in ["residual_3body_km", "residual_5body_km", "residual_full_planetary_km", "ssb_absolute_residual_km", "heliocentric_residual_km"]:
-        if data.get(key) is None:
-            ERRORS.append(f"[FAIL] m3_numerical_deep_audit.json: missing {key}")
+    models = data.get("models")
+    if not isinstance(models, dict):
+        ERRORS.append("[FAIL] m3_numerical_deep_audit.json: models block missing")
+    else:
+        for model_key in ["3body_sun_earth_moon", "5body_sem_jupiter_venus", "full_planetary"]:
+            block = models.get(model_key)
+            if not isinstance(block, dict):
+                ERRORS.append(f"[FAIL] m3_numerical_deep_audit.json: missing model block {model_key}")
+                continue
+            for key in ["frame", "residual_km", "heliocentric_residual_km"]:
+                if block.get(key) is None:
+                    ERRORS.append(f"[FAIL] m3_numerical_deep_audit.json: model {model_key} missing {key}")
+        if models.get("3body_sun_earth_moon", {}).get("ssb_residual_km") is None:
+            ERRORS.append("[FAIL] m3_numerical_deep_audit.json: 3body_sun_earth_moon missing ssb_residual_km")
+    if "heliocentric_residual_km" in data or "ssb_absolute_residual_km" in data:
+        ERRORS.append("[FAIL] m3_numerical_deep_audit.json: top-level unlabeled residual fields must not be present")
 
     frames = data.get("frame_definitions", {})
-    if "ssb_absolute_residual_km" not in frames or "heliocentric_residual_km" not in frames:
+    if "ssb_residual_km" not in frames or "heliocentric_residual_km" not in frames:
         ERRORS.append("[FAIL] m3_numerical_deep_audit.json: missing frame definitions")
 
     dt_convergence = data.get("dt_convergence")
-    if not isinstance(dt_convergence, list) or len(dt_convergence) < 3:
-        ERRORS.append("[FAIL] m3_numerical_deep_audit.json: dt_convergence must contain at least 3 rows")
+    if not isinstance(dt_convergence, dict):
+        ERRORS.append("[FAIL] m3_numerical_deep_audit.json: dt_convergence must be an object")
     else:
+        if dt_convergence.get("model") != "3body_or_missing_perturbation_test":
+            ERRORS.append("[FAIL] m3_numerical_deep_audit.json: dt_convergence.model must identify the 3-body test")
+        values = dt_convergence.get("values")
+        if not isinstance(values, list) or len(values) < 3:
+            ERRORS.append("[FAIL] m3_numerical_deep_audit.json: dt_convergence.values must contain at least 3 rows")
+            values = []
         required_dts = {1800, 900, 450}
-        present = {int(row.get("dt_sec")) for row in dt_convergence if row.get("dt_sec") is not None}
+        present = {int(row.get("dt_sec")) for row in values if row.get("dt_sec") is not None}
         if not required_dts.issubset(present):
             ERRORS.append(f"[FAIL] m3_numerical_deep_audit.json: dt_convergence missing required dt values, got {sorted(present)}")
-        for row in dt_convergence:
+        for row in values:
             if row.get("residual_km") is None:
                 ERRORS.append("[FAIL] m3_numerical_deep_audit.json: dt_convergence row missing residual_km")
             if row.get("frame") is None:

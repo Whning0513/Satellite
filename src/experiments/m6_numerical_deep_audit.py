@@ -77,12 +77,15 @@ def _search_rows(search_json: dict) -> list[dict]:
 def main() -> None:
     legacy = _load("m6_lunar_return_event_audit.json")
     search = _load("m6_complete_return_window_search.json")
+    spotcheck = _load("m6_independent_spotcheck.json")
 
     red_flags: list[str] = []
     if legacy is None:
         red_flags.append("missing data/results/m6_lunar_return_event_audit.json")
     if search is None:
         red_flags.append("missing data/results/m6_complete_return_window_search.json")
+    if spotcheck is None:
+        red_flags.append("missing data/results/m6_independent_spotcheck.json")
 
     rows: list[dict] = []
     if legacy is not None:
@@ -111,7 +114,7 @@ def main() -> None:
         if row.get("return_vinf_kms") is None:
             red_flags.append(f"ACTUAL_RESULT candidate {row['candidate_id']} missing return_vinf_kms")
 
-    classification = "ACTUAL_RESULT" if actual_rows else "FINITE_SEARCH_NEG"
+    classification = search.get("classification") if search else ("FINITE_SEARCH_NEG" if not actual_rows else "ACTUAL_RESULT")
     if classification == "FINITE_SEARCH_NEG" and search is not None:
         if search.get("search_space") is None:
             red_flags.append("FINITE_SEARCH_NEG missing search_space")
@@ -126,9 +129,19 @@ def main() -> None:
         "task": "M6 numerical deep audit",
         "classification": classification,
         "status": status,
+        "source_file": "data/results/m6_complete_return_window_search.json",
+        "candidate_source": search.get("candidate_source") if search else None,
+        "source_grid_reused": search.get("source_grid_reused") if search else None,
+        "independent_m6_search": search.get("independent_m6_search") if search else None,
+        "m6_interpretation": search.get("m6_interpretation") if search else None,
         "legacy_source_file": "data/results/m6_lunar_return_event_audit.json",
         "complete_return_search_source_file": "data/results/m6_complete_return_window_search.json",
+        "spotcheck_source_file": "data/results/m6_independent_spotcheck.json",
         "search_space": search.get("search_space") if search else None,
+        "search_window_mjd": search.get("search_window_mjd") if search else None,
+        "t0_values": search.get("t0_values") if search else None,
+        "rm_values_km": search.get("rm_values_km") if search else None,
+        "side_values": search.get("side_values") if search else None,
         "candidate_count": len(rows),
         "legacy_candidate_count": len(legacy_rows),
         "complete_search_candidate_count": len(search.get("candidates", [])) if search else 0,
@@ -148,6 +161,8 @@ def main() -> None:
             if search
             else None,
         },
+        "not_a_legacy_perihelion_vinf_search": search.get("not_a_legacy_perihelion_vinf_search") if search else None,
+        "independent_spotcheck": spotcheck,
         "red_flags": red_flags,
         "candidates": rows,
     }

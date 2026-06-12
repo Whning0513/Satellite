@@ -39,6 +39,7 @@ REQUIRED_SOURCE_FILES = [
     "src/experiments/m5_saving_ratio_resolver.py",
     "src/experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py",
     "src/experiments/m6_complete_return_window_search.py",
+    "src/experiments/m6_independent_spotcheck.py",
     "src/experiments/m6_numerical_deep_audit.py",
     "src/experiments/m7_extended_monte_carlo.py",
 ]
@@ -47,6 +48,7 @@ REQUIRED_RESULT_FILES = [
     "data/results/m3_numerical_deep_audit.json",
     "data/results/m5_t61037_lunar_vs_no_lunar_deep_compare.json",
     "data/results/m5_saving_ratio_resolved.json",
+    "data/results/m6_independent_spotcheck.json",
     "data/results/m6_numerical_deep_audit.json",
     "data/results/m7_extended_monte_carlo.json",
 ]
@@ -62,6 +64,7 @@ REQUIRED_TARGETS = [
     "m5-t61037-deep-compare",
     "m5-same-window-pareto",
     "m6-complete-window-search",
+    "m6-independent-spotcheck",
     "m6-deep-audit",
     "check-m6-return-semantics",
     "m3-deep-audit",

@@ -24,6 +24,7 @@ REQUIRED_TARGETS = {
     "m5-t61037-deep-compare": True,
     "m5-same-window-pareto": True,
     "m6-complete-window-search": True,
+    "m6-independent-spotcheck": True,
     "m6-deep-audit": True,
     "check-m6-return-semantics": True,
     "m3-deep-audit": True,

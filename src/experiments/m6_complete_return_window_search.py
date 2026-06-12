@@ -148,13 +148,35 @@ def _search_output(results: list[dict], search_space: dict, source_note: str) ->
         ),
     ) if near_misses else None
 
-    classification = "ACTUAL_RESULT" if best_valid is not None else "FINITE_SEARCH_NEG"
+    source_grid_reused = bool(search_space.get("source") == "reused_verified_m5_local_refine_window")
+    classification = "ACTUAL_RESULT_M5_DERIVED_WINDOW" if best_valid is not None and source_grid_reused else (
+        "ACTUAL_RESULT" if best_valid is not None else "FINITE_SEARCH_NEG"
+    )
     status = "valid_complete_return_found" if best_valid is not None else "finite_search_negative"
     return {
         "task": "M6 complete-return window search",
         "classification": classification,
         "status": status,
         "budget_basis": "vinf_basis",
+        "candidate_source": (
+            "m5_lunar_return_local_refine_grid" if source_grid_reused else "m6_complete_return_window_search"
+        ),
+        "source_file": (
+            "data/results/m5_lunar_return_local_refine.json"
+            if source_grid_reused
+            else "data/results/m6_complete_return_window_search.json"
+        ),
+        "source_grid_reused": source_grid_reused,
+        "independent_m6_search": not source_grid_reused,
+        "m6_interpretation": (
+            "launch-window extraction from complete-return lunar grid"
+            if source_grid_reused
+            else "independent complete-return launch-window search"
+        ),
+        "search_window_mjd": [min(t0_values), max(t0_values)] if t0_values else None,
+        "t0_values": t0_values,
+        "rm_values_km": sorted({float(row["r_m_km"]) for row in results}) if results else [],
+        "side_values": sorted({row["side"] for row in results}) if results else [],
         "search_space": search_space,
         "total_candidates_evaluated": len(results),
         "valid_complete_return_count": len(valid_returns),
@@ -173,6 +195,8 @@ def _search_output(results: list[dict], search_space: dict, source_note: str) ->
             "return_vinf_defined_only_at_earth_return": True,
             "earth_return_threshold_km": RETURN_EVENT_THRESHOLD_KM,
         },
+        "event_semantics_label": "Earth-return event required",
+        "not_a_legacy_perihelion_vinf_search": True,
         "source_note": source_note,
         "candidates": results,
     }

@@ -131,6 +131,8 @@ def check(fp):
     if n == "m6_complete_return_window_search.json":
         if d.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is not True:
             ERRORS.append(f"[FAIL] {n}: missing event semantics guard")
+        if d.get("source_grid_reused") is True and d.get("classification") != "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+            ERRORS.append(f"[FAIL] {n}: reused source grid must classify as ACTUAL_RESULT_M5_DERIVED_WINDOW")
         for c in d.get("candidates", []):
             valid = c.get("valid_return_event")
             ret = c.get("return_vinf_kms")
@@ -149,6 +151,8 @@ def check(fp):
     if n == "m6_numerical_deep_audit.json":
         if d.get("status") == "RED":
             ERRORS.append(f"[FAIL] {n}: status is RED")
+        if d.get("source_grid_reused") is True and d.get("classification") != "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+            ERRORS.append(f"[FAIL] {n}: M5-derived window identity not preserved")
         if d.get("classification") == "FINITE_SEARCH_NEG":
             if d.get("search_space") is None:
                 ERRORS.append(f"[FAIL] {n}: FINITE_SEARCH_NEG missing search_space")
@@ -168,6 +172,8 @@ def check(fp):
             ERRORS.append(f"[FAIL] {n}: must not claim independent JPL validation")
         if d.get("classification") != "SAME_SOURCE_PROPAGATION_CHECK":
             ERRORS.append(f"[FAIL] {n}: classification must be SAME_SOURCE_PROPAGATION_CHECK")
+        if "heliocentric_residual_km" in d or "ssb_absolute_residual_km" in d:
+            ERRORS.append(f"[FAIL] {n}: top-level unlabeled residual fields must not be present")
 
 resolved = RESULTS / "m5_saving_ratio_resolved.json"
 compare = RESULTS / "m5_t61037_lunar_vs_no_lunar_deep_compare.json"

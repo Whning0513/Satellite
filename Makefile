@@ -166,6 +166,10 @@ m6-deep-audit:
 	@echo "=== M6 numerical deep audit ==="
 	cd src && $(PYTHON) experiments/m6_numerical_deep_audit.py
 
+m6-independent-spotcheck:
+	@echo "=== M6 independent spotcheck ==="
+	cd src && $(PYTHON) experiments/m6_independent_spotcheck.py
+
 check-m6-return-semantics:
 	@echo "=== Check M6 return-event semantics ==="
 	cd src && $(PYTHON) experiments/check_m6_return_semantics.py

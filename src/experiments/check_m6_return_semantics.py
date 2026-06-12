@@ -24,6 +24,27 @@ def check_search(search: dict) -> None:
     threshold = float(search.get("search_space", {}).get("earth_return_threshold_km", 1.5e6))
     if search.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is not True:
         ERRORS.append(f"[FAIL] {name}: missing return-event semantics guard")
+    for key in [
+        "candidate_source",
+        "source_file",
+        "source_grid_reused",
+        "independent_m6_search",
+        "m6_interpretation",
+        "search_window_mjd",
+        "t0_values",
+        "rm_values_km",
+        "side_values",
+        "not_a_legacy_perihelion_vinf_search",
+    ]:
+        if key not in search:
+            ERRORS.append(f"[FAIL] {name}: missing provenance key {key}")
+    if search.get("source_grid_reused") is True:
+        if search.get("independent_m6_search") is not False:
+            ERRORS.append(f"[FAIL] {name}: reused source grid must set independent_m6_search=false")
+        if search.get("classification") != "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+            ERRORS.append(
+                f"[FAIL] {name}: reused source grid must classify as ACTUAL_RESULT_M5_DERIVED_WINDOW, got {search.get('classification')!r}"
+            )
 
     for row in search.get("candidates", []):
         valid = bool(row.get("valid_return_event"))
@@ -71,6 +92,20 @@ def check_deep_audit(audit: dict) -> None:
             ERRORS.append(f"[FAIL] {name}: ACTUAL_RESULT missing best_valid_candidate")
         elif best.get("valid_return_event") is not True:
             ERRORS.append(f"[FAIL] {name}: best_valid_candidate missing valid_return_event")
+    if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+        if audit.get("source_grid_reused") is not True:
+            ERRORS.append(f"[FAIL] {name}: M5-derived window classification requires source_grid_reused=true")
+        if audit.get("independent_m6_search") is not False:
+            ERRORS.append(f"[FAIL] {name}: M5-derived window classification requires independent_m6_search=false")
+
+    spot = audit.get("independent_spotcheck")
+    if not isinstance(spot, dict):
+        ERRORS.append(f"[FAIL] {name}: missing independent_spotcheck payload")
+    else:
+        if spot.get("status") == "RED":
+            ERRORS.append(f"[FAIL] {name}: independent spotcheck status is RED")
+        if spot.get("candidates_recomputed", 0) < 2:
+            ERRORS.append(f"[FAIL] {name}: independent spotcheck recomputed too few candidates")
 
     for row in audit.get("candidates", []):
         cid = row.get("candidate_id")

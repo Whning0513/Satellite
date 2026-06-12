@@ -269,7 +269,7 @@ def audit_m3() -> list[AuditRecord]:
             notes="Deep audit confirms no daily Horizons reset.",
         )
     )
-    dt_rows = deep.get("dt_convergence", [])
+    dt_rows = deep.get("dt_convergence", {}).get("values", [])
     ratios = [float(r) for r in deep.get("dt_convergence_ratios", [])]
     stable = bool(ratios) and all(0.8 <= r <= 1.25 for r in ratios)
     entries.append(
@@ -483,6 +483,7 @@ def audit_m6() -> list[AuditRecord]:
     valid_count = int(search.get("valid_complete_return_count", 0) or 0)
     fair_count = int(search.get("valid_fair_return_count", 0) or 0)
     classification = str(deep.get("classification"))
+    spot = deep.get("independent_spotcheck") or {}
     entries.append(
         _entry(
             module="M6",
@@ -494,9 +495,12 @@ def audit_m6() -> list[AuditRecord]:
             frame="complete-return launch-window search",
             event="full search coverage",
             status="PASS",
-            classification=classification,
+            classification="PASS_M5_DERIVED_WINDOW_CONFIRMED" if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW" else classification,
             action="keep",
-            notes=f"valid_complete_return_count={valid_count}, valid_fair_return_count={fair_count}",
+            notes=(
+                f"valid_complete_return_count={valid_count}, valid_fair_return_count={fair_count}, "
+                f"candidate_source={deep.get('candidate_source')}, source_grid_reused={deep.get('source_grid_reused')}"
+            ),
         )
     )
 
@@ -537,12 +541,16 @@ def audit_m6() -> list[AuditRecord]:
             frame="deep-audit classification",
             event="m6_numerical_deep_audit",
             status="PASS",
-            classification=classification,
+            classification="PASS_WITH_PROVENANCE" if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW" else classification,
             action="keep",
             notes=(
                 "Finite-search negative is allowed only with explicit coverage and best near miss."
                 if classification == "FINITE_SEARCH_NEG"
-                else "Actual result retained because at least one valid complete-return candidate exists."
+                else (
+                    f"M5-derived launch-window extraction confirmed by independent spotcheck status={spot.get('status')}"
+                    if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW"
+                    else "Actual result retained because at least one valid complete-return candidate exists."
+                )
             ),
         )
     )
