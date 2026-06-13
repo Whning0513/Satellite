@@ -33,6 +33,7 @@ from nbody import (
     propagate_nbody, nbody_accelerations,
     compute_conserved_quantities,
 )
+from mission_constraints import EPHEMERIS_START_DATE, EPHEMERIS_STOP_DATE
 
 # =========================
 # 1. 配置
@@ -49,14 +50,14 @@ BODY_IDS = {
 CENTER = "500@0"
 
 # 默认查询窗口
-START_TIME = "2026-01-01"
-STOP_TIME = "2027-01-01"
+START_TIME = EPHEMERIS_START_DATE
+STOP_TIME = EPHEMERIS_STOP_DATE
 STEP_SIZE = "1d"
 
 # 数据缓存
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = REPO_ROOT / "data"
-CACHE_FILE = DATA_DIR / "sem_horizons_2026.json"
+CACHE_FILE = DATA_DIR / f"sem_horizons_{START_TIME[:4]}-{STOP_TIME[:4]}.json"
 
 # =========================
 # 2. Horizons 数据获取

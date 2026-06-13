@@ -20,7 +20,7 @@ SRC = REPO / "src"
 RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
-from experiments.m7_extended_monte_carlo import _build_samples, _run_pool
+from experiments.m7_extended_monte_carlo import _build_samples, _load_reference_candidate, _run_pool
 
 
 def _load_full() -> dict[str, Any]:
@@ -49,11 +49,13 @@ def main() -> int:
     n = int(full["n"])
     seed = int(full["seed"])
     nominal_return_mjd = float(full["reference_candidate"]["nominal_return_mjd"])
+    reference_candidate = _load_reference_candidate()
     samples = _build_samples(
         n=n,
         seed=seed,
         nominal_return_mjd=nominal_return_mjd,
         max_runtime_per_sample_sec=120.0,
+        reference_candidate=reference_candidate,
     )
     results = _run_pool(samples, max_workers=1, max_runtime_sec=1800.0)
 

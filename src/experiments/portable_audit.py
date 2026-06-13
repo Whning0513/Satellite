@@ -14,6 +14,8 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from mission_constraints import MISSION_LAUNCH_START_MJD, MISSION_LAUNCH_END_MJD
 
 REPO = Path(__file__).resolve().parents[2]
 RESULTS = REPO / "data" / "results"
@@ -138,13 +140,15 @@ def check_results_exist() -> None:
 def check_m5_positive_ratio() -> None:
     print("\n--- M5 resolved ratio ---")
     resolved_path = RESULTS / "m5_saving_ratio_resolved.json"
-    compare_path = RESULTS / "m5_t61037_lunar_vs_no_lunar_deep_compare.json"
+    compare_path = RESULTS / "m5_fixed_date_current_compare.json"
+    lunar_path = RESULTS / "m5_best_lunar_candidate_verify.json"
     if not resolved_path.exists() or not compare_path.exists():
         FAILURES.append("M5 resolved/compare JSON missing")
         return
 
     resolved = load_json(resolved_path)
     compare = load_json(compare_path)
+    lunar = load_json(lunar_path) if lunar_path.exists() else {}
 
     status = resolved.get("status")
     ratio = resolved.get("formal_fixed_date_ratio")
@@ -158,6 +162,9 @@ def check_m5_positive_ratio() -> None:
     compare_same_t0 = compare.get("same_t0")
     compare_same_budget = compare.get("same_budget_basis")
     compare_budget_basis = compare.get("budget_basis")
+    lunar_t0 = lunar.get("candidate", {}).get("t0_mjd")
+    lunar_launch_ok = lunar.get("candidate", {}).get("launch_window_valid")
+    lunar_event_ok = lunar.get("event_check", {}).get("valid_return_event")
 
     print(f"  status = {status}")
     print(f"  formal_fixed_date_ratio = {ratio}")
@@ -169,28 +176,50 @@ def check_m5_positive_ratio() -> None:
     print(f"  no_lunar_valid_return_event = {no_lunar_ok}")
     print(f"  classification = {classification}")
 
-    if status != "formal_fixed_date_positive_ratio":
+    compare_in_window = (
+        compare_same_t0 is not None
+        and MISSION_LAUNCH_START_MJD <= float(compare_same_t0) <= MISSION_LAUNCH_END_MJD
+    )
+    resolved_in_window = (
+        same_t0_mjd is not None
+        and MISSION_LAUNCH_START_MJD <= float(same_t0_mjd) <= MISSION_LAUNCH_END_MJD
+    )
+
+    if not compare_in_window:
+        FAILURES.append("current M5 compare JSON is outside the formal 2026 launch window")
+        return
+
+    if status == "historical_anchor_invalidated":
+        if ratio is not None:
+            FAILURES.append("historical invalidated resolver must not expose a formal_fixed_date_ratio")
+    elif status == "formal_fixed_date_positive_ratio":
+        if not resolved_in_window:
+            FAILURES.append("formal_fixed_date_positive_ratio resolver is outside the formal 2026 launch window")
+        if ratio is None or ratio <= 0:
+            FAILURES.append(f"unexpected M5 formal ratio: {ratio}")
+    else:
         FAILURES.append(f"unexpected M5 resolved status: {status}")
-    if ratio is None or abs(ratio - 0.557881) > 1e-6:
-        FAILURES.append(f"unexpected M5 formal ratio: {ratio}")
-    if compare_ratio is None or abs(compare_ratio - 0.557881) > 1e-6:
+
+    if ratio is not None and ratio <= 0:
+        FAILURES.append(f"unexpected non-positive M5 formal ratio: {ratio}")
+    if compare_ratio is None or compare_ratio <= 0:
         FAILURES.append(f"unexpected compare ratio: {compare_ratio}")
-    if same_t0_mjd != 61037.0 or compare_same_t0 != 61037:
-        FAILURES.append(
-            f"unexpected same_t0 values: resolved={same_t0_mjd}, compare={compare_same_t0}"
-        )
-    if same_budget_basis is not True or compare_same_budget is not True:
-        FAILURES.append(
-            "same_budget_basis must be true in both compare and resolved JSON"
-        )
-    if ratio_basis != "vinf_basis":
-        FAILURES.append(f"unexpected ratio basis: {ratio_basis}")
+    if compare_same_budget is not True:
+        FAILURES.append("same_budget_basis must be true in current compare JSON")
+    if status == "formal_fixed_date_positive_ratio" and same_budget_basis is not True:
+        FAILURES.append("same_budget_basis must be true in resolved JSON when it exposes a formal ratio")
     if compare_budget_basis != "vinf_basis":
         FAILURES.append(f"unexpected compare budget basis: {compare_budget_basis}")
-    if lunar_ok is not True or no_lunar_ok is not True:
-        FAILURES.append("M5 resolved JSON does not confirm both valid return events")
-    if classification != "ACTUAL_RESULT":
-        FAILURES.append(f"unexpected M5 classification: {classification}")
+    if status == "formal_fixed_date_positive_ratio" and ratio_basis != "vinf_basis":
+        FAILURES.append(f"unexpected ratio basis: {ratio_basis}")
+    if compare.get("lunar_valid") is not True or compare.get("no_lunar_valid") is not True:
+        FAILURES.append("current M5 compare JSON does not confirm both valid return events")
+    if lunar_launch_ok is not True or lunar_event_ok is not True:
+        FAILURES.append("current M5 lunar best candidate is not a valid in-window Earth-return event")
+    if lunar_t0 != compare_same_t0:
+        FAILURES.append(f"M5 compare/lunar t0 mismatch: compare={compare_same_t0}, lunar={lunar_t0}")
+    if classification not in ("ACTUAL_RESULT", "UNRESOLVED"):
+        FAILURES.append(f"unexpected M5 resolved classification: {classification}")
 
 
 def check_invalidated_values() -> None:

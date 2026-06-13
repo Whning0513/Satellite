@@ -27,12 +27,11 @@ from units import km_to_au, day_to_sec, sec_to_day
 from trajectory import DesignParams, solve_trajectory, interpolate_state_at_mjd
 from nbody import propagate_nbody
 from event_semantics import compute_earth_return_vinf, classify_event
-from lambert import solve_lambert_universal, orbital_elements_from_state
-from patched_conic import compute_patched_conic
 from horizons import fetch_sem_vectors
+from mission_constraints import MISSION_LAUNCH_START_MJD, MISSION_LAUNCH_END_MJD
+from experiments.return_search_tools import search_best_return_event
 
 V_RET_MAX = 15.0
-V_DEP_MAX = 20.0
 PERI_TARGET_AU = 0.3
 PERI_TOL = 0.03
 EARTH_RETURN_THRESHOLD_KM = 1.5e6
@@ -155,9 +154,9 @@ def main():
     mjd_end = jd_arr[-1] - 2400000.5
 
     # ── Grid ──
-    t0_list = [61041.0, 61061.0, 61066.0, 61081.0, 61125.0]
+    t0_list = [61041.0, 61061.0, 61065.0, 61066.0, 61081.0, 61125.0]
     side_list = ["trailing", "leading"]
-    r_m_list = [R_MOON + 500.0, R_MOON + 5000.0]
+    r_m_list = [R_MOON + d for d in [100.0, 300.0, 500.0, 1000.0, 2000.0, 5000.0]]
 
     print(f"  t0: {len(t0_list)}")
     print(f"  sides: {len(side_list)}")
@@ -181,33 +180,31 @@ def main():
                 except Exception:
                     continue
 
-                # ── Phase 2: Full-period propagation to Earth return ──
-                t_end_s5 = t0 + traj.t_total_days
-                r_sun_e, v_sun_e = interpolate_state_at_mjd(body_data, "Sun", t_end_s5)
-                r_moon_e, v_moon_e = interpolate_state_at_mjd(body_data, "Moon", t_end_s5)
-
-                # Initial state for extended propagation
-                r_state = [r_sun_e.copy(), traj.r_earth_final.copy(),
-                           r_moon_e.copy(), traj.r_final.copy()]
-                v_state = [v_sun_e.copy(), traj.v_earth_final.copy(),
-                           v_moon_e.copy(), traj.v_final.copy()]
-                gm4 = [GM_SUN, GM_EARTH, GM_MOON, 0.0]
-
-                return_info = propagate_to_earth_return(
-                    r_state, v_state, t_end_s5, body_data, gm4,
-                    max_extra_days=min(600, int(mjd_end - t_end_s5)),
-                    dt_s=3600.0)
+                nominal_return_mjd = t0 + traj.t_total_days + 260.0
+                event = search_best_return_event(
+                    traj=traj,
+                    body_data=body_data,
+                    launch_mjd=t0,
+                    nominal_return_mjd=nominal_return_mjd,
+                    threshold_km=EARTH_RETURN_THRESHOLD_KM,
+                    nominal_window_half_width_days=150.0,
+                    fallback_window_half_width_days=320.0,
+                    coarse_step_days=0.5,
+                    coarse_dt_internal_s=3600.0,
+                    refine_step_s=600.0,
+                    max_extra_days=500.0,
+                )
 
                 # ── Compute perihelion ──
-                peri_au = return_info["min_sun_dist_AU"]
+                peri_au = round(km_to_au(traj.r_p_achieved_km), 6)
                 peri_err = abs(peri_au - PERI_TARGET_AU)
 
                 # ── Departure v_inf ──
                 dep_vinf = traj.v_inf_earth
 
                 # ── Compute total proxy (if valid return) ──
-                if return_info["valid_earth_return"]:
-                    ret_vinf = return_info["return_vinf_kms"]
+                if event["valid_return_event"]:
+                    ret_vinf = event["return_vinf_kms"]
                     total_dv = dep_vinf + max(0, ret_vinf - V_RET_MAX)
                     fair = bool(peri_err <= PERI_TOL and ret_vinf <= V_RET_MAX)
                 else:
@@ -222,11 +219,11 @@ def main():
                     "dep_vinf_kms": round(dep_vinf, 4),
                     "perihelion_AU": round(peri_au, 6),
                     "peri_err_AU": round(peri_err, 6),
-                    "valid_earth_return": return_info["valid_earth_return"],
-                    "closest_earth_km": return_info["closest_dist_km"],
-                    "closest_earth_AU": return_info["closest_dist_AU"],
-                    "closest_mjd": return_info["closest_mjd"],
-                    "total_flight_days": return_info["total_days_from_launch"],
+                    "valid_earth_return": event["valid_return_event"],
+                    "closest_earth_km": event["event_distance_km"],
+                    "closest_earth_AU": round(event["event_distance_km"] / AU_KM, 6),
+                    "closest_mjd": event["return_event_mjd"],
+                    "total_flight_days": round(event["return_event_mjd"] - t0, 1),
                     "return_vinf_kms": ret_vinf,
                     "total_dv_proxy_kms": total_dv,
                     "fair": fair,
@@ -281,12 +278,15 @@ def main():
 
     out = {
         "task": "M5 complete lunar return search",
-        "classification": "ACTUAL_RESULT",
+        "classification": "ACTUAL_RESULT" if fair_complete else "FINITE_SEARCH_NEG",
         "search_space": {
             "t0_range": [t0_list[0], t0_list[-1]],
             "sides": side_list,
             "r_m_km_range": [r_m_list[0], r_m_list[-1]],
             "max_total_days": MAX_TOTAL_DAYS,
+            "earth_return_threshold_km": EARTH_RETURN_THRESHOLD_KM,
+            "perihelion_target_AU": PERI_TARGET_AU,
+            "perihelion_tolerance_AU": PERI_TOL,
         },
         "num_candidates": len(results),
         "num_earth_return": n_return,

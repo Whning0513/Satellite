@@ -5,9 +5,16 @@ _REPO = Path(__file__).resolve().parents[2]
 RESULTS = _REPO / "data" / "results"
 ERRORS = []
 
+sys.path.insert(0, str(_REPO / "src"))
+from mission_constraints import MISSION_LAUNCH_START_MJD, MISSION_LAUNCH_END_MJD
+
 
 def _near(value, target, tol):
     return value is not None and abs(value - target) <= tol
+
+
+def _in_launch_window(value):
+    return value is not None and MISSION_LAUNCH_START_MJD <= float(value) <= MISSION_LAUNCH_END_MJD
 
 def check(fp):
     if not fp.exists(): return
@@ -16,7 +23,7 @@ def check(fp):
 
     if n == "m5_saving_ratio_resolved.json":
         status = d.get("status", "")
-        # Accept either positive ratio or documented null
+        # Accept either current legal positive ratio or documented historical null.
         if status == "formal_fixed_date_positive_ratio":
             # Check that ratio is actually present and positive
             ratio = d.get("formal_fixed_date_ratio")
@@ -26,10 +33,10 @@ def check(fp):
                 ERRORS.append(f"[FAIL] {n}: status=positive_ratio but ratio={ratio} < 0")
             elif _near(ratio, -1.873262, 1e-6):
                 ERRORS.append(f"[FAIL] {n}: ratio={ratio} matches old invalid -1.873")
-            elif not _near(ratio, 0.557881, 1e-6):
-                ERRORS.append(f"[FAIL] {n}: positive ratio expected 0.557881, got {ratio}")
-            if d.get("same_t0_mjd") != 61037.0:
-                ERRORS.append(f"[FAIL] {n}: same_t0_mjd must be 61037.0")
+            if not _in_launch_window(d.get("same_t0_mjd")):
+                ERRORS.append(
+                    f"[FAIL] {n}: same_t0_mjd={d.get('same_t0_mjd')} is outside formal 2026 launch window"
+                )
             if d.get("same_budget_basis") is not True:
                 ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
             if d.get("ratio_basis") != "vinf_basis":
@@ -44,37 +51,62 @@ def check(fp):
             # Legacy/fallback: ratio must be None
             if d.get("formal_fixed_date_ratio") is not None:
                 ERRORS.append(f"[FAIL] {n}: status=missing but ratio is not None")
+        elif status == "historical_anchor_invalidated":
+            if d.get("formal_fixed_date_ratio") is not None:
+                ERRORS.append(f"[FAIL] {n}: status=historical_anchor_invalidated but ratio is not None")
         else:
             ERRORS.append(f"[FAIL] {n}: unknown status '{status}'")
 
     if n == "m5_t61037_lunar_vs_no_lunar_deep_compare.json":
         ratio = d.get("formal_ratio_vinf_basis")
-        if ratio is None:
-            ERRORS.append(f"[FAIL] {n}: compare JSON missing formal_ratio_vinf_basis")
-        elif not _near(ratio, 0.557881, 1e-6):
-            ERRORS.append(f"[FAIL] {n}: compare ratio expected 0.557881, got {ratio}")
-        if d.get("same_t0") != 61037:
-            ERRORS.append(f"[FAIL] {n}: same_t0 must be 61037")
+        if ratio is not None and not _in_launch_window(d.get("same_t0")):
+            ERRORS.append(
+                f"[FAIL] {n}: formal ratio uses same_t0={d.get('same_t0')} outside formal 2026 launch window"
+            )
         if d.get("same_budget_basis") is not True:
             ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
         if d.get("budget_basis") != "vinf_basis":
             ERRORS.append(f"[FAIL] {n}: budget_basis must be vinf_basis")
-        if d.get("lunar_valid") is not True:
+        if ratio is not None and d.get("lunar_valid") is not True:
             ERRORS.append(f"[FAIL] {n}: lunar_valid must be true")
-        if d.get("no_lunar_valid") is not True:
+        if ratio is not None and d.get("no_lunar_valid") is not True:
             ERRORS.append(f"[FAIL] {n}: no_lunar_valid must be true")
 
+    if n == "m5_fixed_date_current_compare.json":
+        ratio = d.get("formal_ratio_vinf_basis")
+        if ratio is None:
+            ERRORS.append(f"[FAIL] {n}: missing formal_ratio_vinf_basis")
+        elif ratio <= 0:
+            ERRORS.append(f"[FAIL] {n}: formal_ratio_vinf_basis must be positive, got {ratio}")
+        if not _in_launch_window(d.get("same_t0")):
+            ERRORS.append(f"[FAIL] {n}: same_t0={d.get('same_t0')} outside formal 2026 launch window")
+        if d.get("launch_window_valid") is not True:
+            ERRORS.append(f"[FAIL] {n}: launch_window_valid must be true")
+        if d.get("same_budget_basis") is not True:
+            ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
+        if d.get("budget_basis") != "vinf_basis":
+            ERRORS.append(f"[FAIL] {n}: budget_basis must be vinf_basis")
+        if d.get("lunar_valid") is not True or d.get("no_lunar_valid") is not True:
+            ERRORS.append(f"[FAIL] {n}: both lunar_valid and no_lunar_valid must be true")
+        if d.get("classification") != "ACTUAL_RESULT":
+            ERRORS.append(f"[FAIL] {n}: classification must be ACTUAL_RESULT")
+
     if n == "m5_best_lunar_candidate_verify.json":
+        candidate = d.get("candidate", {})
         event_check = d.get("event_check", {})
         state = d.get("state_at_return", {})
         budget = d.get("budget", {})
-        if event_check.get("valid_return_event") is not True:
+        if not _in_launch_window(candidate.get("t0_mjd")):
+            ERRORS.append(
+                f"[FAIL] {n}: candidate t0_mjd={candidate.get('t0_mjd')} is outside formal 2026 launch window"
+            )
+        if d.get("classification") == "ACTUAL_RESULT" and event_check.get("valid_return_event") is not True:
             ERRORS.append(f"[FAIL] {n}: valid_return_event must be true")
-        if event_check.get("event_type") != "earth_return":
+        if d.get("classification") == "ACTUAL_RESULT" and event_check.get("event_type") != "earth_return":
             ERRORS.append(f"[FAIL] {n}: event_type must be earth_return")
-        if state.get("return_vinf_kms") is None:
+        if d.get("classification") == "ACTUAL_RESULT" and state.get("return_vinf_kms") is None:
             ERRORS.append(f"[FAIL] {n}: return_vinf_kms missing at Earth-return event")
-        if budget.get("return_vinf_kms") is None:
+        if d.get("classification") == "ACTUAL_RESULT" and budget.get("return_vinf_kms") is None:
             ERRORS.append(f"[FAIL] {n}: budget.return_vinf_kms missing at Earth-return event")
         if _near(state.get("return_vinf_kms"), 77.88, 0.1) or _near(budget.get("return_vinf_kms"), 77.88, 0.1):
             ERRORS.append(f"[FAIL] {n}: old invalid 77.88 km/s return_vinf leaked into formal Earth-return result")
@@ -104,13 +136,11 @@ def check(fp):
 
     if n == "m5_no_lunar_t61037_deep_search.json":
         best = d.get("best_valid")
-        if d.get("classification") != "ACTUAL_RESULT":
+        if best is not None and _in_launch_window(d.get("t0_mjd")) and d.get("classification") != "ACTUAL_RESULT":
             ERRORS.append(f"[FAIL] {n}: classification must be ACTUAL_RESULT")
-        if d.get("status") != "valid_found":
+        if best is not None and _in_launch_window(d.get("t0_mjd")) and d.get("status") != "valid_found":
             ERRORS.append(f"[FAIL] {n}: status must be valid_found")
-        if not best:
-            ERRORS.append(f"[FAIL] {n}: best_valid missing")
-        elif _near(best.get("total_dv_proxy_kms"), 73.0, 0.2):
+        if best is not None and _near(best.get("total_dv_proxy_kms"), 73.0, 0.2):
             ERRORS.append(f"[FAIL] {n}: old invalid total ~73 km/s leaked into no-lunar result")
 
     if n == "m5_lunar_return_completion.json":

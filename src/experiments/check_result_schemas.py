@@ -10,6 +10,8 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
 RESULTS = _REPO / "data" / "results"
+sys.path.insert(0, str(_REPO / "src"))
+from mission_constraints import MISSION_LAUNCH_START_MJD, MISSION_LAUNCH_END_MJD
 
 ERRORS = []
 WARNINGS = []
@@ -150,6 +152,19 @@ def check_m7_outputs():
         full.get("old_invalid_return_vinf_guard") is True,
         "old_invalid_return_vinf_guard must be true",
     )
+    ref = full.get("reference_candidate", {})
+    ref_t0 = ref.get("t0_mjd")
+    _check(
+        "m7_extended_monte_carlo.json",
+        ref_t0 is not None,
+        "missing reference_candidate.t0_mjd",
+    )
+    if ref_t0 is not None:
+        _check(
+            "m7_extended_monte_carlo.json",
+            MISSION_LAUNCH_START_MJD <= float(ref_t0) <= MISSION_LAUNCH_END_MJD,
+            f"reference_candidate.t0_mjd={ref_t0} outside formal 2026 launch window",
+        )
     _check(
         "m7_extended_monte_carlo.json",
         full.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is True,
@@ -333,6 +348,75 @@ def check_m6_outputs():
     )
 
 
+def check_m5_outputs():
+    verify = _load("m5_best_lunar_candidate_verify.json")
+    compare = _load("m5_fixed_date_current_compare.json")
+    no_lunar = _load("m5_no_lunar_fixed_date_deep_search.json")
+    if verify is None or compare is None or no_lunar is None:
+        return
+
+    candidate = verify.get("candidate", {})
+    t0 = candidate.get("t0_mjd")
+    _check(
+        "m5_best_lunar_candidate_verify.json",
+        candidate.get("launch_window_valid") is True,
+        "candidate.launch_window_valid must be true",
+    )
+    _check(
+        "m5_best_lunar_candidate_verify.json",
+        t0 is not None and MISSION_LAUNCH_START_MJD <= float(t0) <= MISSION_LAUNCH_END_MJD,
+        f"candidate.t0_mjd={t0} outside formal 2026 launch window",
+    )
+    _check(
+        "m5_best_lunar_candidate_verify.json",
+        verify.get("event_check", {}).get("valid_return_event") is True,
+        "event_check.valid_return_event must be true",
+    )
+    _check(
+        "m5_best_lunar_candidate_verify.json",
+        verify.get("classification") == "ACTUAL_RESULT",
+        f"expected ACTUAL_RESULT, got {verify.get('classification')!r}",
+    )
+
+    compare_t0 = compare.get("same_t0")
+    _check(
+        "m5_fixed_date_current_compare.json",
+        compare.get("classification") == "ACTUAL_RESULT",
+        f"expected ACTUAL_RESULT, got {compare.get('classification')!r}",
+    )
+    _check(
+        "m5_fixed_date_current_compare.json",
+        compare_t0 is not None and MISSION_LAUNCH_START_MJD <= float(compare_t0) <= MISSION_LAUNCH_END_MJD,
+        f"same_t0={compare_t0} outside formal 2026 launch window",
+    )
+    _check(
+        "m5_fixed_date_current_compare.json",
+        compare.get("formal_ratio_vinf_basis") is not None and float(compare.get("formal_ratio_vinf_basis")) > 0.0,
+        "formal_ratio_vinf_basis must be present and positive",
+    )
+    _check(
+        "m5_fixed_date_current_compare.json",
+        compare.get("same_budget_basis") is True and compare.get("budget_basis") == "vinf_basis",
+        "same_budget_basis/budget_basis mismatch",
+    )
+
+    _check(
+        "m5_no_lunar_fixed_date_deep_search.json",
+        no_lunar.get("classification") == "ACTUAL_RESULT",
+        f"expected ACTUAL_RESULT, got {no_lunar.get('classification')!r}",
+    )
+    _check(
+        "m5_no_lunar_fixed_date_deep_search.json",
+        no_lunar.get("launch_window_valid") is True,
+        "launch_window_valid must be true",
+    )
+    _check(
+        "m5_no_lunar_fixed_date_deep_search.json",
+        no_lunar.get("best_valid") is not None,
+        "best_valid missing",
+    )
+
+
 def check_o4plus():
     d = _load("o4plus_powered_mga_optimizer.json")
     if d is None:
@@ -403,6 +487,7 @@ def main():
     check_m6_pareto()
     check_o3plus()
     check_o7_parallel()
+    check_m5_outputs()
     check_m3_outputs()
     check_m6_outputs()
     check_m7_outputs()

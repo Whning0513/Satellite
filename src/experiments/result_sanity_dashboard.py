@@ -19,6 +19,7 @@ RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
 from constants import AU_KM, GM_SUN, V_EARTH_ORBIT
+from mission_constraints import is_launch_mjd_in_window, mjd_to_date_str
 from patched_conic import compute_patched_conic
 
 
@@ -165,9 +166,11 @@ def main() -> int:
         )
 
     m5_verify = _load_json("m5_best_lunar_candidate_verify.json")
-    m5_compare = _load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
-    m5_no_lunar = _load_json("m5_no_lunar_t61037_deep_search.json")
+    m5_compare = _load_json("m5_fixed_date_current_compare.json") or _load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
+    m5_no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json") or _load_json("m5_no_lunar_t61037_deep_search.json")
     if m5_verify and m5_compare and m5_no_lunar:
+        launch_ok = is_launch_mjd_in_window(m5_compare["same_t0"])
+        t0_label = f"same_t0={m5_compare['same_t0']} ({mjd_to_date_str(m5_compare['same_t0'])})"
         rows.extend(
             [
                 _row(
@@ -176,8 +179,13 @@ def main() -> int:
                     m5_compare["same_t0"],
                     "MJD",
                     "same-date comparison",
-                    "ACTUAL_RESULT",
-                    "Both lunar and no-lunar sides use the same t0 basis for the formal 55.8% comparison.",
+                    m5_compare.get("classification", "UNRESOLVED"),
+                    (
+                        f"date={mjd_to_date_str(m5_compare['same_t0'])}; "
+                        "inside formal 2026 launch window."
+                        if launch_ok
+                        else "Historical anchor is outside the formal 2026 launch window and cannot remain a formal mission result."
+                    ),
                 ),
                 _row(
                     "M5",
@@ -186,7 +194,9 @@ def main() -> int:
                     "km/s",
                     "vinf_basis / Earth-return event",
                     m5_verify["classification"],
-                    "Credible because the lunar side is verified at a true Earth-return event with distance 307140 km.",
+                    (
+                        "Credible formal value only if launch date is within the assignment window and a true Earth-return event exists."
+                    ),
                 ),
                 _row(
                     "M5",
@@ -202,11 +212,13 @@ def main() -> int:
                     "formal saving ratio",
                     m5_compare["formal_ratio_vinf_basis"],
                     "ratio",
-                    "vinf_basis / same_t0=61037",
-                    "ACTUAL_RESULT",
+                    f"vinf_basis / {t0_label}",
+                    m5_compare.get("classification", "UNRESOLVED"),
                     (
-                        f"55.8% is formal because both sides have valid Earth-return semantics, same_t0={m5_compare['same_t0']}, "
-                        f"same_budget_basis={m5_compare['same_budget_basis']}."
+                        f"{t0_label}; "
+                        "this ratio is not currently formal because the anchor date is outside the assignment window."
+                        if not launch_ok
+                        else "Formal only if both sides remain valid Earth-return events inside the assignment launch window."
                     ),
                 ),
                 _row(
@@ -324,7 +336,11 @@ def main() -> int:
                     "dict",
                     "Monte Carlo failure accounting",
                     m7["classification"],
-                    "Reason breakdown is trustworthy only when replay-based distribution audit is available.",
+                    (
+                        "Timeouts are not physical invalid returns by default; they require dedicated diagnosis before any robustness claim."
+                        if reason_breakdown is None
+                        else "Reason breakdown comes from the replay-based distribution audit; timeout counts still need separate event-search diagnosis."
+                    ),
                 ),
             ]
         )

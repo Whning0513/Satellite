@@ -18,8 +18,8 @@ RESULTS = REPO / "data" / "results"
 EXPECTED_PIPELINE = [
     "experiments/m5_lunar_return_local_refine.py",
     "experiments/m5_best_lunar_candidate_verify.py",
-    "experiments/m5_no_lunar_t61037_deep_search.py",
-    "experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py",
+    "experiments/m5_no_lunar_fixed_date_deep_search.py",
+    "experiments/m5_fixed_date_current_compare.py",
     "experiments/m5_same_window_lunar_no_lunar_pareto.py",
     "experiments/m5_saving_ratio_resolver.py",
 ]
@@ -66,33 +66,17 @@ def main() -> int:
     if not fast_recipe:
         failures.append("repair-m5-real-fast target not found")
 
-    compare = load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
+    compare = load_json("m5_fixed_date_current_compare.json")
+    lunar = load_json("m5_best_lunar_candidate_verify.json")
     resolved = load_json("m5_saving_ratio_resolved.json")
 
-    ratio = resolved.get("formal_fixed_date_ratio")
-    if ratio is None or abs(ratio - 0.557881) > 1e-6:
-        failures.append(f"resolved formal ratio mismatch: {ratio}")
-    if resolved.get("same_t0_mjd") != 61037.0:
-        failures.append(f"resolved same_t0_mjd mismatch: {resolved.get('same_t0_mjd')}")
-    if resolved.get("same_budget_basis") is not True:
-        failures.append(
-            f"resolved same_budget_basis mismatch: {resolved.get('same_budget_basis')}"
-        )
-    if resolved.get("ratio_basis") != "vinf_basis":
-        failures.append(f"resolved ratio basis mismatch: {resolved.get('ratio_basis')}")
-    if resolved.get("lunar_valid_return_event") is not True:
-        failures.append("resolved lunar_valid_return_event is not true")
-    if resolved.get("no_lunar_valid_return_event") is not True:
-        failures.append("resolved no_lunar_valid_return_event is not true")
-    if resolved.get("classification") != "ACTUAL_RESULT":
-        failures.append(f"resolved classification mismatch: {resolved.get('classification')}")
-    if compare.get("formal_ratio_vinf_basis") != ratio:
-        failures.append(
-            "compare/resolved ratio mismatch: "
-            f"{compare.get('formal_ratio_vinf_basis')} vs {ratio}"
-        )
-    if compare.get("same_t0") != 61037:
-        failures.append(f"compare same_t0 mismatch: {compare.get('same_t0')}")
+    ratio = compare.get("formal_ratio_vinf_basis")
+    if ratio is None or ratio <= 0:
+        failures.append(f"current compare formal ratio mismatch: {ratio}")
+    current_t0 = compare.get("same_t0")
+    lunar_t0 = lunar.get("candidate", {}).get("t0_mjd")
+    if current_t0 != lunar_t0:
+        failures.append(f"compare same_t0 mismatch: compare={current_t0}, lunar={lunar_t0}")
     if compare.get("same_budget_basis") is not True:
         failures.append(
             f"compare same_budget_basis mismatch: {compare.get('same_budget_basis')}"
@@ -101,6 +85,16 @@ def main() -> int:
         failures.append(f"compare budget_basis mismatch: {compare.get('budget_basis')}")
     if compare.get("lunar_valid") is not True or compare.get("no_lunar_valid") is not True:
         failures.append("compare JSON does not confirm both valid trajectories")
+    if compare.get("launch_window_valid") is not True:
+        failures.append("compare JSON launch_window_valid is not true")
+    if lunar.get("candidate", {}).get("launch_window_valid") is not True:
+        failures.append("lunar candidate launch_window_valid is not true")
+    if lunar.get("event_check", {}).get("valid_return_event") is not True:
+        failures.append("lunar best candidate does not confirm a valid Earth-return event")
+
+    resolved_status = resolved.get("status")
+    if resolved_status not in ("historical_anchor_invalidated", "formal_fixed_date_positive_ratio"):
+        failures.append(f"resolved status mismatch: {resolved_status}")
 
     if failures:
         for failure in failures:

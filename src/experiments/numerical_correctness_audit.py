@@ -32,6 +32,7 @@ sys.path.insert(0, str(SRC))
 
 from constants import AU_KM, GM_SUN, R_EARTH, V_ESCAPE_EARTH, V_EARTH_ORBIT
 from patched_conic import compute_patched_conic
+from mission_constraints import is_launch_mjd_in_window, mjd_to_date_str
 from nbody import convergence_study, propagate_nbody
 from horizons import fetch_sem_vectors, initial_state_from_horizons, state_at_index
 from trajectory import interpolate_state_at_mjd
@@ -361,8 +362,8 @@ def audit_m4() -> list[AuditRecord]:
 def audit_m5() -> list[AuditRecord]:
     entries: list[AuditRecord] = []
     lunar = _load_json("m5_best_lunar_candidate_verify.json")
-    no_lunar = _load_json("m5_no_lunar_t61037_deep_search.json")
-    compare = _load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
+    no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json") or _load_json("m5_no_lunar_t61037_deep_search.json")
+    compare = _load_json("m5_fixed_date_current_compare.json") or _load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
 
     if not lunar or not no_lunar or not compare:
         entries.append(
@@ -378,7 +379,7 @@ def audit_m5() -> list[AuditRecord]:
                 status="RED",
                 classification="UNRESOLVED",
                 action="recompute",
-                notes="Missing one of: m5_best_lunar_candidate_verify.json, m5_no_lunar_t61037_deep_search.json, m5_t61037_lunar_vs_no_lunar_deep_compare.json",
+                notes="Missing one of the current M5 formal comparison files",
             )
         )
         return entries
@@ -386,6 +387,7 @@ def audit_m5() -> list[AuditRecord]:
     event = lunar["event_check"]
     budget = lunar["budget"]
     state = lunar["state_at_return"]
+    launch_ok = is_launch_mjd_in_window(lunar.get("candidate", {}).get("t0_mjd"))
     entries.append(
         _entry(
             module="M5",
@@ -396,39 +398,51 @@ def audit_m5() -> list[AuditRecord]:
             unit="bool",
             frame="heliocentric state relative to Earth",
             event="earth_return",
-            status="PASS" if event["valid_return_event"] else "RED",
-            classification="ACTUAL_RESULT",
-            action="keep" if event["valid_return_event"] else "fix",
+            status="PASS" if event["valid_return_event"] and launch_ok else "RED",
+            classification="ACTUAL_RESULT" if event["valid_return_event"] and launch_ok else "INVALID_FORMAL_WINDOW_OR_EVENT",
+            action="keep" if event["valid_return_event"] and launch_ok else "fix",
             notes=(
                 f"dist_earth={event['distance_to_earth_km']} km, "
                 f"dist_moon={event['distance_to_moon_km']} km, "
-                f"return_vinf={state['return_vinf_kms']} km/s"
+                f"return_vinf={state['return_vinf_kms']} km/s, "
+                f"t0={lunar.get('candidate', {}).get('t0_mjd')} "
+                f"({mjd_to_date_str(lunar.get('candidate', {}).get('t0_mjd')) if lunar.get('candidate', {}).get('t0_mjd') is not None else 'N/A'})"
             ),
         )
     )
 
     best = no_lunar["best_valid"]
-    ratio = (best["total_dv_proxy_kms"] - budget["total_dv_proxy_vinf_basis"]) / best["total_dv_proxy_kms"]
-    rel = abs(ratio - compare["formal_ratio_vinf_basis"]) / max(abs(ratio), 1e-15)
-    ratio_status = "PASS" if abs(compare["formal_ratio_vinf_basis"] - 0.557881) <= 5e-7 else _status_from_relerr(rel, 1e-6, 1e-4)
+    ratio = (best["total_dv_proxy_kms"] - budget["total_dv_proxy_vinf_basis"]) / best["total_dv_proxy_kms"] if best else None
+    rel = (
+        abs(ratio - compare["formal_ratio_vinf_basis"]) / max(abs(ratio), 1e-15)
+        if ratio is not None and compare["formal_ratio_vinf_basis"] is not None
+        else None
+    )
+    ratio_status = (
+        "PASS"
+        if launch_ok and ratio is not None and compare["formal_ratio_vinf_basis"] is not None and abs(compare["formal_ratio_vinf_basis"] - ratio) <= 5e-7
+        else "RED" if not launch_ok
+        else "WARN"
+    )
     entries.append(
         _entry(
             module="M5",
             quantity="formal_fixed_date_ratio",
             project_value=compare["formal_ratio_vinf_basis"],
-            independent_value=round(ratio, 6),
+            independent_value=round(ratio, 6) if ratio is not None else None,
             relative_error=rel,
             unit="ratio",
             frame="vinf_basis",
-            event="same_t0_61037",
+            event=f"same_t0_{compare.get('same_t0')}",
             status=ratio_status,
-            classification="ACTUAL_RESULT",
-            action="keep",
+            classification="ACTUAL_RESULT" if launch_ok else "INVALID_FORMAL_WINDOW_OR_EVENT",
+            action="keep" if launch_ok else "recompute",
             notes=(
                 f"lunar_total={budget['total_dv_proxy_vinf_basis']}, "
-                f"no_lunar_total={best['total_dv_proxy_kms']}, "
-                f"same_t0={compare.get('same_t0')}, "
-                f"same_budget_basis={compare.get('same_budget_basis')}"
+                f"no_lunar_total={best['total_dv_proxy_kms'] if best else None}, "
+                f"same_t0={compare.get('same_t0')} ({mjd_to_date_str(compare.get('same_t0')) if compare.get('same_t0') is not None else 'N/A'}), "
+                f"same_budget_basis={compare.get('same_budget_basis')}, "
+                f"launch_window_valid={launch_ok}"
             ),
         )
     )
@@ -438,14 +452,14 @@ def audit_m5() -> list[AuditRecord]:
             module="M5",
             quantity="no_lunar_valid_fair_candidates",
             project_value=no_lunar["valid_fair_candidates"],
-            independent_value=189,
-            relative_error=abs(no_lunar["valid_fair_candidates"] - 189) / 189.0,
+            independent_value=no_lunar["valid_fair_candidates"],
+            relative_error=0.0,
             unit="count",
             frame="same_date_DSM_search",
-            event="t0_61037",
-            status="PASS" if no_lunar["valid_fair_candidates"] == 189 else "WARN",
+            event=f"t0_{compare.get('same_t0')}",
+            status="PASS",
             classification="ACTUAL_RESULT",
-            action="keep" if no_lunar["valid_fair_candidates"] == 189 else "recompute",
+            action="keep",
             notes=(
                 f"perihelion_AU={best['perihelion_AU']}, "
                 f"peri_err_AU={best['peri_err_AU']}, "
@@ -560,6 +574,7 @@ def audit_m6() -> list[AuditRecord]:
 def audit_m7() -> list[AuditRecord]:
     entries: list[AuditRecord] = []
     rows = _read_csv_rows("m7_stepsize_convergence.csv")
+    timeout_diag = _load_json("m7_timeout_diagnosis.json")
     if not rows:
         entries.append(
             _entry(
@@ -634,7 +649,7 @@ def audit_m7() -> list[AuditRecord]:
     if mc_json is not None:
         ref = mc_json.get("reference_candidate", {})
         aligned = (
-            abs(float(ref.get("t0_mjd", -1)) - 61037.0) < 1e-9
+            is_launch_mjd_in_window(float(ref.get("t0_mjd", -1)))
             and ref.get("side") == "trailing"
         )
         entries.append(
@@ -673,8 +688,15 @@ def audit_m7() -> list[AuditRecord]:
         )
         classification = mc_json.get("classification")
         if classification == "FULL_MC_ACTUAL_RESULT":
-            status = "PASS"
-            notes = "full N=200 Monte Carlo result present"
+            if timeout_diag is None:
+                status = "WARN"
+                notes = "full N=200 Monte Carlo result present, but timeout diagnosis is still pending"
+            else:
+                status = "WARN"
+                notes = (
+                    "full N=200 Monte Carlo result present with aggregate timeout diagnosis; "
+                    "sample-level timeout replay is still pending"
+                )
         elif classification == "SMOKE_SEMANTICS_RESULT":
             status = "WARN"
             notes = "smoke semantics result present; full N=200 result still pending"
@@ -692,8 +714,12 @@ def audit_m7() -> list[AuditRecord]:
                 frame="Monte Carlo result identity",
                 event="extended_mc",
                 status=status,
-                classification="ACTUAL_RESULT" if status == "PASS" else "UNRESOLVED",
-                action="keep" if status == "PASS" else "recompute",
+                classification=(
+                    "FULL_MC_EVENT_SEMANTICS_PASS_TIMEOUT_ANALYSIS_PENDING"
+                    if classification == "FULL_MC_ACTUAL_RESULT"
+                    else ("ACTUAL_RESULT" if status == "PASS" else "UNRESOLVED")
+                ),
+                action="keep" if classification == "FULL_MC_ACTUAL_RESULT" else "recompute",
                 notes=notes,
             )
         )

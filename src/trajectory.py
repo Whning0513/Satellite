@@ -42,6 +42,7 @@ from lunar_swingby import (
 )
 from nbody import propagate_nbody, GM_SEMR, BODY_NAMES_R
 from horizons import fetch_sem_vectors
+from mission_constraints import validate_launch_mjd, is_total_flight_time_valid
 
 
 # =========================
@@ -135,6 +136,14 @@ def interpolate_state_at_mjd(
     jd_arr = np.array(body_data[body_name]["jd_tdb"], dtype=float)
     mjd_arr = jd_arr - 2400000.5
 
+    mjd_min = float(mjd_arr[0])
+    mjd_max = float(mjd_arr[-1])
+    if target_mjd < mjd_min or target_mjd > mjd_max:
+        raise ValueError(
+            f"{body_name} interpolation target MJD {target_mjd:.2f} is outside cached range "
+            f"[{mjd_min:.2f}, {mjd_max:.2f}]"
+        )
+
     x = np.array(body_data[body_name]["x_km"], dtype=float)
     y = np.array(body_data[body_name]["y_km"], dtype=float)
     vx = np.array(body_data[body_name]["vx_kms"], dtype=float)
@@ -189,61 +198,85 @@ def estimate_moon_transfer(
 
     max_sec = min(max_search_days * 86400.0, 14 * 86400.0)
 
-    # 确定发射方向：使用 v_inf_dir（若提供）或默认逆地球速度
+    def _rotate(vec: np.ndarray, angle_rad: float) -> np.ndarray:
+        c = np.cos(angle_rad)
+        s = np.sin(angle_rad)
+        return np.array([c * vec[0] - s * vec[1], s * vec[0] + c * vec[1]])
+
+    def _scan_direction(aim_dir: np.ndarray):
+        r0_rocket = r_earth + r_parking * aim_dir
+        v0_rocket = v_earth + v_rel * aim_dir
+        r4 = [r_sun.copy(), r_earth.copy(), r_moon.copy(), r0_rocket.copy()]
+        v4 = [v_sun.copy(), v_earth.copy(), v_moon.copy(), v0_rocket.copy()]
+
+        best_dist = np.inf
+        best_r4 = [ri.copy() for ri in r4]
+        best_v4 = [vi.copy() for vi in v4]
+        best_rocket_r = r0_rocket.copy()
+        best_rocket_v = v0_rocket.copy()
+        best_moon_r = r_moon.copy()
+        best_moon_v = v_moon.copy()
+        best_time = 0.0
+        t_accum = 0.0
+
+        while t_accum < max_sec:
+            step = min(DT_MAIN, max_sec - t_accum)
+            if step <= 0:
+                break
+            r4, v4 = propagate_nbody(r4, v4, step, gm4, n_bodies=4,
+                                      dt_internal=DT_REFINE)
+            t_accum += step
+
+            r_rocket = r4[3]
+            r_moon_now = r4[2]
+            dist = np.linalg.norm(r_rocket - r_moon_now)
+
+            if dist < best_dist:
+                best_dist = dist
+                best_r4 = [ri.copy() for ri in r4]
+                best_v4 = [vi.copy() for vi in v4]
+                best_rocket_r = r4[3].copy()
+                best_rocket_v = v4[3].copy()
+                best_moon_r = r4[2].copy()
+                best_moon_v = v4[2].copy()
+                best_time = t_accum
+
+            # 早停：火箭已远离地月系统
+            r_earth_now = r4[1]
+            if np.linalg.norm(r_rocket - r_earth_now) > 2.0 * AU_KM:
+                break
+
+        return (
+            best_dist, best_time, best_r4, best_v4,
+            best_rocket_r, best_rocket_v, best_moon_r, best_moon_v, aim_dir
+        )
+
+    # 先用月球相对地球方向做粗瞄准，再用设计给出的 v_inf 方向做补充候选。
+    moon_rel = r_moon - r_earth
+    moon_u = moon_rel / (np.linalg.norm(moon_rel) + 1e-15)
+    candidate_dirs = []
+    for angle_deg in [-20.0, -10.0, -5.0, 0.0, 5.0, 10.0, 20.0]:
+        candidate_dirs.append(_rotate(moon_u, np.deg2rad(angle_deg)))
     if v_inf_dir is not None:
-        aim_dir = v_inf_dir / np.linalg.norm(v_inf_dir)
+        candidate_dirs.append(v_inf_dir / (np.linalg.norm(v_inf_dir) + 1e-15))
     else:
-        aim_dir = -v_earth / np.linalg.norm(v_earth)  # retrograde fallback
+        candidate_dirs.append(-v_earth / (np.linalg.norm(v_earth) + 1e-15))
 
-    r0_rocket = r_earth + r_parking * aim_dir
-    v0_rocket = v_earth + v_rel * aim_dir
+    best_pack = None
+    for cand_dir in candidate_dirs:
+        pack = _scan_direction(cand_dir / (np.linalg.norm(cand_dir) + 1e-15))
+        if best_pack is None or pack[0] < best_pack[0]:
+            best_pack = pack
 
-    # 四体初态
-    r4 = [r_sun.copy(), r_earth.copy(), r_moon.copy(), r0_rocket.copy()]
-    v4 = [v_sun.copy(), v_earth.copy(), v_moon.copy(), v0_rocket.copy()]
-
-    # 前向扫描：以 DT_MAIN 步长传播，记录火箭-月球最近距离
-    best_dist = np.inf
-    best_r4 = [ri.copy() for ri in r4]
-    best_v4 = [vi.copy() for vi in v4]
-    best_rocket_r = r0_rocket.copy()
-    best_rocket_v = v0_rocket.copy()
-    best_moon_r = r_moon.copy()
-    best_moon_v = v_moon.copy()
-    best_time = 0.0
-    t_accum = 0.0
-
-    while t_accum < max_sec:
-        step = min(DT_MAIN, max_sec - t_accum)
-        if step <= 0:
-            break
-        r4, v4 = propagate_nbody(r4, v4, step, gm4, n_bodies=4,
-                                  dt_internal=DT_REFINE)
-        t_accum += step
-
-        r_rocket = r4[3]
-        r_moon_now = r4[2]
-        dist = np.linalg.norm(r_rocket - r_moon_now)
-
-        if dist < best_dist:
-            best_dist = dist
-            best_r4 = [ri.copy() for ri in r4]
-            best_v4 = [vi.copy() for vi in v4]
-            best_rocket_r = r4[3].copy()
-            best_rocket_v = v4[3].copy()
-            best_moon_r = r4[2].copy()
-            best_moon_v = v4[2].copy()
-            best_time = t_accum
-
-        # 早停：火箭已远离地月系统
-        r_earth_now = r4[1]
-        if np.linalg.norm(r_rocket - r_earth_now) > 2.0 * AU_KM:
-            break
+    (best_dist, best_time, best_r4, best_v4,
+     best_rocket_r, best_rocket_v, best_moon_r, best_moon_v, best_aim_dir) = best_pack
 
     # === 精化扫描：在最佳相遇附近用 DT_REFINE (60s) 重新传播 ===
     # 从最佳相遇时刻前 24h 重新出发，用细步长积分经过近月区域
     t_restart = max(best_time - 86400.0, 0.0)
     # 重建初态（从搜索起点前推）
+    r0_rocket = r_earth + r_parking * best_aim_dir
+    v0_rocket = v_earth + v_rel * best_aim_dir
     r4_refine = [r0s.copy() for r0s in [r_sun, r_earth, r_moon, r0_rocket]]
     v4_refine = [v0s.copy() for v0s in [v_sun, v_earth, v_moon, v0_rocket]]
     r4_refine, v4_refine = propagate_nbody(
@@ -300,6 +333,7 @@ def solve_trajectory(
 ) -> TrajectoryResult:
     """求解单点轨道。"""
     t0_mjd = params.t0_mjd
+    validate_launch_mjd(t0_mjd, label="trajectory launch t0")
 
     # ---------- S1: 历表状态 ----------
     if body_data is None:
@@ -445,6 +479,10 @@ def solve_trajectory(
 
     dist_to_earth_final = np.linalg.norm(r_rocket_final - r_earth_final)
     t_total_days = sec_to_day(t_transfer + t_coast)
+    if not is_total_flight_time_valid(t_total_days):
+        raise ValueError(
+            f"trajectory total flight time {t_total_days:.2f} days exceeds formal mission limit"
+        )
 
     if verbose:
         print(f"  Coast: {t_coast_days:.2f} days")

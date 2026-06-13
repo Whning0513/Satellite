@@ -78,33 +78,22 @@ def main():
             ),
         }
     else:
-        # ── FALLBACK: old pipeline ──
         print("\n  [FALLBACK] Primary validated comparison not available.")
-        dsm = _load("m5_dsm_no_lunar_search.json")
-        lunar = _load("m5_lunar_budget_recomputed.json")
-
-        if dsm is None or lunar is None:
-            print("[ERROR] Required result files not found.")
-            sys.exit(1)
-
-        lunar_budget_valid = lunar.get("budget_valid", False)
-        dv_lunar = lunar.get("budget", {}).get("total_dv_proxy_kms")
-        n_total = dsm.get("num_candidates", 0)
-        n_fair = dsm.get("num_fair", 0)
-
-        print(f"\n  Lunar budget valid: {lunar_budget_valid}")
-        print(f"  DSM candidates: {n_total}, fair: {n_fair}")
-
         out = {
             "task": "M5 saving ratio resolved (fallback)",
-            "status": "lunar_return_event_missing",
+            "status": "historical_anchor_invalidated",
             "formal_fixed_date_ratio": None,
             "same_budget_basis": False,
-            "reason": "Validated fixed-date comparison not available.",
+            "reason": (
+                "The previous fixed-date anchor is no longer formal: either its launch date is outside the "
+                "assignment window or its lunar side is not a valid Earth-return event after cache/trajectory fixes."
+            ),
             "classification": "UNRESOLVED",
             "invalid_historical_ratio_due_to_wrong_return_event": -1.873262,
+            "invalid_historical_positive_ratio_outside_window": 0.557881,
             "invalid_historical_reason": (
-                "Old lunar return_vinf=77.88 km/s was measured at perihelion."
+                "Old fixed-date formal results were tied to t0=61037 (2025-12-28), which is outside the assignment launch window; "
+                "the repaired event-semantics check also no longer validates the lunar side as an Earth-return event."
             ),
         }
 

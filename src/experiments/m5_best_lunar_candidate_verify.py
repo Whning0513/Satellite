@@ -20,8 +20,10 @@ from trajectory import DesignParams, solve_trajectory, interpolate_state_at_mjd
 from nbody import propagate_nbody
 from event_semantics import compute_earth_return_vinf, classify_event
 from horizons import fetch_sem_vectors
+from mission_constraints import is_launch_mjd_in_window, mjd_to_date_str
 
 EARTH_THRESHOLD_KM = 1.5e6
+SEARCH_JSON = _REPO / "data" / "results" / "m5_complete_lunar_return_search.json"
 
 
 def _norm(v):
@@ -35,9 +37,20 @@ def main():
 
     bd = fetch_sem_vectors(use_cache=True)
 
-    t0 = 61037.0
-    side = "trailing"
-    rm = R_MOON + 100.0  # 1837.4 km
+    if SEARCH_JSON.exists():
+        search = json.loads(SEARCH_JSON.read_text(encoding="utf-8"))
+        best = search.get("best_valid")
+    else:
+        best = None
+
+    if best:
+        t0 = float(best["t0_mjd"])
+        side = best["side"]
+        rm = float(best["r_m_km"])
+    else:
+        t0 = 61065.0
+        side = "trailing"
+        rm = R_MOON + 100.0
 
     print(f"  Best candidate: t0={t0:.0f}, side={side}, r_m={rm:.0f} km")
     print()
@@ -148,9 +161,17 @@ def main():
     print(f"\n  {budget['note']}")
 
     # ── Save ──
+    formal_ok = bool(check["valid_return_event"] and is_launch_mjd_in_window(t0))
+    classification = "ACTUAL_RESULT" if formal_ok else "INVALID_FORMAL_WINDOW_OR_EVENT"
     out = {
         "task": "M5 best lunar candidate verification",
-        "candidate": {"t0_mjd": t0, "side": side, "r_m_km": round(rm, 1)},
+        "candidate": {
+            "t0_mjd": t0,
+            "t0_date": mjd_to_date_str(t0),
+            "launch_window_valid": is_launch_mjd_in_window(t0),
+            "side": side,
+            "r_m_km": round(rm, 1),
+        },
         "trajectory_summary": {
             "t_total_days": round(traj.t_total_days, 2),
             "r_p_achieved_AU": round(km_to_au(traj.r_p_achieved_km), 6),
@@ -173,7 +194,12 @@ def main():
             "solar_bound": solar_energy < 0,
         },
         "budget": budget,
-        "classification": "ACTUAL_RESULT",
+        "classification": classification,
+        "formal_result_eligible": formal_ok,
+        "reason": None if formal_ok else (
+            f"launch_window_valid={is_launch_mjd_in_window(t0)}, "
+            f"valid_return_event={check['valid_return_event']}"
+        ),
     }
 
     out_dir = _REPO / "data" / "results"

@@ -33,17 +33,18 @@ from event_semantics import compute_earth_return_vinf
 from horizons import fetch_sem_vectors
 from nbody import propagate_nbody
 from trajectory import DesignParams, interpolate_state_at_mjd, solve_trajectory
+from mission_constraints import is_launch_mjd_in_window
 
 
 RESULTS = _REPO / "data" / "results"
 M5_VERIFY = RESULTS / "m5_best_lunar_candidate_verify.json"
 
-M5_VALID_T0 = 61037.0
+M5_VALID_T0 = 61065.0
 M5_VALID_RM_KM = 1837.4
 M5_VALID_SIDE = "trailing"
 M5_VALID_RP_AU = 0.3
 M5_VALID_DEP_VINF_KMS = 10.1213
-M5_VALID_RETURN_MJD = 61404.87
+M5_VALID_RETURN_MJD = 61431.12
 
 EARTH_RETURN_THRESHOLD_KM = 1.5e6
 DEFAULT_N_FULL = 200
@@ -81,6 +82,35 @@ def _load_nominal_return_mjd() -> float:
         return M5_VALID_RETURN_MJD
     data = json.loads(M5_VERIFY.read_text(encoding="utf-8"))
     return float(data["event_check"]["return_epoch_mjd"])
+
+
+def _load_reference_candidate() -> dict[str, Any]:
+    if not M5_VERIFY.exists():
+        return {
+            "source": "built_in_fallback",
+            "t0_mjd": M5_VALID_T0,
+            "r_m_km": M5_VALID_RM_KM,
+            "side": M5_VALID_SIDE,
+            "target_rp_AU": M5_VALID_RP_AU,
+            "nominal_return_mjd": M5_VALID_RETURN_MJD,
+        }
+    data = json.loads(M5_VERIFY.read_text(encoding="utf-8"))
+    candidate = data.get("candidate", {})
+    event = data.get("event_check", {})
+    traj = data.get("trajectory_summary", {})
+    ref = {
+        "source": "m5_best_lunar_candidate_verify.json",
+        "t0_mjd": float(candidate.get("t0_mjd", M5_VALID_T0)),
+        "r_m_km": float(candidate.get("r_m_km", M5_VALID_RM_KM)),
+        "side": candidate.get("side", M5_VALID_SIDE),
+        "target_rp_AU": float(traj.get("r_p_achieved_AU", M5_VALID_RP_AU)),
+        "nominal_return_mjd": float(event.get("return_epoch_mjd", M5_VALID_RETURN_MJD)),
+    }
+    if not is_launch_mjd_in_window(ref["t0_mjd"]):
+        raise ValueError(
+            f"M7 reference candidate t0={ref['t0_mjd']} is outside the formal 2026 launch window"
+        )
+    return ref
 
 
 def _clone_state(r_state, v_state):
@@ -348,15 +378,21 @@ def _worker(sample: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-def _build_samples(n: int, seed: int, nominal_return_mjd: float, max_runtime_per_sample_sec: float) -> list[dict[str, Any]]:
+def _build_samples(
+    n: int,
+    seed: int,
+    nominal_return_mjd: float,
+    max_runtime_per_sample_sec: float,
+    reference_candidate: dict[str, Any],
+) -> list[dict[str, Any]]:
     rng = np.random.default_rng(seed)
     samples = []
     for sample_id in range(n):
         samples.append(
             {
                 "sample_id": sample_id,
-                "t0_mjd": M5_VALID_T0 + float(rng.normal(0.0, 1.0)),
-                "r_m_km": M5_VALID_RM_KM + float(rng.normal(0.0, 500.0)),
+                "t0_mjd": float(reference_candidate["t0_mjd"]) + float(rng.normal(0.0, 1.0)),
+                "r_m_km": float(reference_candidate["r_m_km"]) + float(rng.normal(0.0, 500.0)),
                 "r_p_au": M5_VALID_RP_AU + float(rng.normal(0.0, 0.005)),
                 "nominal_return_mjd": nominal_return_mjd,
                 "max_runtime_per_sample_sec": max_runtime_per_sample_sec,
@@ -449,7 +485,14 @@ def _profile(results: list[dict[str, Any]], time_total_sec: float) -> dict[str, 
     }
 
 
-def _summarize(results: list[dict[str, Any]], n: int, seed: int, smoke: bool, profile: dict[str, Any]) -> dict[str, Any]:
+def _summarize(
+    results: list[dict[str, Any]],
+    n: int,
+    seed: int,
+    smoke: bool,
+    profile: dict[str, Any],
+    reference_candidate: dict[str, Any],
+) -> dict[str, Any]:
     valid = [r for r in results if r.get("valid_return_event")]
     invalid = [r for r in results if r.get("classification") == "INVALID_NO_FORMAL_RESULT"]
     timeouts = [r for r in results if r.get("classification") == "TIMEOUT_NO_FORMAL_RESULT"]
@@ -472,14 +515,7 @@ def _summarize(results: list[dict[str, Any]], n: int, seed: int, smoke: bool, pr
         "classification": classification,
         "n": n,
         "seed": seed,
-        "reference_candidate": {
-            "source": "m5_best_lunar_candidate_verify.json",
-            "t0_mjd": M5_VALID_T0,
-            "r_m_km": M5_VALID_RM_KM,
-            "side": M5_VALID_SIDE,
-            "target_rp_AU": M5_VALID_RP_AU,
-            "nominal_return_mjd": M5_VALID_RETURN_MJD,
-        },
+        "reference_candidate": reference_candidate,
         "valid_return_count": len(valid),
         "invalid_count": len(invalid),
         "timeout_count": len(timeouts),
@@ -532,6 +568,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     nominal_return_mjd = _load_nominal_return_mjd()
+    reference_candidate = _load_reference_candidate()
 
     n = args.n if not args.smoke else min(args.n, DEFAULT_N_SMOKE)
     smoke = bool(args.smoke)
@@ -542,11 +579,19 @@ def main() -> int:
         seed=args.seed,
         nominal_return_mjd=nominal_return_mjd,
         max_runtime_per_sample_sec=args.max_runtime_per_sample_sec,
+        reference_candidate=reference_candidate,
     )
     results = _run_pool(samples, max_workers=args.max_workers, max_runtime_sec=args.max_runtime_sec)
     time_total_sec = time.perf_counter() - start
     profile = _profile(results, time_total_sec)
-    summary = _summarize(results, n=n, seed=args.seed, smoke=smoke, profile=profile)
+    summary = _summarize(
+        results,
+        n=n,
+        seed=args.seed,
+        smoke=smoke,
+        profile=profile,
+        reference_candidate=reference_candidate,
+    )
     json_write_sec = _write_json(output, summary)
     summary["profile"]["time_in_json_write_sec"] = round(json_write_sec, 4)
     _write_json(output, summary)

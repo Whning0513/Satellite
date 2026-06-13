@@ -24,6 +24,7 @@ from trajectory import DesignParams, solve_trajectory, interpolate_state_at_mjd
 from nbody import propagate_nbody
 from event_semantics import compute_earth_return_vinf, classify_event
 from horizons import fetch_sem_vectors
+from mission_constraints import MISSION_LAUNCH_START_MJD, MISSION_LAUNCH_END_MJD
 
 V_RET_MAX = 15.0
 PERI_TARGET_AU = 0.3
@@ -84,8 +85,8 @@ def main():
     jd_arr = np.array(bd["Earth"]["jd_tdb"], dtype=float)
     mjd_end = jd_arr[-1] - 2400000.5
 
-    # Fine grid around best near miss (reduced for feasibility ~5 min)
-    t0_list = list(range(61031, 61052, 3))  # 7 values, 3-day steps
+    # Restrict to the formal 2026 launch window from the assignment.
+    t0_list = list(range(int(MISSION_LAUNCH_START_MJD), min(int(MISSION_LAUNCH_END_MJD), 61052) + 1, 3))
     r_m_list = [R_MOON + 100, R_MOON + 500, R_MOON + 1000,
                 R_MOON + 2000, R_MOON + 3000, R_MOON + 5000, R_MOON + 8000]
     side_list = ["trailing", "leading"]
@@ -162,11 +163,11 @@ def main():
               f"peri={best_miss['perihelion_AU']:.4f} AU")
 
     out = {"task": "M5 lunar return local refine",
-           "classification": "ACTUAL_RESULT",
+           "classification": "ACTUAL_RESULT" if fair else "FINITE_SEARCH_DIAGNOSTIC",
            "search_center": {"t0_near": 61041, "side": "trailing",
                              "r_m_near": 2237.4, "best_dist_km": 2107465},
            "search_space": {"t0_range": [t0_list[0], t0_list[-1]],
-                            "t0_step_days": 2,
+                            "t0_step_days": 3,
                             "r_m_range_km": [r_m_list[0], r_m_list[-1]],
                             "r_m_count": len(r_m_list),
                             "sides": side_list,

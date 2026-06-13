@@ -25,6 +25,7 @@ from trajectory import interpolate_state_at_mjd
 from event_semantics import compute_earth_return_vinf
 from horizons import fetch_sem_vectors
 from patched_conic import compute_patched_conic
+from mission_constraints import is_launch_mjd_in_window, mjd_to_date_str
 
 V_RET_MAX = 15.0; V_DEP_MAX = 20.0
 PERI_TARGET_AU = 0.3; PERI_TOL = 0.03
@@ -170,10 +171,13 @@ def main():
                   f"peri_err={best_nr['peri_err_AU']:.6f}")
         print(f"\n  No fair candidates at t0=61037 after deep search.")
 
+    launch_window_valid = is_launch_mjd_in_window(t0)
     out = {
         "task": "M5 no-lunar DSM deep search at t0=61037",
-        "classification": "ACTUAL_RESULT",
+        "classification": "ACTUAL_RESULT" if fair and launch_window_valid else "INVALID_FORMAL_WINDOW_OR_EVENT",
         "t0_mjd": t0,
+        "t0_date": mjd_to_date_str(t0),
+        "launch_window_valid": launch_window_valid,
         "search_space": {
             "tof1_days_range": [tof1_list[0], tof1_list[-1]],
             "tof1_step": 5,
@@ -187,7 +191,7 @@ def main():
         "best_valid": min(fair, key=lambda c: c["total_dv_proxy_kms"]) if fair else None,
         "best_near_miss": (min(candidates, key=lambda c: c["return_vinf_kms"])
                            if candidates and not fair else None),
-        "status": "valid_found" if fair else "finite_search_negative",
+        "status": "valid_found" if fair and launch_window_valid else "finite_search_negative",
     }
 
     out_dir = _REPO / "data" / "results"
