@@ -95,25 +95,26 @@ FinalProject/
 ### M5 — 单点轨道求解器 [done-with-caveat]
 - 六段式求解流程 (S1–S6)
 - Moon-aligned 前向搜索实现月球拦截
-- 标称（MJD 61066.0）：r_p=0.2843 AU（误差 5.2%），v_launch=14.70 km/s
-- **无月球借力对比**：基于 SOI-出口切向传播和 Earth-to-Earth Lambert 搜索重构。
-  在 Lambert 搜索中，MJD 61066 找到 rp=0.3011 AU 的候选，但返回 v_inf=26.24 km/s > 15 km/s 约束；
-  MJD 61154 无匹配近日距候选。因此不报告节能比例。
-  详见 `data/results/m5_fair_no_lunar_baseline.json` 和 `m5_no_lunar_lambert_baseline.json`。
+- 合法 formal 锚点：MJD 61065.0（2026-01-25），`trailing`，`r_m=1837.4 km`
+- 返回地球距离 446,151 km，`return_vinf=10.5173 km/s`
+- 同日 no-lunar DSM baseline：`total_vinf_basis=20.5938 km/s`
+- 当前正式 fixed-date saving ratio：`50.85%`
+- 详见 `data/results/m5_best_lunar_candidate_verify.json` 和 `m5_fixed_date_current_compare.json`
 
-### M6 — 发射窗口优化 [done]
-- 366 天逐日扫描，132 天可行
-- 最佳 Δv 窗口：MJD 61154.0（r_p=0.2750 AU，误差 8.33%）
-- 最佳综合窗口：MJD 61066.0（r_p=0.2843 AU，误差 5.23%）
-- Top-5 全部通过 N 体积分验证
+### M6 — 发射窗口优化 [done-with-caveat]
+- 已实现 2026 全年几何窗口粗筛与候选提取
+- 历史 61066/61154 不再作为 formal 最优窗口
+- 当前正式窗口身份：`legal-window verified anchor = MJD 61065.0`
+- 如需声明全年全局最优，仍需重跑完整合法窗口搜索
 
-### M7 — 灵敏度分析 + 步长收敛 [done]
-- 单参数扰动扫描 (t0, r_m, r_p)
-- 20 样本蒙特卡洛
-- **4 级步长收敛**（3600/1800/900/450s），能量漂移均 < 1e-10
+### M7 — 灵敏度分析 + 步长收敛 [done-with-caveat]
+- 锚点已切换到合法 formal candidate（MJD 61065.0）
+- Full Monte Carlo：`N=200`，`valid=38`，`invalid=40`，`timeout=122`
+- formal `return_vinf` 只在真实 Earth-return event 上定义，旧伪 ~79 km/s 已阻断
+- **4 级步长收敛**（3600/1800/900/450s），能量漂移均远低于阈值
 
-### M8 — 可视化 [done]
-- 8 张静态图（轨迹、借力、窗口、灵敏度、残差、能量漂移、日期曲线、等值线）
+### M8 — 可视化 [done-with-caveat]
+- 当前提交物可直接引用 7 张静态图（轨迹、借力、窗口、灵敏度、能量漂移、日期曲线、等值线）
 - 所有图片由 `make figures` 生成
 - 详见 `figure_manifest.json`
 
@@ -185,7 +186,7 @@ FinalProject/
 ### 完整构建（make all）
 
 ```bash
-make all     # compile → figures → pdf
+make all     # compile → m3 → figures → animation → m5 baselines → pdf
 ```
 
 ### 常用命令
@@ -220,7 +221,7 @@ make m7   # 灵敏度分析
 make m8   # 可视化
 ```
 
-### 生成动画（不在默认 make all 中）
+### 动画输出（已包含在 make all 中）
 
 ```bash
 make animation    # 依赖 figures，生成 45 秒 MP4 + 4 张关键帧
@@ -269,29 +270,32 @@ SSB 惯性积分 → 日心系残差对比，消除因省略大行星摄动导�
 
 ## 结果摘要
 
-### 标称轨迹 (MJD 61066.0)
+### 当前正式 fixed-date 结果（合法 2026 发射窗）
 
 | 参数 | 值 |
 |------|-----|
-| 发射速度 | 14.70 km/s |
-| 近日距 | 0.2843 AU（目标 0.3 AU） |
-| 近月距 | 21,374 km |
-| 飞行总时间 | 96.1 天 |
-| 再入速度 | 78.7 km/s |
+| 发射日期 | 2026-01-25（MJD 61065.0） |
+| 发射超速 | 10.1213 km/s |
+| 表面发射等效速度 | 15.0809 km/s |
+| 实现近日距 | 0.274959 AU |
+| 返回地球距离 | 446,151 km |
+| 返回 v_inf | 10.5173 km/s |
+| 飞行总时间 | 96.12 天 |
 
-### 发射窗口
+### 同日 no-lunar 对比
 
-- **最佳 Δv 窗口：** MJD 61154.0（r_p=0.275 AU，Δv_total=91.9 km/s，该值为发射速度与再入速度之和，含日心返回速度差，与钱学森对称总 Δv 定义口径不同，不可直接比较）
-- **最佳综合窗口：** MJD 61066.0（r_p=0.2843 AU，r_p 误差 5.2%）
-- 详见 `data/results/m6_refined_windows.json`
+- **lunar total_vinf_basis：** 10.1213 km/s
+- **no-lunar DSM total_vinf_basis：** 20.5938 km/s
+- **formal saving ratio：** 50.85%
+- 该比较仅在相同 t0、相同 budget basis、均满足真实 Earth-return event 时成立
 
 ### 已知局限
 
-- M3 残差接近阈值（5,900/6,000 km），主要来自省略木星等大行星
-- M4 数值验证为局部月心二体，非任务级 N-body
-- M6 近日距误差 5–10%，需迭代校正才能进一步提高
-- 动画（O5）在当前环境生成 MP4，若 ffmpeg/H.264 不可用会 fallback 到 GIF
-- O7 代理扫描：ProcessPool 平均加速比 3.78x（55 MJDs, 8 workers, 3 次重复基准），但 per-process 缓存加载有初始开销
+- M3 是 same-source propagation check，不是独立 JPL 预测精度证明
+- M4 数值验证为局部月心二体/局部任务参数对照，非完整任务级 high-fidelity swingby
+- M6 当前正式身份是 legal-window verified anchor；尚未把全年全局最优重新重建完毕
+- M7 full MC 存在大量 timeout，当前更像 event-search 能力瓶颈，不宜直接解释为物理上全部不返回
+- 动画（O5）优先生成 MP4，若 ffmpeg/H.264 不可用会 fallback 到 GIF
 - O7 代理预筛选：Ridge 回归 R²=0.8956，几何特征仅能捕捉整体趋势，top-15 recall=33%
 - O4 多次借力链搜索：有限的多体链可行性（analytic Venus 近似 + Moon 高 v_inf 偏转角不足限制链可行性）
 

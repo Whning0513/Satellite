@@ -30,8 +30,8 @@ REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 .PHONY: o2-gr o4-mga o6-interactive o7-parallel o7-surrogate bonus-all
 
 # ---- Default: compile + generate figures + build PDF ----
-all: compile m3 figures m5-fair m5-lambert pdf
-	@echo "=== all: compile + m3 + figures + pdf done ==="
+all: compile m3 figures animation m5-fair m5-lambert pdf
+	@echo "=== all: compile + m3 + figures + animation + pdf done ==="
 	@echo "  -> $(words $(REPORT_IMAGES)) figures found in data/results/"
 
 # ---- Syntax check ----
@@ -162,6 +162,14 @@ m6-complete-window-search:
 	@echo "=== M6 complete-return window search ==="
 	cd src && $(PYTHON) experiments/m6_complete_return_window_search.py
 
+m6-legal-window-search:
+	@echo "=== M6 legal-window derived search ==="
+	cd src && $(PYTHON) experiments/m6_complete_return_window_search.py --mode derived-legal-window
+
+m6-independent-window-search:
+	@echo "=== M6 legal-window independent search ==="
+	cd src && $(PYTHON) experiments/m6_independent_window_search.py
+
 m6-deep-audit:
 	@echo "=== M6 numerical deep audit ==="
 	cd src && $(PYTHON) experiments/m6_numerical_deep_audit.py
@@ -279,7 +287,7 @@ repair-m6-actual:
 
 repair-m7:
 	@echo "=== M7 extended MC (200 samples) ==="
-	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --output ../data/results/m7_extended_monte_carlo.json
+	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --save-sample-rows --output ../data/results/m7_extended_monte_carlo.json
 
 m7-mc-profile:
 	@echo "=== M7 MC profile (n=20) ==="
@@ -291,7 +299,11 @@ m7-mc-smoke:
 
 m7-mc-full:
 	@echo "=== M7 MC full (n=200) ==="
-	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --output ../data/results/m7_extended_monte_carlo.json
+	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --save-sample-rows --output ../data/results/m7_extended_monte_carlo.json
+
+m7-timeout-replay:
+	@echo "=== M7 timeout replay ==="
+	cd src && $(PYTHON) experiments/m7_timeout_replay.py
 
 check-m7-return-semantics:
 	@echo "=== Check M7 return-event semantics ==="

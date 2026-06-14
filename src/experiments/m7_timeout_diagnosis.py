@@ -1,10 +1,12 @@
 """
 m7_timeout_diagnosis.py
 =======================
-Lightweight timeout diagnosis for the current M7 full Monte Carlo result.
+Timeout diagnosis for the current M7 full Monte Carlo result.
 
-This script intentionally avoids rerunning the heavy N=200 Monte Carlo.
-It diagnoses only what can be supported by the saved aggregate outputs.
+Modes:
+  - aggregate-only when only summary JSON exists
+  - sample-level when saved sample rows are available
+  - replay-aware when timeout replay results are available
 """
 
 from __future__ import annotations
@@ -22,6 +24,15 @@ def _load(name: str) -> dict | None:
     if not path.exists():
         return None
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_optional_rows() -> list[dict] | None:
+    path = RESULTS / "m7_extended_monte_carlo_samples.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    rows = data.get("results")
+    return rows if isinstance(rows, list) else None
 
 
 def main() -> int:
@@ -62,22 +73,68 @@ def main() -> int:
         else None
     )
 
-    sample_level_results_available = False
-    timeout_reason_breakdown = {
-        "timeout_before_event_search": "unknown_count_without_sample_rows",
-        "timeout_after_event_search": "unknown_count_without_sample_rows",
-        "future_timeout": "unknown_count_without_sample_rows",
-    }
+    sample_rows = _load_optional_rows()
+    replay = _load("m7_timeout_replay.json")
+    sample_level_results_available = isinstance(sample_rows, list)
+    timeout_reason_breakdown: dict[str, int | str] = {}
+    timeout_parameter_summary = None
+    replay_summary = None
+
+    if sample_level_results_available:
+        timeout_rows = [row for row in sample_rows if row.get("classification") == "TIMEOUT_NO_FORMAL_RESULT"]
+        for row in timeout_rows:
+            reason = str(row.get("reason") or "unknown")
+            timeout_reason_breakdown[reason] = int(timeout_reason_breakdown.get(reason, 0)) + 1
+        if timeout_rows:
+            t0_vals = [float(row["t0_mjd"]) for row in timeout_rows if row.get("t0_mjd") is not None]
+            rm_vals = [float(row["r_m_km"]) for row in timeout_rows if row.get("r_m_km") is not None]
+            rp_vals = [float(row["rp_target_au"]) for row in timeout_rows if row.get("rp_target_au") is not None]
+            timeout_parameter_summary = {
+                "t0_mjd_min": round(min(t0_vals), 6) if t0_vals else None,
+                "t0_mjd_max": round(max(t0_vals), 6) if t0_vals else None,
+                "r_m_km_min": round(min(rm_vals), 3) if rm_vals else None,
+                "r_m_km_max": round(max(rm_vals), 3) if rm_vals else None,
+                "rp_target_au_min": round(min(rp_vals), 6) if rp_vals else None,
+                "rp_target_au_max": round(max(rp_vals), 6) if rp_vals else None,
+            }
+    else:
+        timeout_reason_breakdown = {
+            "timeout_before_event_search": "unknown_count_without_sample_rows",
+            "timeout_after_event_search": "unknown_count_without_sample_rows",
+            "future_timeout": "unknown_count_without_sample_rows",
+        }
+
+    if replay is not None:
+        replay_results = replay.get("results", [])
+        replay_valid = sum(1 for row in replay_results if row.get("valid_return_event"))
+        replay_invalid = sum(1 for row in replay_results if row.get("classification") == "INVALID_NO_FORMAL_RESULT")
+        replay_timeout = sum(1 for row in replay_results if row.get("classification") == "TIMEOUT_NO_FORMAL_RESULT")
+        replay_summary = {
+            "selected_timeout_samples": replay.get("selected_timeout_samples"),
+            "replay_valid_count": replay_valid,
+            "replay_invalid_count": replay_invalid,
+            "replay_timeout_count": replay_timeout,
+        }
 
     interpretations = [
-        "Current full JSON contains aggregate statistics only; it does not retain per-sample rows for timeout reclassification.",
-        "Therefore, timeout_count must not be interpreted as physical non-return count.",
-        "Full-run profiling points to trajectory_propagation as the dominant cost, so many timeouts may be compute-budget or search-budget limited rather than dynamically impossible.",
-        "The smoke run reached timeout_count=0 at N=20, which supports the view that at least part of the full-run degradation is scaling/runtime related.",
-        "A strong timeout diagnosis would require rerunning with saved per-sample rows or targeted timeout replay; that has not been done here.",
+        "timeout_count must not be interpreted as physical non-return count by default.",
+        "Trajectory propagation remains the dominant cost in the current profile, so runtime budget is a real contributor.",
+        "Only saved sample rows or timeout replay can distinguish search-budget failure from true dynamical non-return.",
     ]
+    if sample_level_results_available:
+        interpretations.append("Per-sample timeout rows are available, so timeout reasons and parameter concentration can now be inspected directly.")
+    else:
+        interpretations.append("Current diagnosis is aggregate-only because no saved per-sample rows were found.")
+    if replay_summary is not None:
+        interpretations.append("Timeout replay results are available and should be preferred over aggregate-only interpretation.")
+    else:
+        interpretations.append("No timeout replay results were found yet.")
 
-    if propagation_fraction is not None and propagation_fraction >= 0.85:
+    if replay_summary is not None and replay_summary["replay_valid_count"] > 0:
+        timeout_conclusion = "TIMEOUTS_INCLUDE_POTENTIAL_TRUE_RETURNS_REPLAY_CONFIRMED"
+    elif sample_level_results_available and propagation_fraction is not None and propagation_fraction >= 0.85:
+        timeout_conclusion = "TIMEOUTS_LIKELY_MIXED_SEARCH_OR_RUNTIME_LIMIT_NOT_PHYSICAL_INVALID"
+    elif propagation_fraction is not None and propagation_fraction >= 0.85:
         timeout_conclusion = "TIMEOUTS_LIKELY_MIXED_SEARCH_OR_RUNTIME_LIMIT_NOT_PHYSICAL_INVALID"
     else:
         timeout_conclusion = "TIMEOUT_MEANING_UNRESOLVED_AGGREGATE_ONLY"
@@ -105,12 +162,20 @@ def main() -> int:
         "event_semantics": semantics,
         "smoke_reference": smoke_summary,
         "timeout_reason_breakdown": timeout_reason_breakdown,
+        "timeout_parameter_summary": timeout_parameter_summary,
+        "replay_summary": replay_summary,
         "timeout_conclusion": timeout_conclusion,
-        "robustness_claim_allowed": False,
-        "classification": "AGGREGATE_ONLY_TIMEOUT_DIAGNOSIS_PENDING_SAMPLE_LEVEL_REPLAY",
+        "robustness_claim_allowed": False if replay_summary is None else replay_summary["replay_valid_count"] == 0,
+        "classification": (
+            "SAMPLE_LEVEL_TIMEOUT_DIAGNOSIS"
+            if sample_level_results_available and replay_summary is None
+            else "REPLAY_AWARE_TIMEOUT_DIAGNOSIS"
+            if replay_summary is not None
+            else "AGGREGATE_ONLY_TIMEOUT_DIAGNOSIS_PENDING_SAMPLE_LEVEL_REPLAY"
+        ),
         "interpretations": interpretations,
         "recommended_next_step": (
-            "If stronger M7 closure is needed, rerun Monte Carlo with saved per-sample rows and replay a timeout subset with extended runtime/search window."
+            "If stronger M7 closure is needed, run the full Monte Carlo with --save-sample-rows and replay a timeout subset with extended runtime/search window."
         ),
     }
 

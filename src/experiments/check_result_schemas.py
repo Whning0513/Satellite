@@ -27,6 +27,8 @@ OPTIONAL_FILES = {
     "o7_parallel_scan.json": "optional diagnostic file",
     "m7_extended_monte_carlo_profile.json": "optional M7 profiling file",
     "m7_extended_monte_carlo_smoke.json": "optional M7 smoke semantics file",
+    "m7_extended_monte_carlo_samples.json": "optional M7 per-sample replay file",
+    "m7_timeout_replay.json": "optional M7 timeout replay file",
 }
 OPTIONAL_LABELS = {
     "o4plus": "o4plus_powered_mga_optimizer.json",
@@ -36,6 +38,8 @@ OPTIONAL_LABELS = {
     "o7_parallel": "o7_parallel_scan.json",
     "m7_mc_profile": "m7_extended_monte_carlo_profile.json",
     "m7_mc_smoke": "m7_extended_monte_carlo_smoke.json",
+    "m7_mc_samples": "m7_extended_monte_carlo_samples.json",
+    "m7_timeout_replay": "m7_timeout_replay.json",
 }
 
 
@@ -143,6 +147,11 @@ def check_m7_outputs():
         "old_invalid_return_vinf_guard",
     ]:
         _check("m7_extended_monte_carlo.json", key in full, f"missing required key {key}")
+    for key in [
+        "sample_rows_saved",
+        "timeout_reason_breakdown",
+    ]:
+        _check("m7_extended_monte_carlo.json", key in full, f"missing required key {key}")
     if full.get("return_vinf_valid_only") is not None:
         stats = full["return_vinf_valid_only"]
         _check("m7_extended_monte_carlo.json", stats.get("p95", 0) < 30.0, "formal return_vinf p95 unexpectedly large")
@@ -170,6 +179,17 @@ def check_m7_outputs():
         full.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is True,
         "missing return-event semantics guard",
     )
+    if full.get("sample_rows_saved") is True:
+        _check(
+            "m7_extended_monte_carlo.json",
+            isinstance(full.get("sample_rows_file"), str) and len(full.get("sample_rows_file")) > 0,
+            "sample_rows_saved=true but sample_rows_file missing",
+        )
+        _check(
+            "m7_extended_monte_carlo.json",
+            isinstance(full.get("timeout_replay_manifest_file"), str) and len(full.get("timeout_replay_manifest_file")) > 0,
+            "sample_rows_saved=true but timeout_replay_manifest_file missing",
+        )
 
     smoke = _load("m7_extended_monte_carlo_smoke.json")
     if smoke is not None:
@@ -184,6 +204,20 @@ def check_m7_outputs():
     profile = _load("m7_extended_monte_carlo_profile.json")
     if profile is None:
         _warn_missing("m7_mc_profile")
+
+    sample_rows = _load("m7_extended_monte_carlo_samples.json")
+    if sample_rows is None:
+        _warn_missing("m7_mc_samples")
+    else:
+        _check(
+            "m7_extended_monte_carlo_samples.json",
+            isinstance(sample_rows.get("results"), list),
+            "results must be a list",
+        )
+
+    timeout_replay = _load("m7_timeout_replay.json")
+    if timeout_replay is None:
+        _warn_missing("m7_timeout_replay")
 
 
 def check_m3_outputs():

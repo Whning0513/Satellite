@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import time
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
@@ -81,22 +82,42 @@ def _run_grid(body_data: dict, config: SearchConfig, *, max_workers: int) -> lis
                 print(f"  progress {done}/{total} ({time.time()-started:.0f}s)")
         return rows
 
-    with ProcessPoolExecutor(max_workers=max_workers, initializer=_worker_init) as pool:
-        for row in pool.map(_worker_eval, [(config, t0, side, r_m_km) for t0, side, r_m_km in jobs], chunksize=1):
-            done += 1
-            rows.append(row)
-            if done % 25 == 0 or done == total:
-                print(f"  progress {done}/{total} ({time.time()-started:.0f}s)")
+    try:
+        with ProcessPoolExecutor(max_workers=max_workers, initializer=_worker_init) as pool:
+            for row in pool.map(_worker_eval, [(config, t0, side, r_m_km) for t0, side, r_m_km in jobs], chunksize=1):
+                done += 1
+                rows.append(row)
+                if done % 25 == 0 or done == total:
+                    print(f"  progress {done}/{total} ({time.time()-started:.0f}s)")
+    except Exception as exc:
+        raise RuntimeError(
+            "ProcessPoolExecutor failed during M5 legal-window search. "
+            "Retry with --max-workers 1 to force serial execution on Windows."
+        ) from exc
     return rows
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-workers", type=int, default=8)
+    default_workers = 1 if os.name == "nt" else 8
+    parser.add_argument("--max-workers", type=int, default=default_workers)
     parser.add_argument("--coarse-step-days", type=int, default=10)
     parser.add_argument("--top-k-seeds", type=int, default=8)
+    parser.add_argument("--skip-refine", action="store_true")
+    parser.add_argument("--t0-values", type=str, default="")
+    parser.add_argument("--rm-values-km", type=str, default="")
+    parser.add_argument("--sides", type=str, default="trailing,leading")
     parser.add_argument("--output", type=str, default=str(RESULTS / "m5_legal_window_search.json"))
     return parser.parse_args()
+
+
+def _parse_float_list(raw: str) -> list[float]:
+    return [float(part.strip()) for part in raw.split(",") if part.strip()]
+
+
+def _parse_side_list(raw: str) -> list[str]:
+    values = [part.strip() for part in raw.split(",") if part.strip()]
+    return values or ["trailing", "leading"]
 
 
 def main() -> int:
@@ -107,10 +128,14 @@ def main() -> int:
     started_total = time.time()
     body_data = fetch_sem_vectors(use_cache=True)
 
+    coarse_t0_values = _parse_float_list(args.t0_values) if args.t0_values else legal_coarse_t0_values(args.coarse_step_days)
+    rm_values = _parse_float_list(args.rm_values_km) if args.rm_values_km else default_rm_values()
+    side_values = _parse_side_list(args.sides)
+
     coarse_cfg = SearchConfig(
-        t0_values=legal_coarse_t0_values(args.coarse_step_days),
-        r_m_values_km=default_rm_values(),
-        sides=["trailing", "leading"],
+        t0_values=coarse_t0_values,
+        r_m_values_km=rm_values,
+        sides=side_values,
         trajectory_dt_integrate_s=3600.0,
         coarse_step_days=2.0,
         refine_step_s=3600.0,
@@ -121,20 +146,26 @@ def main() -> int:
     coarse_rows = _run_grid(body_data, coarse_cfg, max_workers=max(1, int(args.max_workers)))
     coarse_rows_sorted = sorted(coarse_rows, key=_candidate_rank)
 
-    seed_t0 = [row["t0_mjd"] for row in coarse_rows_sorted[: max(1, int(args.top_k_seeds))]]
-    refine_t0 = legal_refine_t0_values(seed_t0, offsets_days=[-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3])
-    refine_cfg = SearchConfig(
-        t0_values=refine_t0,
-        r_m_values_km=default_rm_values(),
-        sides=["trailing", "leading"],
-        trajectory_dt_integrate_s=900.0,
-        coarse_step_days=0.5,
-        refine_step_s=600.0,
-        nominal_window_half_width_days=160.0,
-        fallback_window_half_width_days=340.0,
-    )
-    print(f"refine t0 count = {len(refine_cfg.t0_values)}")
-    refine_rows = _run_grid(body_data, refine_cfg, max_workers=max(1, int(args.max_workers)))
+    refine_rows: list[dict] = []
+    refine_cfg = None
+    if not args.skip_refine:
+        seed_t0 = [row["t0_mjd"] for row in coarse_rows_sorted[: max(1, int(args.top_k_seeds))]]
+        refine_t0 = legal_refine_t0_values(seed_t0, offsets_days=[-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3])
+        refine_cfg = SearchConfig(
+            t0_values=refine_t0,
+            r_m_values_km=rm_values,
+            sides=side_values,
+            trajectory_dt_integrate_s=900.0,
+            coarse_step_days=0.5,
+            refine_step_s=600.0,
+            nominal_window_half_width_days=160.0,
+            fallback_window_half_width_days=340.0,
+        )
+        print(f"refine t0 count = {len(refine_cfg.t0_values)}")
+        refine_rows = _run_grid(body_data, refine_cfg, max_workers=max(1, int(args.max_workers)))
+    else:
+        seed_t0 = [row["t0_mjd"] for row in coarse_rows_sorted[: max(1, int(args.top_k_seeds))]]
+        refine_t0 = []
 
     dedup: dict[tuple, dict] = {}
     for row in coarse_rows + refine_rows:
@@ -158,8 +189,9 @@ def main() -> int:
             "seed_t0_values": sorted(set(seed_t0)),
             "refined_t0_values": refine_t0,
             "evaluated_rows": len(refine_rows),
-            "trajectory_dt_integrate_s": refine_cfg.trajectory_dt_integrate_s,
-            "event_coarse_step_days": refine_cfg.coarse_step_days,
+            "trajectory_dt_integrate_s": refine_cfg.trajectory_dt_integrate_s if refine_cfg else None,
+            "event_coarse_step_days": refine_cfg.coarse_step_days if refine_cfg else None,
+            "skipped": bool(args.skip_refine),
         },
         "search_runtime_sec": round(time.time() - started_total, 3),
         "max_workers": int(args.max_workers),

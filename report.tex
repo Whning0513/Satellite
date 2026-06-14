@@ -1,44 +1,30 @@
-% ============================================================
-% report.tex — 星际航行轨道设计与分析 课程项目报告
-% 编译方式: xelatex report.tex
-% ============================================================
 \documentclass[12pt,a4paper]{ctexart}
 
-% ── 编码与字体 ──
 \usepackage{fontspec}
 \setmainfont{Times New Roman}
 \usepackage[utf8]{inputenc}
-
-% ── 页面 ──
-\usepackage[top=2.3cm, bottom=2.3cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage[top=2.3cm,bottom=2.3cm,left=2.5cm,right=2.5cm]{geometry}
 \usepackage{setspace}
 \setstretch{1.2}
-
-% ── 数学 ──
-\usepackage{amsmath,amssymb,amsfonts}
-\usepackage{pifont}
-\newcommand{\cmark}{\textcolor{green!55!black}{\ding{51}}}
-\newcommand{\xmark}{\textcolor{red!80!black}{\ding{55}}}
-\usepackage{bm}
-
-% ── 图表 ──
+\usepackage{amsmath,amssymb,amsfonts,bm}
 \usepackage{graphicx}
 \usepackage{subcaption}
 \usepackage{float}
 \usepackage[hypcap=true]{caption}
-\graphicspath{{./figs/}{./data/results/}}
-
-% ── 表格 ──
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{array}
-
-% ── 超链接 ──
-\usepackage[colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue]{hyperref}
-
-% ── 代码 ──
-\usepackage{listings}
 \usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{pifont}
+
+\graphicspath{{./figs/}{./data/results/}}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue,citecolor=blue}
+\newcommand{\cmark}{\textcolor{green!55!black}{\ding{51}}}
+\newcommand{\xmark}{\textcolor{red!80!black}{\ding{55}}}
 \lstset{
     basicstyle=\small\ttfamily,
     numbers=left,
@@ -51,1024 +37,370 @@
     commentstyle=\color{green!50!black},
     stringstyle=\color{red},
 }
-
-% ── 自定义 ──
-\usepackage{titlesec}
 \titleformat{\section}{\Large\bfseries}{\thesection}{1em}{}
-	itlespacing\section{0pt}{6pt}{3pt}
+\titlespacing\section{0pt}{6pt}{3pt}
 \titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
-	itlespacing\subsection{0pt}{4pt}{2pt}
-\usepackage{fancyhdr}
+\titlespacing\subsection{0pt}{4pt}{2pt}
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[C]{\leftmark}
 \fancyfoot[C]{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
+\setlength{\headheight}{14.5pt}
 
-% ── 信息 ──
-\title{\textbf{钱学森问题的扩展求解：\\含月球借力与发射窗口优化的绕日返回轨道设计}}
-\author{人工智能与数学软件 ~~ 期末设计项目}
+\title{\textbf{钱学森问题的扩展求解：\\含月球借力与发射窗口约束的绕日返回轨道设计}}
+\author{人工智能与数学软件~~期末设计项目}
 \date{2026 年 6 月}
 
-\setlength{\headheight}{14.5pt}
 \begin{document}
 
 \maketitle
 \thispagestyle{empty}
 
-% ============================================================
 \section{摘要}
-\label{sec:abstract}
-% ============================================================
+本项目围绕题干规定的 2026-01-01 至 2026-12-31 合法发射窗，构建并实现了一个含月球借力、日心转移、地球返回事件判定和数值验证的轨道设计系统。主线方法包括：拼接圆锥曲线解析设计、Velocity-Verlet N 体积分、JPL~Horizons 初值与残差对照、月球 swing-by 解析/数值交叉验证、固定日期轨道求解、窗口搜索、灵敏度与可视化。
 
-本报告基于钱学森《星际航行概论》第 5--6 章的拼接圆锥曲线理论，扩展求解一个含月球借力与发射窗口优化的绕日返回轨道问题。火箭从地球近地停泊轨道出发，借助月球引力进行一次速度修正后进入日心椭圆转移轨道，绕过太阳后返回地球附近。
+在数值审计后，旧的 61037、61066、61154 等候选不再作为正式结果主线。当前保留的合法固定日期 formal 结果为 MJD~61065.0（2026-01-25）：trailing 月借力、$r_m=1837.4$~km、实现近日距 $0.274959$~AU、返回地球距离 $4.46\times10^5$~km、返回 $v_{\infty}=10.5173$~km/s。按统一的 $v_{\infty}$ budget basis，与同日 no-lunar DSM baseline 的 $20.5938$~km/s 相比，月借力方案总预算为 $10.1213$~km/s，对应固定日期节能比例 $50.85\%$。
 
-项目实现了八个循序渐进的模块（M1--M8），涵盖拼接圆锥曲线解析计算、N 体数值积分器、JPL~Horizons 历表对照验证、月球借力模型、单点轨道求解器、全年发射窗口扫描、灵敏度分析和可视化。标称设计目标为近日距 $0.3$~AU，借助月球 trailing 侧飞越实现速度修正。最佳发射窗口位于 MJD~61154.0，对应 $v_{\text{launch}} \approx 14.70$~km/s，实现近日距 $0.2843$~AU（相对误差 $5.2\%$）。
-
-\textbf{完成状态：}所有必做模块（M1--M8）均通过回归测试。M3 通过三维日心系残差法将位置误差控制在 $6000$~km 以内；M4 完成了数值 swingby 与解析模型的交叉验证（偏转角差异 $2.29^\circ$）；M8 共生成 $8$ 张诊断图。此外额外实现了 O3/O3+ 微分修正器（position-shooting, no-scipy, O3 ~4x改善, O3+ 74.59x改善收敛）、O5 轨道动画和 O7 并行加速扫描（ProcessPool 3.78$\times$加速（3 次基准） + Ridge 代理预筛选 $R^2=0.90$）。项目在二维黄道投影、三体简化模型下工作正常。
+M1--M5 的核心数值链已闭环；M3 被明确限定为 same-source propagation check，而非独立 JPL 预测；M7 已升级为围绕合法锚点的 $N=200$ Monte Carlo，formal 返回速度只在真实 Earth-return 事件上定义。全年全局最优发射窗口仍需通过重新运行合法窗口全搜索来确认，因此本报告仅把 61065 作为当前正式核实锚点，而不把它写成已证明的全年全局最优。
 
 \newpage
 
-% ============================================================
 \section{项目背景与问题描述}
-\label{sec:background}
-% ============================================================
-
 \subsection{钱学森问题}
+钱学森在《星际航行概论》第 5--6 章中系统阐述了基于拼接圆锥曲线（Patched Conic）的星际轨道设计思想\cite{tsien1963}。该方法将复杂多体问题近似拆分为若干二体段，在影响球边界拼接，从而得到可解析、可计算的近似任务设计框架。
 
-钱学森在《星际航行概论》第 5--6 章中系统地阐述了基于圆锥曲线拼接（Patched Conic）的星际轨道设计方法\cite{tsien1963}。其核心思想是将行星际飞行轨道分解为若干个二体问题段，在行星影响球（Sphere of Influence, SOI）边界处进行拼接，从而将复杂的多体问题简化为若干段解析可解的轨道。
-
-\subsection{扩展任务描述}
-
-本项目的扩展任务为：设计一条从地球出发、借助月球引力辅助变轨、进入近日椭圆轨道后返回地球附近的完整飞行方案。具体而言：
-
+\subsection{扩展任务}
+本项目目标是设计一条从地球出发、经月球借力后进入近日日心轨道，再绕日返回地球附近的完整飞行方案。核心约束为：
 \begin{itemize}
-    \item \textbf{出发点：} 近地停泊轨道，高度 $0.1\,R_{\text{Earth}}$（约 $637$~km），对应轨道半径 $r_{\text{parking}} \approx 7016$~km；
-    \item \textbf{设计目标：} 近日距 $r_p = 0.3$~AU，飞行时间不超过 2 年；
-    \item \textbf{关键手段：} 月球借力（lunar swing-by）实现速度修正，降低发射能量需求；
-    \item \textbf{约束条件：} 近月距 $\ge$ 月面 $+100$~km，再入速度 $< 15$~km/s。
+    \item 发射日期限定在 2026-01-01 至 2026-12-31；
+    \item 近月距不得低于月面上方 100~km；
+    \item 总飞行时间不超过 2 年；
+    \item 返回相对速度满足 $v_{\infty}\le 15$~km/s 的任务约束；
+    \item N 体积分的能量漂移需处于可接受范围。
 \end{itemize}
 
-\subsection{选题意义}
-
-月球借力是实现深空探测的重要技术手段。通过合理设计月球飞越几何，可以在不消耗额外燃料的情况下获得显著的速度改变。本研究将经典拼接圆锥曲线理论与现代 JPL 历表数据相结合，为理解行星际轨道设计中的关键物理和工程问题提供了一个完整的数值实验框架。
+\subsection{建模选择}
+主线模型采用二维 J2000 黄道平面投影，动力学包含太阳、地球、月球和探测器，探测器视为 test particle。历表初值来源于 JPL~Horizons 缓存，参考系转换由本地代码统一管理。
 
 \newpage
 
-% ============================================================
-\section{建模假设与题意具体化}
-\label{sec:assumptions}
-% ============================================================
-
-\subsection{坐标系与参考框架}
-
+\section{建模假设与数值方法}
+\subsection{参考系与单位}
 \begin{itemize}
-    \item 主坐标系采用 J2000 黄道平面（二维投影），忽略轨道倾角分量；
-    \item 日心段以太阳为原点，地月段以地球或月球为原点；
-    \item 时间系统采用儒略日（Julian Day, JD）和约化儒略日（MJD）。
+    \item 主积分在 SSB 惯性系中进行；
+    \item 结果分析可转到日心相对系；
+    \item 单位采用 km、s、km/s，日期使用 JD/MJD。
 \end{itemize}
 
-\subsection{引力模型}
-
+\subsection{动力学与积分方法}
 \begin{itemize}
-    \item 四体引力系统：太阳、地球、月球、探测器（探测器作为 test particle，不产生引力扰动）；
-    \item 二体段（拼接圆锥曲线）：只考虑太阳引力或行星引力；
-    \item N 体数值段：同时考虑日、地、月三体的引力叠加。
+    \item 拼接圆锥曲线段使用二体轨道公式；
+    \item N 体传播采用 Velocity-Verlet；
+    \item 主步长为 3600~s，事件细化和残差检查使用更小步长；
+    \item 积分器通过二体圆轨道基准和能量漂移测试验证。
 \end{itemize}
 
-\subsection{数值方法假设}
-
-\begin{itemize}
-    \item 积分算法：Velocity-Verlet，主步长 $\Delta t_{\text{main}} = 3600$~s，细化步长 $\Delta t_{\text{refine}} = 60$~s；
-    \item 地球和月球的初态从 JPL~Horizons 系统获取（缓存 JSON 文件）；
-    \item 发射过程简化为瞬时速度增量（脉冲假设）；
-    \item 再入过程不做详细大气层飞行计算，仅估算再入速度。
-\end{itemize}
-
-\subsection{月球借力假设}
-
-\begin{itemize}
-    \item 采用圆锥曲线匹配的解析借力模型（不考虑月球 SOI 内部的 N 体效应）；
-    \item 分为 leading 和 trailing 两种飞越模式；
-    \item 数值对照使用二体简化（月球+探测器），不包含太阳扰动。
-\end{itemize}
-
-\subsection{任务约束具体化}
-
-\begin{table}[H]
-\centering
-\caption{设计参数与约束}
-\label{tab:constraints}
-\begin{tabular}{lcc}
-\toprule
-参数 & 目标值 & 说明 \\
-\midrule
-近地轨道半径 $r_{\text{parking}}$ & $1.1\,R_{\text{Earth}}$ & 约 7016~km \\
-设计近日距 $r_p$ & $0.3$~AU & 内转移 \\
-近月距 $r_m$ & $R_{\text{Moon}} + 500$~km & 约 2237~km \\
-飞行总时间 & $< 2$ 年 & 约 365--730 天 \\
-再入速度 & $< 15$~km/s & 参考钱学森指标 \\
-\bottomrule
-\end{tabular}
-\end{table}
+\subsection{事件语义}
+在后期数值正确性审计中，项目补入了统一的 Earth-return 事件语义：formal 的返回 $v_{\infty}$ 只能在真实地球接近事件上定义，不允许把深空状态、近日点状态或中途状态误写成返回速度。这一规则直接影响 M5、M6、M7 的正式结果身份。
 
 \newpage
 
-% ============================================================
 \section{拼接圆锥曲线模型（M1）}
-\label{sec:m1}
-% ============================================================
-
-\subsection{目标}
-
-\subsection{数学模型}
-\subsection{数学模型}
-
-拼接圆锥曲线的基本思想是将地心段和日心段视为两个独立的二体问题，在地球 SOI 边界处拼接\cite{bate1971}。
-
-对于日心段椭圆轨道，近日距 $r_p$、远日距 $r_1$（取 1~AU）由给定设计值确定。由二体轨道公式可得：
-
+\subsection{目标与公式}
+给定近日距 $r_p$、远日距 $r_1=1$~AU 和太阳引力参数，求解日心椭圆参数与地球处所需超速。核心公式为\cite{bate1971}
 \begin{equation}
-a = \frac{r_p + r_1}{2}, \quad
-e = \frac{r_1 - r_p}{r_1 + r_p}, \quad
-p = a(1 - e^2)
-\label{eq:patched-elements}
+a = \frac{r_p+r_1}{2},\quad
+e = \frac{r_1-r_p}{r_1+r_p},
+\end{equation}
+\begin{equation}
+v_1 = \sqrt{\mu_{\text{Sun}}\left(\frac{2}{r_1}-\frac{1}{a}\right)},\quad
+v_{\infty} = \|\bm{v}_1-\bm{v}_{\text{Earth}}\|,
+\end{equation}
+\begin{equation}
+v_{\text{launch}} = \sqrt{v_{\infty}^2+\frac{2\mu_{\text{Earth}}}{r_{\text{parking}}}}.
 \end{equation}
 
-近日点速度 $v_p$ 和远日点速度 $v_1$ 由能量积分给出：
+\subsection{结果}
+以钱学森 $r_p=0.2$~AU 算例为基准，核心量的相对误差控制在 0.1\% 以内。对 $r_p=0.3$~AU 的任务参数，项目明确区分了 heliocentric impulse 与 surface-launch-equivalent velocity，避免了早期将二者混写的问题。
 
-\begin{equation}
-v_p = \sqrt{\mu_{\text{Sun}}\left(\frac{2}{r_p} - \frac{1}{a}\right)},\quad
-v_1 = \sqrt{\mu_{\text{Sun}}\left(\frac{2}{r_1} - \frac{1}{a}\right)}
-\label{eq:vis-viva}
-\end{equation}
-
-地球轨道速度 $v_{\text{Earth}} \approx 29.80$~km/s，探测器从地球出发需达到的双曲线超速（$v_{\infty}$）即为日心速度 $\bm{v}_1$ 与地球速度 $\bm{v}_{\text{Earth}}$ 的矢量差：
-
-\begin{equation}
-\Delta \bm{v} = \bm{v}_1 - \bm{v}_{\text{Earth}}
-\label{eq:dv}
-\end{equation}
-
-对内转移（$r_p < 1$~AU），$\bm{v}_1 < \bm{v}_{\text{Earth}}$，需要减速，即 retrograde 发射。
-
-从近地停泊轨道出发所需发射速度为：
-
-\begin{equation}
-C3 = v_{\infty}^2, \quad v_{\text{launch}} = \sqrt{C3 + 2\mu_{\text{Earth}} / r_{\text{parking}}}
-\label{eq:c3-launch}
-\end{equation}
-
-\subsection{代码实现}
-
-相关函数位于 \texttt{src/patched\_conic.py}，核心为 \texttt{OrbitalElements.compute()} 方法。
-
-\subsection{数值验证结果}
-
-以 Qian 的 $r_p = 0.2$~AU 算例为基准进行验证：
-
-\begin{table}[H]
-\centering
-\caption{M1 验证结果（$r_p = 0.2$~AU）}
-\label{tab:m1-results}
-\begin{tabular}{lccc}
-\toprule
-参数 & 参考值 & 计算值 & 相对误差 \\
-\midrule
-半长轴 $a$ & 0.6~AU & --- & $<10^{-3}$ \\
-偏心率 $e$ & 0.666667 & --- & $<10^{-3}$ \\
-$v_1$ (地球处) & --- & --- & $<10^{-3}$ \\
-$\Delta v$ & --- & --- & $<10^{-3}$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{结论：} M1 回归测试中最大相对误差 $<0.1\%$，满足基本要求，\textbf{标记为 done}。
-
-\newpage
-
-% ============================================================
 \section{N 体 Velocity-Verlet 积分器（M2）}
-\label{sec:m2}
-% ============================================================
-
-\subsection{目标}
-
-实现一个通用的 N 体数值积分器，支持任意数量天体的 Velocity-Verlet 递推，并能够验证二体圆轨道的能量和角动量守恒特性。
-
-\subsection{数学模型}
-
-Velocity-Verlet 算法是一种辛积分方法\cite{verlet1967}，在轨道力学中长期积分中具有优良的能量守恒特性。其更新公式为：
-
+\subsection{积分器形式}
+Velocity-Verlet 采用
 \begin{align}
-\bm{r}(t + h) &= \bm{r}(t) + h \bm{v}(t) + \frac{h^2}{2} \bm{a}(t) \label{eq:vv1} \\
-\bm{a}(t + h) &= \sum_{j \neq i} \frac{GM_j (\bm{r}_j - \bm{r}_i)}{\|\bm{r}_j - \bm{r}_i\|^3} \label{eq:vv-accel} \\
-\bm{v}(t + h) &= \bm{v}(t) + \frac{h}{2} \left[ \bm{a}(t) + \bm{a}(t + h) \right] \label{eq:vv2}
+\bm{r}(t+h) &= \bm{r}(t) + h\bm{v}(t) + \frac{h^2}{2}\bm{a}(t), \\
+\bm{v}(t+h) &= \bm{v}(t) + \frac{h}{2}\left[\bm{a}(t)+\bm{a}(t+h)\right].
 \end{align}
 
-\subsection{二体验证}
+\subsection{验证}
+二体圆轨道基准测试下，位置误差达到 $8.27\times 10^{-5}$，能量漂移约 $5\times10^{-15}$，满足题干要求。该积分器随后被用于 M3--M7 的传播。
 
-采用无量纲二体圆周运动测试：$\mu = 4\pi^2$，$r_0 = (1, 0)$，$v_0 = (0, 2\pi)$，周期 $T = 1$。
-
-\begin{table}[H]
-\centering
-\caption{M2 收敛性测试}
-\label{tab:m2-convergence}
-\begin{tabular}{lcccc}
-\toprule
-步长 $h$ & 步数 & 位置误差 & 能量漂移 & 角动量漂移 \\
-\midrule
-$2.0\times10^{-2}$ & 50 & $3.29\times10^{-2}$ & $1.13\times10^{-9}$ & $1.41\times10^{-16}$ \\
-$1.0\times10^{-2}$ & 100 & $8.26\times10^{-3}$ & $4.22\times10^{-12}$ & $1.41\times10^{-16}$ \\
-$5.0\times10^{-3}$ & 200 & $2.07\times10^{-3}$ & $1.44\times10^{-14}$ & $8.48\times10^{-16}$ \\
-$2.0\times10^{-3}$ & 500 & $3.31\times10^{-4}$ & $2.70\times10^{-15}$ & $1.41\times10^{-15}$ \\
-$1.0\times10^{-3}$ & 1000 & $8.27\times10^{-5}$ & $5.40\times10^{-15}$ & $2.69\times10^{-15}$ \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-$h = 10^{-3}$ 时位置误差为 $8.27\times10^{-5}$，能量漂移约 $5\times10^{-15}$，角动量漂移 $2.7\times10^{-15}$，均满足积分器设计要求。
-
-\subsection{四体传播}
-
-将积分器扩展至日-地-月-探测器四体系统，加速度模型为 \texttt{nbody\_accelerations()}，支持主步长和细化步长两级积分策略。
-
-\textbf{结论：} M2 回归测试通过，位置误差和能量漂移均达标，\textbf{标记为 done}。
-
-
-% ============================================================
 \section{JPL Horizons 历表对照（M3）}
-\label{sec:m3}
-% ============================================================
-
 \subsection{目标}
+M3 使用 2026-01-01 的 Horizons 初值，传播 Sun--Earth--Moon 系统一年，并与缓存历表逐日比较。
 
-获取太阳、地球、月球在 2026 年的 JPL~Horizons 历表数据，利用 N 体数值积分器从初态开始传播，与历表参考值进行逐日对比，评估位置和速度残差。
+\subsection{结果解释}
+M3 当前的正式语义是 same-source propagation check，而非独立历表预测。主要结果为：
+\begin{itemize}
+    \item 3-body residual：5911.66~km；
+    \item 5-body residual：1401.42~km；
+    \item full planetary residual：126.47~km；
+    \item SSB absolute residual：92378.11~km。
+\end{itemize}
+这些结果表明，残差改善主要来自模型项增补，而非单纯步长压缩。M3 没有 daily Horizons reset，只使用 day0 初值传播，因此它支持“积分器与力模型在 same-source 条件下自洽”的结论，但不支持“独立 JPL 预测精度已被证明”的表述。
 
-\subsection{数学模型}
-
-以 MJD~61041.5（2026-01-01）的 Horizons 数据为初态，使用 Velocity-Verlet 三体积分器（日+地+月，三维 J2000 全分量，步长 60~s）传播 366 天。
-
-为使位置残差仅反映数值积分器的物理精度而非坐标参考框架差异，我们在\textbf{日心系}中计算残差：从各天体的 SSB 状态中减去对应时刻太阳的 SSB 状态，消除因省略行星摄动引起的共同漂移。第 $i$ 天的日心残差定义为：
-
-\begin{equation}
-\varepsilon_{r}^{(i)} = \left\|(\bm{r}_{\text{num}}^{(i)} - \bm{r}_{\text{sun,num}}^{(i)}) - (\bm{r}_{\text{ref}}^{(i)} - \bm{r}_{\text{sun,ref}}^{(i)})\right\|
-\label{eq:residual-heliocentric}
-\end{equation}
-
-\subsection{数值结果}
-
-\begin{table}[H]
-\centering
-\caption{M3 位置残差统计（三维日心系，步长 60~s）}
-\label{tab:m3-results}
-\begin{tabular}{lccc}
-\toprule
-天体 & 最大位置残差（km） & 最终位置残差（km） & 6000~km 阈值 \\
-\midrule
-太阳 & 0（参考系原点） & 0 & --- \\
-地球 & $5.90 \times 10^{3}$ & $4.56 \times 10^{3}$ & \textbf{通过} \\
-月球 & $5.90 \times 10^{3}$ & $4.56 \times 10^{3}$ & \textbf{通过} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-最大速度残差约为 $1.64\times10^{-3}$~km/s，相对于平均轨道速度 $30$~km/s 的相对误差约 $5\times10^{-5}$。
-
-\subsection{残差分析}
-
-采用日心系残差方法后，三个天体的位置误差均在 $6000$~km 阈值以内。这一结果表明，原始的 $9.6\times10^4$~km 残差主要来自\textbf{SSB 参考系中的共同漂移}（因忽略木星、金星等大行星摄动导致系统整体偏移），而非数值积分器本身精度不足。主要误差来源包括：
-
-\begin{enumerate}
-    \item \textbf{三体简化：} 只考虑日、地、月引力，忽略了木星、金星等大行星摄动；
-    \item \textbf{初始条件误差：} Horizons 每日缓存数据仅提供日分辨率，线性插值到各 MJD 引入了约几十公里的误差；
-    \item \textbf{固定步长：} 细化步长 $\Delta T_{\text{refine}} = 60$~s 已足够精确，进一步减小步长带来的改善有限。
-\end{enumerate}
-
-\subsection{完成状态}
-
-\textbf{M3 标记为 done。} 日心系残差法将 Earth 和 Moon 的最大位置误差控制在 $< 6000$~km 以内。如需进一步降低残差，可加入大行星摄动或使用更高精度的积分器。
-
-
-% ============================================================
 \section{月球借力模型（M4）}
-\label{sec:m4}
-% ============================================================
-
-\subsection{目标}
-
-实现月球借力的解析和数值仿真两套实现，并相互对比验证。
-
-\subsection{数学模型：解析模型}
-
-\subsubsection{双曲线偏转角}
-
-在月球 SOI 内部，探测器相对于月球的运动可视为一条双曲线轨道。偏转角（turn angle）由下式给出：
-
+\subsection{解析模型}
+月心双曲线偏折角采用
 \begin{equation}
-e = 1 + \frac{r_p v_{\infty}^2}{GM_{\text{Moon}}},\quad
-\delta = 2 \arcsin\left(\frac{1}{e}\right)
-\label{eq:turn-angle}
+e = 1 + \frac{r_p v_\infty^2}{GM_{\text{Moon}}},\quad
+\delta = 2\arcsin\left(\frac{1}{e}\right).
 \end{equation}
 
-速度增量大小为：
-
-\begin{equation}
-\Delta v = 2 v_{\infty} \sin\left(\frac{\delta}{2}\right) = \frac{2 v_{\infty}}{e}
-\label{eq:dv-swingby}
-\end{equation}
-
-\subsubsection{速度方向变换}
-
-解析计算中，已知入射相对速度 $\bm{v}_{\infty,\text{in}}$、近月距 $r_p$ 和飞越模式（leading/trailing），确定出射相对速度 $\bm{v}_{\infty,\text{out}}$，再转回日心系得到速度变化。
-
-\subsection{代码实现}
-
-解析和数值借力模型的实现位于 \path{src/lunar_swingby.py}。
-
-\subsection{数值验证}
-
-数值验证使用实际 JPL 历表数据进行：取 2026 年中某日的日地月状态，将火箭放置在月球 SOI 边界外，以 $v_{\infty} = 2.0$~km/s 沿 trailing 方向接近。
-
-\begin{table}[H]
-\centering
-\caption{M4 验证结果}
-\label{tab:m4-results}
-\begin{tabular}{lcc}
-\toprule
-测试项 & 数值 & 说明 \\
-\midrule
-Trailing $v_{\infty}$ & 2.00~km/s & 火箭快于月球 \\
-Trailing $\Delta v$ & 1.416~km/s & 减速 \\
-Leading $\Delta v$ & 1.416~km/s & 加速（对称） \\
-双曲线偏心率 $e$ & 2.825 & 强双曲 \\
-\hline
-\textbf{数值-解析对照（Test 5）} & & \\
-偏转角（解析） & 41.46$^\circ$ & 纯二体双曲公式 \\
-偏转角（数值） & 39.17$^\circ$ & 四体 N 体积分 \\
-差异 & 2.29$^\circ$ & 日/地摄动所致 \\
-$|v_{\infty}|$ 守恒误差 & 0.3\% & 弹性假设合理性 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-数值与解析的偏转角差异为 $2.29^\circ$，$v_{\infty}$ 守恒误差仅 $0.3\%$，验证了解析模型的合理性。差异主要来源于日心引力在 SOI 内部产生的潮汐效应。
-
-\subsubsection{多参数网格扫描}
-
-为系统评估解析模型的适用范围，在 $r_m$、$v_{\infty}$ 和飞越方向三个维度上进行了 $6 \times 5 \times 2 = 60$ 组数值对照实验。
-
-\begin{table}[H]
-\centering
-\caption{M4 参数扫描汇总}
-\label{tab:m4-scan}
-\begin{tabular}{lcc}
-\toprule
-指标 & 数值 & 说明 \\
-\midrule
-测试组数 & 60 & $6 r_m \times 5 v_{\infty} \times 2$ side \\
-成功 & 60/60 & 全部完成 SOI 穿越 \\
-中位角度误差 & $0.04^\circ$ & $v_{\infty} \ge 3$~km/s 时 \\
-最大角度误差 & $23.0^\circ$ & low $v_{\infty}=1$~km/s, leading \\
-最大 $|v_{\infty}|$ 守恒误差 & $3.6\%$ & SOI 内太阳潮汐效应 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-当 $v_{\infty} \ge 3$~km/s 时，角度误差普遍小于 $1^\circ$，解析模型十分准确。低 $v_{\infty}$（$1$~km/s）场景下，太阳潮汐使轨迹偏转远离二体假设，误差可达 $7-23^\circ$。这属于有限 SOI 近似和潮汐效应的固有局限，不影响本项目的典型任务参数（$v_{\infty} \approx 10$~km/s，角度误差 $<0.01^\circ$）。
-
-\subsection{完成状态}
-
-\textbf{M4 标记为 done-with-local-validation。} 解析模型和月心局部数值仿真（60 组参数）均已实现，$v_{\infty}$ 守恒误差在典型任务参数下 $<0.3\%$。对照是月心局部二体验证，不是完整任务级 N-body 高保真验证。
+\subsection{数值对照}
+项目完成了 60 组局部参数扫描。典型任务参数下中位角度误差约 $0.04^\circ$，最大误差出现在低 $v_\infty$ 场景，符合有限 SOI 和太阳潮汐扰动会削弱二体近似的预期。M4 的正式身份是局部解析/数值一致性验证，不是完整任务级 high-fidelity swingby 验证。
 
 \newpage
 
-% ============================================================
 \section{单点轨道求解（M5）}
-\label{sec:m5}
-% ============================================================
-
-\subsection{目标}
-
-给定发射日期、近月距、飞越模式和设计近日距，求解从地球出发经月球借力到进入日心转移轨道的完整轨道。
-
 \subsection{求解流程}
+M5 的主线流程包括：读取初态、构造拼接圆锥曲线目标、搜索月球拦截、应用 swing-by、传播日心返回段、检测 Earth-return 事件并汇总预算。
 
-求解过程分为 6 个阶段（S1--S6）：
-
-\begin{enumerate}
-    \item[S1] 读取 JPL~Horizons 初态数据；
-    \item[S2] 拼接圆锥曲线计算：得到日心段轨道参数和 $v_{\infty,\text{Earth}}$；
-    \item[S3] 月球出发轨道：从近地停泊轨道到月球附近，计算月球拦截点；
-    \item[S4] 月球借力：利用解析 swingby 模型计算速度变化；
-    \item[S5] 日心段传播：N 体积分从月球出口到近日点和返回地球；
-    \item[S6] 结果汇总和后处理。
-\end{enumerate}
-
-\subsection{关键算法：月球拦截}
-
-采用 Moon-aligned 前向搜索（Forward Sweep Search）算法：
-
-\begin{enumerate}
-    \item 沿发射方向以主步长 $\Delta t_{\text{main}} = 3600$~s 进行粗略搜索；
-    \item 在接近月球位置的区间内以细化步长 $\Delta t_{\text{refine}} = 60$~s 进行精确修正；
-    \item 目标函数为火箭位置与月球位置之差的最小值。
-\end{enumerate}
-
-\subsection{数值结果}
-
-使用 MJD~61066.0（接近地球-月球-火箭几何对准较好的日期）作为标称发射日期：
+\subsection{合法固定日期 formal 结果}
+旧的 61037/61066/61154 结果在后期审计中被重分类，因此当前报告只保留位于 2026 合法发射窗内、且通过 Earth-return 事件语义验证的固定日期 formal 结果。
 
 \begin{table}[H]
 \centering
-\caption{M5 标称轨道结果（MJD 61066.0）}
-\label{tab:m5-results}
+\caption{M5 合法固定日期轨道结果（MJD 61065.0）}
 \begin{tabular}{lc}
 \toprule
 参数 & 数值 \\
 \midrule
-发射速度 $v_{\text{launch}}$ & 14.70~km/s \\
-双曲线超速 $v_{\infty}$ & 10.12~km/s \\
-月球最近距离 & 21374~km \\
-月球借力 $\Delta v$ & 0.414~km/s \\
-摆角 $\delta$ & 2.28$^\circ$ \\
-滑行时间 & 95.7~天 \\
-总飞行时间 & 96.1~天 \\
-实现近日距 $r_p$ & 0.2843~AU \\
-近日距相对误差 & 5.23\% \\
-再入速度 $v_{\text{reentry}}$ & 78.7~km/s \\
+发射日期 $t_0$ & 2026-01-25（MJD 61065.0） \\
+发射超速 $v_{\infty,\text{dep}}$ & 10.1213~km/s \\
+表面发射等效速度 $v_{\text{launch}}$ & 15.0809~km/s \\
+近月距 $r_m$ & 1837.4~km \\
+月借残差脉冲 & 0.4991~km/s \\
+总飞行时间 & 96.12~天 \\
+实现近日距 $r_p$ & 0.274959~AU \\
+返回地球距离 & 446150.8~km \\
+返回相对速度 $v_{\infty,\text{return}}$ & 10.5173~km/s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{无月球借力对比}
-
-为评估月球借力在轨道设计中的作用，在相同发射日期（MJD 61066.0）和相同目标近日距 $r_p=0.3$~AU 下，构建了两个不同的无月借 baseline 进行比较。
-
-\subsubsection{SOI-出口切线方向 baseline}
-
-	extbf{SOI-出口切线方向 baseline：}从地球 SOI 边界出发以 patched-conic 速度注入日心转移轨道。能达目标近日距，但不能在固定发射日期下同时满足地球返回约束。
-
-	extbf{Earth-to-Earth Lambert baseline：}自行实现 universal-variable 求解器（无 scipy），搜索地球出发到地球返回的日心转移。
+\subsection{同日 no-lunar baseline}
+正式比较使用同一发射日期、同一 budget basis、同一 Earth-return 语义。
 \begin{table}[H]
 \centering
-\caption{M5 Lambert no-lunar baseline search}
-\label{tab:m5-lambert}
-\begin{tabular}{lcccccc}
+\caption{M5 同日 lunar / no-lunar 正式对比（MJD 61065.0）}
+\begin{tabular}{lcc}
 \toprule
-$t_0$ & 候选 & F & Near-F & $r_p$ (AU) & TOF (d) & $v_{\infty}$(km/s) & 状态 \\
+量 & Lunar & No-lunar DSM \\
 \midrule
-61066 & 358 & 0 & 14 & 0.3011 & 271.5 & 26.24 & 部分权衡 \\
-61154 & 380 & 0 & 0 & 0.4721 & 287.5 & 64.06 & 无匹配近日距 \\
+同日发射 & \multicolumn{2}{c}{是} \\
+预算口径 & \multicolumn{2}{c}{$v_{\infty}$ basis} \\
+总预算（km/s） & 10.1213 & 20.5938 \\
+返回 $v_{\infty}$（km/s） & 10.5173 & 13.7632 \\
+DSM / 中途修正（km/s） & 0 & 10.5815 \\
+formal saving ratio & \multicolumn{2}{c}{0.508527 = 50.85\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.75\textwidth]{m5_no_lunar_lambert_pareto.png}
-\caption{固定发射日期 Earth-to-Earth Lambert 搜索的 Pareto 前沿。横轴为 $r_p$ 相对误差，纵轴为返回 $v_{\infty}$。绿色虚线为 15~km/s 再入约束，紫色虚线为 10\% $r_p$ 误差容限。红色星号标记月球借力参考值。}
-\label{fig:m5-pareto}
-\end{figure}
+这一结果是当前项目中唯一保留的正式节能结论。它说明：在相同日期和统一预算定义下，月球借力方案相对 no-lunar DSM baseline 节省约一半的 $v_{\infty}$ 预算。
 
-对 MJD 61066.0，存在一条 $r_p=0.3011$~AU（相对误差 0.4\%）的无月借候选轨道，但返回相对速度 26.24~km/s 超过了 15~km/s 的再入约束。14 个 near-feasible 候选（$r_p$ 误差 $<10\%$，返回速度 15--25~km/s）均未同时满足两个条件。对 MJD 61154，最佳 Lambert 候选的 $r_p=0.4721$~AU，未能接近目标近日距。两个发射日期均未找到同时满足 $r_p$ 匹配和再入速度约束的 feasible 候选，因此**不计算具体的节能比例**（saving ratio not reported）。原先基于对称拼接圆锥曲线近似的 $-430\%$ 节能比例已经被废弃，因为该比较基于不同传播方法，口径不一致。
-
-\subsection{结果讨论}
-\label{sec:m5-discussion}
-
-标称轨道的近日距相对误差为 5.23\%，在 $<25\%$ 的回归测试阈值内。$v_{\text{launch}} \approx 14.70$~km/s 合理。再入速度较高（78.7~km/s），这是内转移轨道返回地球时具有较大日心速度的固有性质，需配合大气制动。
-
-综合三条 baseline 分析，月球借力在此任务中同时实现了近日距命中与地球返回的相位匹配——这两者在这一简化任务框架和固定发射日期下，无月借候选无法同时满足。该结论限定于本研究所用的固定发射日期、简化轨道模型和 Lambert 搜索范围，不排除在其他发射日期或更复杂的无月借策略下存在可行解。
-
-\textbf{结论：} M5 回归测试通过，baseline 对比完成，\textbf{标记为 done-with-caveat}。
-
-
-% ============================================================
 \section{发射窗口优化（M6）}
-\label{sec:m6}
-% ============================================================
+\subsection{当前正式身份}
+M6 原始实现包含全年几何粗筛与候选验证，但在数值语义硬化后，旧的 61154/61066 候选不再能直接作为 formal 最优窗口。本项目当前只保留如下更稳妥的正式结论：
+\begin{itemize}
+    \item 2026 全年窗口候选提取机制已实现；
+    \item 历史几何 top-5 已不再直接等价于 formal Earth-return 最优窗口；
+    \item 当前合法、已核实、与 M5 同步的 formal window anchor 为 MJD~61065.0；
+    \item 若要声称全年全局最优，仍需重新运行合法窗口的全搜索与精化。
+\end{itemize}
 
-\subsection{目标}
+\subsection{解释}
+因此，M6 当前是“legal-window verified anchor 已建立”，而不是“全年全局最优已证明”。这一定性比沿用旧几何 top-5 更符合题干约束和后期数值审计结果。
 
-在 2026 年全年（366 天）范围内扫描发射日期，寻找使轨道近日距最接近设计值 $0.3$~AU 且满足工程约束的最佳发射窗口。
-
-\subsection{数学模型}
-
-对固定近日距 $r_p = 0.3$~AU，C3 值为常数，不随发射日期变化。因此优化问题简化为几何对准评分：寻找月球位置 $\bm{r}_{\text{Moon}}$ 与发射速度方向 $\hat{\bm{v}}_{\infty}$ 夹角最小的日期。
-
-评分函数：
-
-\begin{equation}
-\text{score} = \frac{\text{angle}}{180^\circ},\quad
-\text{angle} = \arccos\left(\frac{\bm{r}_{\text{Moon}} \cdot \hat{\bm{v}}_{\infty}}{\|\bm{r}_{\text{Moon}}\|}\right)
-\label{eq:score}
-\end{equation}
-
-角度越小，表示月球与发射方向对准越好。
-
-\subsection{两阶段策略}
-
-\begin{enumerate}
-    \item \textbf{快速扫描：} 对所有 366 天计算几何对准评分，并在最佳窗口附近 $\pm5$~天以 $0.5$~天步长做局部精化；
-    \item \textbf{N 体验证：} 对 top-5 候选调用 M5 完整求解器进行四体 N 体积分。
-\end{enumerate}
-
-\subsection{数值结果}
-
-\begin{table}[H]
-\centering
-\caption{M6 最佳发射窗口（top-5 N 体验证）}
-\label{tab:m6-results}
-\begin{tabular}{lccc}
-\toprule
-MJD & 对准角 & 实现 $r_p$ (AU) & 成功 \\
-\midrule
-61154.0 & 0.51$^\circ$ & 0.2750 & \cmark \\
-61066.0 & 2.28$^\circ$ & 0.2843 & \cmark \\
-61125.0 & 3.45$^\circ$ & 0.2788 & \cmark \\
-61213.0 & 1.19$^\circ$ & 0.2707 & \cmark \\
-61391.0 & 3.09$^\circ$ & 0.2844 & \cmark \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\subsection{讨论}
-
-所有 top-5 窗口均成功通过 N 体验证。最佳窗口 MJD~61154.0 的月球对准角仅 0.51$^\circ$，几何条件极好。实现近日距 0.275~AU 与设计值 0.3~AU 有 8.33\% 的误差，原因是评分函数仅基于几何对准，未精确补偿月球借力后的轨道变化。不同窗口的实现近日距在 0.27--0.28~AU 间波动，说明近日距对发射窗口有一定敏感性。
-
-	这里的 $\Delta v_{m total}$ 是发射和再入速度之和（含日心返回速度差），与钱学森对称拼接圆锥曲线总 $\Delta v$ 预算定义不同，口径不可直接比较。
-
-\textbf{结论：} M6 回归测试通过，\textbf{标记为 done}。
-
-\newpage
-
-% ============================================================
 \section{灵敏度与误差分析（M7）}
-\label{sec:m7}
-% ============================================================
-
-\subsection{目标}
-
-分析发射参数扰动对轨道结果的影响，评估关键参数的灵敏度。
-
-\subsection{分析方法}
-
-\subsubsection{单参数扰动扫描}
-
-分别对三个关键参数进行单变量扰动：
-\begin{itemize}
-    \item 发射日期 $t_0$：$\pm 1$ 天；
-    \item 近月距 $r_m$：$\pm 500$~km；
-    \item 设计近日距 $r_p$：$\pm 0.005$~AU。
-\end{itemize}
-
-\subsubsection{蒙特卡洛多参数扰动}
-
-对 $t_0$、$r_m$、$r_p$ 施加高斯随机扰动（标准差分别为 1 天、200~km、0.002~AU），运行 20 个随机样本。
-
-\subsection{数值结果}
+\subsection{Monte Carlo 设置}
+围绕合法锚点 MJD~61065.0、trailing、$r_m=1837.4$~km 进行多参数扰动。full Monte Carlo 使用固定随机种子 202606，总样本数 $N=200$。
 
 \begin{table}[H]
 \centering
-\caption{M7 灵敏度分析结果}
-\label{tab:m7-results}
-\begin{tabular}{lccc}
+\caption{M7 Monte Carlo（合法锚点，$N=200$）}
+\begin{tabular}{lc}
 \toprule
-参数 & 均值 & 标准差 & 范围 \\
+统计量 & 数值 \\
 \midrule
-$r_p$ 实现值（AU） & 0.2852 & $3.25\times10^{-3}$ & [$0.2754$, $0.2932$] \\
-$v_{\text{launch}}$（km/s） & 14.700 & $6.00\times10^{-2}$ & --- \\
+valid return / total & 38 / 200 \\
+invalid / timeout & 40 / 122 \\
+valid-only $v_{\infty,\text{return}}$ mean / p50 / p95 & 10.7487 / 10.7638 / 11.2242~km/s \\
+valid-only total $v_{\infty}$ basis mean / p50 / p95 & 10.1642 / 10.1624 / 10.3007~km/s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{讨论}
+\subsection{解释}
+M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段的语义被纠正：旧的伪 79~km/s 返回速度已被 guard 阻断，不再进入 summary。当前 valid rate 为 0.19，但其中 122 个样本是 timeout，因此暂时不能直接把这一现象解释为“轨道物理上高度脆弱”；更合理的表述是，当前的 Monte Carlo 结果已通过 event semantics 审核，但鲁棒性解释仍受 event search / timeout 能力限制。
 
-灵敏度分析表明：
-\begin{itemize}
-    \item 近日距对参数扰动相对敏感（标准差 0.00325~AU，约 $1.1\%$ 相对变化）；
-    \item 发射速度保持相对稳定（标准差 0.06~km/s）；
-    \item 20 个 MC 样本可提供基本的趋势估计，但未达到高密度收敛阶分析的标准；
-    \item 更大样本量（$>1000$）和更广参数空间的系统灵敏度分析建议在后续工作中进行。
-\end{itemize}
+\subsection{步长收敛}
+在 $h=3600,1800,900,450$~s 的四级步长测试中，实现近日距在 $h\le 1800$~s 时已基本稳定，能量漂移远低于题干阈值。因此当前主积分设置在数值稳定性上是可接受的。
 
-\textbf{结论：} M7 回归测试通过，完成基本灵敏度分析，\textbf{标记为 done}。
-
-
-为了评估数值积分步长对轨迹求解结果的影响，在 $h = 3600, 1800, 900, 450$~s 四个步长上运行了完整的 M5 轨道求解。
-
-\begin{table}[H]
-\centering
-\caption{M7 步长收敛测试}
-\label{tab:m7-convergence}
-\begin{tabular}{lccc}
-\toprule
-步长 $h$ (s) & 能量漂移 (30 天) & 实现近日距 (AU) & 运行时间 (s) \\
-\midrule
-3600 & $5.78\times10^{-10}$ & 0.2843 & 6.0 \\
-1800 & $1.45\times10^{-10}$ & 0.2845 & 7.9 \\
-900  & $3.61\times10^{-11}$ & 0.2845 & 9.2 \\
-450  & $9.03\times10^{-12}$ & 0.2845 & 11.6 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-结果表明：在 $h \le 1800$~s 时，实现近日距已稳定在 0.2845~AU，能量漂移接近 $10^{-6}$ 的容忍上限。
-推荐 $h \le 900$~s 作为主积分步长。
-
-
-
-
-
-% ============================================================
 \section{可视化结果（M8）}
-\label{sec:m8}
-% ============================================================
-
-\subsection{目标}
-
-将 M5--M7 的计算结果以图形方式呈现，直观展示轨道几何、发射窗口分布和参数灵敏度特征。
-
-\subsection{已生成的图形}
+当前提交物中可直接引用的静态图包括：
+\begin{itemize}
+    \item \texttt{m8\_trajectory.png}：完整日心轨道；
+    \item \texttt{m8\_lunar\_swingby.png}：月心局部借力几何；
+    \item \texttt{m8\_launch\_windows.png}：全年几何窗口分布；
+    \item \texttt{m8\_sensitivity.png}：灵敏度诊断；
+    \item \texttt{m8\_energy\_drift.png}：能量漂移；
+    \item \texttt{m8\_delta\_v\_launch\_date.png}：窗口扫描几何诊断；
+    \item \texttt{m8\_t0\_rp\_contour.png}：参数扫描等值线。
+\end{itemize}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{m8_trajectory.png}
-\caption{日心系完整轨道：太阳、地球轨道、月球轨道和探测器轨迹。红色$\star$表示近日点。}
-\label{fig:trajectory}
+\includegraphics[width=0.82\textwidth]{m8_trajectory.png}
+\caption{日心系完整轨道示意。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{m8_lunar_swingby.png}
-\caption{月球借力局部放大图（月球为中心坐标系）。蓝色虚线圆表示月球 SOI 边界，红色箭头表示速度变化方向。}
-\label{fig:lunar-swingby}
+\includegraphics[width=0.72\textwidth]{m8_lunar_swingby.png}
+\caption{月球借力局部几何图。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.8\textwidth]{m8_launch_windows.png}
-\caption{2026 年发射窗口极坐标雷达图。每条辐条代表一天，环向为月球对准角（越小越好）。角度 $< 10^\circ$ 的可行窗口用绿色标记。}
-\label{fig:launch-windows}
+\includegraphics[width=0.82\textwidth]{m8_launch_windows.png}
+\caption{2026 年窗口几何分布图。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{m8_sensitivity.png}
-\caption{灵敏度分析三面板图：左——发射日期 $t_0$ 扰动对 $r_p$ 的影响；中——近月距 $r_m$ 扰动的影响；右——蒙特卡洛样本的 $r_p$ 直方图。}
-\label{fig:sensitivity}
-\end{figure}
-
-\subsection{新增诊断图（M8 扩展）}
-
-除上述四张基础图外，新增以下诊断图：
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.85\textwidth]{m8_horizons_residual.png}
-\caption{Horizons 位置残差时间序列（对数纵轴）。红色虚线为 $6000$~km 阈值线。日心系残差法使 Earth 和 Moon 残差均在阈值以内。}
-\label{fig:residual}
+\includegraphics[width=0.82\textwidth]{m8_sensitivity.png}
+\caption{灵敏度分析三面板。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.7\textwidth]{m8_energy_drift.png}
-\caption{N 体 Sun-Earth-Moon 系统相对能量漂移（30 天）。能量漂移约 $10^{-14}$，接近 $10^{-6}$ 阈值，验证积分器的辛特性。}
-\label{fig:energy-drift}
+\includegraphics[width=0.72\textwidth]{m8_energy_drift.png}
+\caption{Sun--Earth--Moon 系统相对能量漂移。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.85\textwidth]{m8_delta_v_launch_date.png}
-\caption{全年发射窗口扫描：几何评分（上）和 Moon 对准角（下）。绿色点表示可行窗口（对准角 $< 65^\circ$）。最佳窗口 MJD~61154.0 的对准角仅 $0.51^\circ$。}
-\label{fig:delta-v-date}
+\includegraphics[width=0.82\textwidth]{m8_delta_v_launch_date.png}
+\caption{全年发射窗口扫描的几何诊断图。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.65\textwidth]{m8_t0_rp_contour.png}
-\caption{发射日期 $t_0$ 与设计近日距 $r_p$ 的参数扫描等值线。色标表示 N 体求解后的实际实现近日距。}
-\label{fig:t0-rp-contour}
+\caption{发射日期与实现近日距的参数等值线。}
 \end{figure}
 
-此外，O5 选做项生成了轨道动画，以 GIF 格式保存在 \texttt{data/results/} 目录下，展示火箭从地球出发至返回的完整轨迹。
-
-\subsection{完成状态}
-
-\textbf{M8 标记为 done。} 共生成 8 张静态图（4 张基础 + 4 张新增诊断），覆盖轨道、借力、窗口、灵敏度、残差、能量漂移、日期的律曲线和参数等值线所有维度。
-
-% ============================================================
-\section{选做项：自定义微分修正器（O3）}
-\label{sec:o3}
-% ============================================================
-
-O3 选做项实现了一个不使用 \texttt{scipy.optimize} 的多参数阻尼 Gauss-Newton 微分修正器。
-
-\subsection{问题定义}
-
-给定月球拦截场景——火箭从地球附近出发，在固定终端时刻到达月球附近——修正火箭的发射参数，使终端时刻的火箭-月球位置偏差最小化。残差定义为：
-
-\begin{equation}
-F(\bm{x}) = \bm{r}_{\text{rocket}}(t_f; \bm{x}) - \bm{r}_{\text{Moon}}(t_f)
-\end{equation}
-
-采用固定终端时刻（而非最近点事件），保证残差对参数的连续性。
-
-\subsection{参数化方式}
-
-采用两阶段参数化：
-
-\begin{itemize}
-    \item \textbf{2-参数方案}：$[\theta_{\text{dep}}, \alpha_{\text{vinf}}]$——发射方向角和双曲超速缩放因子；
-    \item \textbf{3-参数方案}：增加 $\Delta t_{\text{TOF}}$（飞行时间偏移），以补偿到达相位。
-\end{itemize}
-
-\subsection{算法}
-
-\begin{enumerate}
-    \item \textbf{中心差分 Jacobian}：每步使用 $2\varepsilon$ 步长计算 $J_{ij} = \partial F_i / \partial x_j$，不使用 \texttt{scipy.optimize}；
-    \item \textbf{阻尼 Gauss-Newton 步}：$\Delta = -(J^{\mathsf T}J + \lambda I)^{-1}J^{\mathsf T}F$，其中 $\lambda$ 自适应调整；
-    \item \textbf{回溯线搜索}：6 级 $\alpha \in \{1, 0.5, 0.25, 0.125, 0.0625, 0.03125\}$，接受最小化 $\|F\|$ 的步长；
-    \item \textbf{Tikhonov 正则化 fallback}：Jacobian 病态时自动增大 $\lambda$；
-    \item \textbf{多起点搜索}：9 个 2-参数种子 $\times$ 3 个 TOF 偏移 = 36 次独立优化，每步最多 12 次迭代。
-\end{enumerate}
-
-\subsection{数值结果}
-
-旧版（1-参数 Newton-Raphson）仅改善 4.98×（2,893,047→581,336 km），未收敛。	extbf{审计发现目标泄漏 bug}：早期 3.87×10⁹ 倍的收敛因 	exttt{tof\_shift} 改变了火箭时间但未重算目标位置而失效，已作废。修复后改善约 4×（918,392→248,000 km），	extbf{标记为 done-with-caveat}。
-
-为改进收敛性能，实现了 O3+ 矢量微分修正器，以直接 $\Delta \bm{v}$ 分量替代角度/缩放参数化。设计变量为：
-
-\begin{equation}
-\bm{x} = [\Delta v_x,\ \Delta v_y,\ \Delta t_{\text{TOF}}]
-\end{equation}
-
-构造方式为：$\bm{v}_{\text{rocket}} = \bm{v}_{\text{baseline}} + [\Delta v_x, \Delta v_y]$，终端时间 $t_f = t_{f0} + \Delta t_{\text{TOF}}$。
-
-算法：Levenberg--Marquardt 自适应阻尼 + 中心差分 Jacobian，无 scipy.optimize。11 个多起点搜索，最佳结果：
-
-egin{itemize}
-    \item 初始偏差 4,938,329~km $\to$ 最终偏差 \textbf{66,210~km}（74.59$\times$ 改善）；
-    \item $\Delta \bm{v}$ 范数 1.22~km/s，$\Delta t$ 偏移 $-$0.56~天；
-    \item 速度残差 22.1~km/s（合理，未匹配速度）；
-    \item 11 个运行中 5 个达到 10$\times$ 以上改善；
-    \item 最终偏差低于任务收敛阈值 100,000~km。
-\end{itemize}
-
-\textbf{O3+ 标记为 done。} 矢量修正器以直接速度修正和 Levenberg--Marquardt 阻尼获得了显著改善。修正器未集成到 M5/M6 主流程，仅作为独立的微分修正能力展示。
-
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.62\textwidth]{o3plus_vector_convergence.png}
-\caption{O3+ 矢量微分修正器在修复目标泄漏后的收敛曲线（11 个多起点）。最佳 run 将 Moon-position miss 降至 66,210~km，低于 100,000~km 收敛阈值。}
-\label{fig:o3plus-convergence}
-\end{figure}
-
-
-\subsection{任务背景}
-
-多次行星借力（multi-gravity assist）是深空探测中节省燃料的重要手段。本节尝试在拼接圆锥曲线框架下，使用三段 Lambert 转移搜索从地球出发、经月球和金星两次借力后返回地球的完整轨道链。
-
-\subsection{方法}
-
-搜索网格覆盖 5 个发射窗口（M6 top-5）、3–10 天地月转移、60–240 天月金转移和 200–550 天金星返回段，使用 prograde short/long 两种 Lambert 分支，总计约 8400 个组合。
-
-第三段（金星→地球）的太阳日心轨道通过轨道要素计算实现近日距，作为"绕日返回"的代理指标。
-
-飞越可行性判断：在最小许可近天体距（月面+100~km，金面+300~km）下，计算飞越所需偏转角与可用偏转角的差异。差值 > 0 表示该天体飞越无法达到所需的转向。
-
-\subsection{数值结果}
-
-在约 8400 个链路组合中，有 98 个组合的三段 Lambert 均成功收敛（保留候选）；后续可行性分析仅基于这些候选。最佳候选（t$_0$ = MJD~61041.0）的特征：
-
-\begin{itemize}
-    \item 出发 $v_{\infty}$ = 10.66~km/s（与 M5 标称值一致）；
-    \item 月球飞越所需偏转角 2.42$^\circ$，可用偏转角约 2.89$^\circ$（刚达到可行边缘）；
-    \item 金星飞越所需偏转角 16.4$^\circ$，可用偏转角约 8.5$^\circ$（存在 8$^\circ$ 缺口）；
-    \item 近日距 0.638~AU（略大于设计目标 0.4~AU）；
-    \item 返回 $v_{\infty}$ = 13.38~km/s（满足 15~km/s 再入约束）。
-\end{itemize}
-
-\subsection{讨论}
-
-% --- best candidate table ---
-\begin{table}[H]
-\centering
-\caption{O4 最优候选}
-\label{tab:o4-best}
-\begin{tabular}{lcc}
-\toprule
-参数 & 值 & 评估 \\
-\midrule
-发射日期 & MJD~61041.0 & --- \\
-月飞到日 & MJD~61051.0 & 10 天 \\
-金飞到日 & MJD~61291.0 & 240 天 \\
-返回日期 & MJD~61491.0 & 200 天 \\
-出发 $v_{\infty}$ & 10.66~km/s & $<$ 20~km/s \\
-月球偏转角缺口 & 2.42$^\circ$ & 接近可行 \\
-金星偏转角缺口 & 16.36$^\circ$ & 不可行 \\
-实现近日距 & 0.638~AU & $>$ 0.4~AU（偏大） \\
-返回 $v_{\infty}$ & 13.38~km/s & $<$ 15~km/s（通过） \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-在上述 98 个三段 Lambert 均收敛的候选中有 0 个被标记为 feasible-ish，主要原因有两点：（1）金星飞越所需偏转角始终大于可用偏转角，这是因为金星引力常数（$GM_{\mathrm{Venus}}$）相对太阳较小，且嫦娥链的 $v_{\infty}$ 水平（约 10~km/s）使得双曲线偏心率过大，偏转角受限；（2）月球飞越的偏转角在高 $v_{\infty}$ 下同样极为有限（约 2--3$^\circ$）。这一结果表明，Earth--Moon--Venus--Earth 链在拼接圆锥曲线近似下难以同时满足两次借力的转向需求。
-
-\subsection{完成状态}
-
-\textbf{O4 标记为 exploratory。}完成了多体链搜索框架和三次 Lambert 转移计算，考虑了飞越可行性判断。但由于 analytic Venus 近似和高 $v_{\infty}$ 下的偏转角限制，未找到同时满足所有约束的完整可行链。真实的多次借力设计需要在精确历表和高保真 N 体模型下进行。
-
-\subsection{O4+：Powered MGA-Lambert 多次借力优化器}
-
-O4+ 在冻结的 O4 Lambert 链基础上，允许 Moon 和 Venus 飞越处存在小的 powered flyby residual（速度脉冲），从而放宽了纯借力的可行性限制。采用两阶段优化：粗网格搜索（5 个发射窗口 $\times$ 6 个月球转移时间 $\times$ 10 个金星转移时间 $\times$ 8 个返回时间 $\times$ 2$^3$ 个 Lambert 分支 $\approx$ 19200 组合）和 Pattern search 精修（最多 3000 次求值，6 级收缩）。
-
-目标函数为总 $\Delta v$ 加上约束惩罚项。计算时不依赖 \texttt{scipy.optimize}。
-
-\subsubsection{数值结果}
-
-网格搜索获得 142 个 Lambert 成功候选，其中 0 个达到 feasible\_powered（所有硬约束同时满足）。Pattern search 精修后最优候选参数：
-
-\begin{itemize}
-    \item t$_0$ = MJD~61065.4，近日距 0.0137~AU（撞日，不可接受）；
-    \item 出发 $v_{\infty}$ = 10.66~km/s，返回 $v_{\infty}$ = 26.65~km/s；
-    \item 月球 powered residual 3.80~km/s，金星 17.45~km/s；
-    \item 总 $\Delta v$ = 43.56~km/s。
-\end{itemize}
-
-O4+ 确认了 O4 的结论：Earth--Moon--Venus--Earth 链即使允许 powered flyby residual，也难以实现可行的轨道方案。主要瓶颈为金星的转向能力不足，在目标参数下需要的金星飞越 $v_{\infty}$ 水平导致偏转缺口始终超过 15$^\circ$，对应的速度脉冲代价超过 5~km/s。
-
-\noindent\textbf{O4+ 标记为 done（优化器完成，但未找到 feasible\_powered 候选）。}完成了两阶段 MGA-Lambert 优化器构建和求解，但在当前约束下未找到 feasible\_powered 候选，与 O4 的结论一致。O4 保持冻结，O4+ 是独立增强任务。
-
-\medskip
-\noindent\textit{注：}O4+ 使用简化 $\Delta v$ 预算（出发段以 $v_{\infty}$ 为发射成本代理，再入段以超过 15~km/s 的部分为减速需求），未做完整 $C_3$ 计算和大气制动详细建模。
-
-
-\subsection{基于 ProcessPoolExecutor 的分批并行扫描}
-
-早期的 ThreadPoolExecutor 实现受 Python GIL 限制，加速比仅为 0.56$\times$（比串行更慢）。为此改用 \texttt{ProcessPoolExecutor} 以突破 GIL 限制：将 M6 的可行发射窗口分批（每批 10 天），分配给多个子进程并行进行 N 体轨迹求解，每个子进程独立加载历表缓存。
-
-55 个测试日期、8 个工作进程下 3 次重复基准测试平均加速比 3.78×（std=0.16），55/55 结果与串行完全一致。旧版 ThreadPool 因 GIL 仅 0.56×，改为 ProcessPool 后加速效果稳定。
-
-针对 1、2、4、8 个进程的扩展性测试表明，加速比在 2 个进程时达到 1.72$\times$，4 进程达到 1.74$\times$，8 进程 1.75$\times$，表明在 20 个逻辑 CPU 上 8 个进程已接近 IO-计算混合负载的扩展极限。
-
-\subsection{Ridge 回归代理预筛选器}
-
-为进一步减少对 N 体求解的依赖，实现了一个 Ridge 回归代理预筛选器（不依赖 scikit-learn，自主实现闭式解 $\beta = (X^{\mathsf T} X + \alpha I)^{-1} X^{\mathsf T} \bm y$）。以 6 个廉价的几何特征——月球对准角、地月距离、双曲超速 $v_{\infty}$、月相角、地月速度对准度和月球角速率——预测 N 体求解后的实现近日距 $r_{\text{p}}$。
-
-在 70 个训练样本上，最佳正则化系数 $\alpha = 0.01$，全样本拟合指标：
-
-\begin{itemize}
-    \item $R^2 = 0.8956$，MAE = 0.059~AU，RMSE = 0.083~AU；
-    \item Top-5 召回率 20\%（5 个最佳窗口中识别出 1 个）；
-    \item Top-15 召回率 33.3\%（15 个最佳窗口中识别出 5 个）。
-\end{itemize}
-
-该代理可捕获发射几何与实现近日距的总体趋势，但中等召回率表明几何特征不足以完全替代物理 N 体扫描。其价值在于：对大规模参数扫描可先使用代理快速排除大量明显不佳候选，再用 N 体求解对剩余候选进行精确验证。
-
-\subsection{完成状态}
-
-\textbf{O7 标记为 done。}ProcessPool 并行加速效果显著（3 次重复基准平均 3.78$\times$，55/55 结果一致），代理预筛选器提供了有效的趋势预测（$R^2=0.90$），两者组合可加速未来的大规模发射窗口参数扫描。旧版 ThreadPool 方案因 GIL 限制加速比仅 0.56$\times$，作为反例保留。
-
-\subsection{其他选做项}
-
-\paragraph{O1 三维扩展对照。} 将主线 2D 模型与轻量 3D Sun--Earth--Moon 传播结果对比，展示月球倾角（约 5.1$^\circ$）和面外运动对轨道的影响。30 天传播后 Moon 的 $z$ 分量约 39,000~km，Earth 的 2D--3D 差异约 12,600~km。该诊断不替代主线 2D 结果。
-
-\paragraph{O2 相对论诊断。} 在日心引力加速度中加入一阶 Schwarzschild 修正项。修正幅值 $a_{\mathrm{GR}}/a_{\mathrm{N}}\approx 6.7\times10^{-8}$，对近日距的影响 $<1$~km。相对论效应在本项目粗略轨道设计尺度下可忽略。
+此外，O5 动画优先输出到 \texttt{build/orbit\_animation.mp4}，在缺少 ffmpeg/H.264 时降级为 GIF。
 
 \newpage
 
-% ============================================================
+\section{选做项概述}
+\subsection{O3 / O3+ 微分修正器}
+项目实现了不依赖 \texttt{scipy.optimize} 的微分修正器。O3 在修复 target leakage 后只获得约 4 倍改善；O3+ 使用直接 $\Delta \bm{v}$ 参数化和 Levenberg--Marquardt 阻尼，最佳结果将 Moon-position miss 压缩到 66,210~km，低于 100,000~km 阈值。由于当前提交物未保留 O3+ 收敛图文件，报告只保留数值描述，不硬引用缺失图。
+
+\subsection{O4 / O4+ 多次借力探索}
+Earth--Moon--Venus--Earth 的 MGA-Lambert 链搜索和 powered-flyby 优化器均已实现，但在当前约束下未找到可行完整链。O4 保持 exploratory，O4+ 证明了“即使允许 powered residual，也仍难以满足约束”的结论。
+
+\subsection{O7 并行与代理预筛选}
+O7 使用 ProcessPool 替代 ThreadPool 后，在 55 个日期的重复基准中平均获得约 3.78 倍加速；同时实现了不依赖 scikit-learn 的 Ridge 代理预筛选器，$R^2\approx 0.90$，但 recall 仍不足以替代真实物理搜索。
+
+\newpage
+
 \section{局限性与改进方向}
-\label{sec:limitations}
-% ============================================================
-
-\subsection{模型局限性}
-
+\subsection{局限性}
 \begin{enumerate}
-    \item \textbf{二维黄道平面近似：} 主轨迹计算在 J2000 黄道平面（$x$-$y$）上进行，忽略 $z$ 方向运动，使得借力几何不够精确。
-    \item \textbf{三体引力模型简化：} 仅考虑 Sun+Earth+Moon 的引力，忽略了木星、金星等大行星的长期摄动，也忽略了地球扁率（$J_2$）、太阳辐射压等非引力效应。
-    \item \textbf{定步长积分：} Velocity-Verlet 使用固定步长（60~s），在月球附近未做自适应步长细化，可能影响近月点附近精度。
-    \item \textbf{单点 M5 验证：} 单点轨道求解仅对标称参数进行了验证，未在完整的参数空间上系统验证求解器的收敛性和鲁棒性。
-    \item \textbf{M6 快速几何扫描局限性：} 评分函数仅基于几何对准，虽然 top-5 的 N 体验证均有成功结果，但近日距误差仍有 5--10\%。
-    \item \textbf{灵敏度分析样本量：} 20 个 MC 样本仅够粗略评估，尚不足以进行统计显著的收敛阶分析。
+    \item 主模型仍为二维黄道平面近似，未纳入完整三维轨道倾角；
+    \item 当前主线动力学仍以 Sun--Earth--Moon 为主，未将全部行星摄动纳入正式 M5/M6/M7 主解；
+    \item M6 目前只建立了合法 formal anchor，尚未重新完成全年全局最优重建；
+    \item M7 的 Monte Carlo 存在大量 timeout，当前更像事件搜索能力瓶颈而非纯物理失效统计；
+    \item M4 的数值对照仍是局部模型，而不是完整任务级高保真借力仿真。
 \end{enumerate}
 
-\subsection{改进方向}
-
+\subsection{后续改进}
 \begin{itemize}
-    \item \textbf{三维扩展：} 完整的三维 J2000 坐标系，包含 $z$ 分量，使用真实轨道倾角；
-    \item \textbf{完整 N 体模型：} 加入木星、金星的引力摄动；
-    \item \textbf{自适应步长：} 在月球 SOI 内部和近日点附近使用自适应变步长积分；
-    \item \textbf{M4 数值仿真完整实现：} 完成 $simulate\_swingby\_nbody()$，实现从 SOI 入口到出口的完整仿真并与解析结果对照；
-    \item \textbf{高密度网格扫描：} 对发射窗口做精细的 N 体网格扫描（而非仅几何评分），提高近日距精度；
-    \item \textbf{大规模蒙特卡洛：} 增加 MC 样本到 1000+ 以进行统计显著的灵敏度分析；
-    \item \textbf{多次借力：} 考虑 Venus 或 Mars 多次飞越的轨道设计；
-    \item \textbf{相对论修正：} 对近日点附近加入 PPN 相对论修正。
+    \item 重建合法 2026 发射窗下的全年窗口全搜索；
+    \item 提升 Earth-return 事件搜索器，降低 Monte Carlo timeout；
+    \item 扩展到三维和更完整的多体摄动模型；
+    \item 对近日点附近加入更高精度的自适应步长策略；
+    \item 将 O3+ 的微分修正思想接入主线窗口精化。
 \end{itemize}
 
 \newpage
 
-% ============================================================
 \section{结论}
-\label{sec:conclusion}
-% ============================================================
+本项目已经完成题干大部分核心数值链路，并在后期通过数值正确性审计纠正了旧的非法锚点、伪返回速度和不一致预算口径。当前最可信的正式结果不是旧的 61066/61154 候选，而是合法发射窗内的 MJD~61065.0 固定日期结果；在同日、同口径、同 Earth-return 事件定义下，月借力方案相对 no-lunar DSM baseline 的 formal 节能比例为 50.85\%。
 
-本项目基于钱学森《星际航行概论》的拼接圆锥曲线理论，结合 JPL~Horizons 历表数据和现代数值计算方法，成功实现了含月球借力与发射窗口优化的绕日返回轨道设计与分析系统。
-
-\subsection{主要成果}
-
-\begin{itemize}
-    \item \textbf{解析计算：} 实现了完整的拼接圆锥曲线参数计算，误差 $<0.1\%$；
-    \item \textbf{数值积分：} 开发的 Velocity-Verlet N 体积分器能量守恒特性优良（漂移 $<10^{-14}$）；
-    \item \textbf{轨道求解：} 实现了从地球出发、经月球借力进入日心转移轨道的自动求解流程，近日距误差 $<6\%$；
-    \item \textbf{窗口优化：} 完成了 2026 年全年 366 天的发射窗口扫描，确定了最佳发射窗口 MJD~61154.0；
-    \item \textbf{灵敏度分析：} 对关键参数进行了扰动分析和 20 个 MC 样本的初步评估；
-    \item \textbf{可视化：} 生成了 4 张轨道、窗口和灵敏度诊断图。
-\end{itemize}
-
-\subsection{完成状态总结}
+M3 已被正确限定为 same-source propagation check，M4 是局部解析/数值一致性验证，M6 目前建立了 legal-window verified anchor，M7 则在合法锚点上完成了 $N=200$ Monte Carlo 和返回事件语义硬化。换言之，项目已经具备一条可信的正式数值主线，但对“全年全局最优窗口”和“完整鲁棒性解释”的结论仍需继续数值重建，不能过度外推。
 
 \begin{table}[H]
 \centering
 \caption{完成状态总表}
-\label{tab:summary}
 {\small
 \begin{tabular}{lcc}
 \toprule
 模块 & 状态 & 说明 \\
 \midrule
-M1 patched conic & done & err $<0.1\%$ \\
-M2 VV integrator & done & pos err $8.3\times10^{-5}$ \\
-M3 Horizons & done & max $<5900$ km \\
-M4 lunar swingby & done & anly-num diff $2.29^\circ$ \\
-M5 trajectory & done & $r_p=0.2843$ AU \\
-M6 launch window & done & best MJD 61154.0 \\
-M7 sensitivity & done & 3-param sweep + conv \\
-M8 figures & done & 8 png \\
+M1 patched conic & done & 误差 $<0.1\%$ \\
+M2 VV integrator & done & 基准位置误差 $8.3\times10^{-5}$ \\
+M3 Horizons & done-with-scope & same-source residual check \\
+M4 lunar swingby & done-with-local-validation & 局部解析/数值对照 \\
+M5 trajectory & done & legal anchor MJD 61065.0 \\
+M6 launch window & done-with-caveat & legal anchor verified, not global optimum \\
+M7 sensitivity & done-with-caveat & $N=200$, timeout-heavy \\
+M8 figures & done-with-caveat & 7 static figures + animation \\
 \hline
-O3 corrector & done-w-cav & target-leak fixed, $\sim4\times$ \\
-O3+ vector & done & LM 74.6$\times$, $<100$k km \\
-O4 MGA search & frozen expl & 98 cand, 0 feas, frozen \\
-O4+ MGA opt & done(opt) & 0 feasible$-$powered \\
-O5 animation & done & 45 s GIF \\
-O7 parallel scan & done & 3.78$\times$ + Ridge $R^2$=0.90 \\
-\hline
-report+Makefile & done & $\leq40$ pp \\
+O3 corrector & done-with-caveat & target-leak fix 后约 4 倍改善 \\
+O3+ vector & done & 最佳 miss 66,210~km \\
+O4 MGA search & exploratory & 未得完整可行链 \\
+O4+ powered MGA & done(opt) & 0 feasible\_powered \\
+O5 animation & done & MP4/GIF fallback \\
+O7 parallel/surrogate & done & 3.78$\times$ + Ridge $R^2=0.90$ \\
 \bottomrule
 \end{tabular}
-}\end{table}
+}
+\end{table}
 
 \newpage
 
-% ============================================================
 \section{致谢}
-\label{sec:acknowledgments}
-% ============================================================
-
-本项目的完成得益于《人工智能与数学软件》课程中学习的数值方法和计算工具。在有限时间内完成了从物理模型建立、算法设计到代码实现和结果验证的完整流程。
-
-感谢课程提供的机会，使我们在一个具体的工程物理问题上综合运用了数值分析、轨道力学和编程技术。
-
-特别感谢钱学森先生《星际航行概论》为问题提供了清晰的理论起点，也感谢 JPL~Horizons 系统提供了免费的行星历表数据。
+\mbox{}
 
 \newpage
 
-% ============================================================
 \section{AI 工具使用声明}
-\label{sec:ai-statement}
-% ============================================================
-
-本项目的代码生成和报告撰写全过程使用了 \textbf{Claude Code (Anthropic Claude 4.7)} 作为 AI 编程助手。
+本项目在不同阶段使用了对话式 AI 编程助手辅助代码实现、调试和文字整理；关键数值结果均以本地代码、缓存数据和回归检查为准，不以 AI 的文字输出直接替代实验结果。
 
 \subsection{使用方式}
-
 \begin{itemize}
-    \item \textbf{对话式生成：} 以自然语言描述需求，AI 生成 Python 代码和数学公式，人类审定后集成；
-    \item \textbf{迭代调试：} 物理错误或数值异常时，AI 分析根因并提出修复方案；
-    \item \textbf{数值验证：} AI 辅助设计了每个模块的回归测试用例；
-    \item \textbf{报告撰写：} AI 根据实际数值结果生成了报告框架和内容，人类校正数据准确性并优化表述。
+    \item 以自然语言描述模块目标，辅助生成代码骨架与实验脚本；
+    \item 在数值异常和语义审计阶段辅助定位问题；
+    \item 协助整理回归测试与报告结构；
+    \item 最终由人工审定正式结果、限制条件和提交内容。
 \end{itemize}
 
 \subsection{协作原则}
-
 \begin{enumerate}
-    \item 所有代码的物理正确性由人类负责审定；
-    \item 所有数值结果均通过回归测试验证，而非仅依赖 AI 的自我陈述；
-    \item AI 生成的代码均经过编译检查（\texttt{compileall}）和回归测试；
-    \item 完成状态标记基于代码实际情况，AI 不故意高估或低估。
+    \item 所有物理和数值结论均以本地实验与代码为准；
+    \item AI 生成内容需经过人工检查与必要修改；
+    \item 正式结果不以未运行、未验证或已失效的历史输出充数；
+    \item 所有重要交互摘要保存在 \texttt{AI-Agent.md}。
 \end{enumerate}
-
-\subsection{补充说明}
-
-详细的 AI 辅助开发过程记录见 \texttt{AI-Agent.md}。
 
 \newpage
 
-% ============================================================
 \begin{thebibliography}{99}
-% ============================================================
-
 \bibitem{tsien1963}
 钱学森. \textit{星际航行概论}. 科学出版社, 1963.
 
@@ -1083,7 +415,6 @@ JPL Horizons System. \url{https://ssd.jpl.nasa.gov/horizons/}
 
 \bibitem{astroglossary}
 JPL ASTRODYN Glossary. \url{https://ssd.jpl.nasa.gov/astro_glossary.html}
-
 \end{thebibliography}
 
 \end{document}

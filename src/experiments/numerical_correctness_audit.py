@@ -509,11 +509,16 @@ def audit_m6() -> list[AuditRecord]:
             frame="complete-return launch-window search",
             event="full search coverage",
             status="PASS",
-            classification="PASS_M5_DERIVED_WINDOW_CONFIRMED" if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW" else classification,
+            classification=(
+                "PASS_M5_DERIVED_WINDOW_CONFIRMED"
+                if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
+                else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" else classification)
+            ),
             action="keep",
             notes=(
                 f"valid_complete_return_count={valid_count}, valid_fair_return_count={fair_count}, "
-                f"candidate_source={deep.get('candidate_source')}, source_grid_reused={deep.get('source_grid_reused')}"
+                f"candidate_source={deep.get('candidate_source')}, source_grid_reused={deep.get('source_grid_reused')}, "
+                f"independent_m6_search={deep.get('independent_m6_search')}"
             ),
         )
     )
@@ -555,15 +560,19 @@ def audit_m6() -> list[AuditRecord]:
             frame="deep-audit classification",
             event="m6_numerical_deep_audit",
             status="PASS",
-            classification="PASS_WITH_PROVENANCE" if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW" else classification,
+            classification=(
+                "PASS_WITH_PROVENANCE"
+                if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
+                else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" else classification)
+            ),
             action="keep",
             notes=(
                 "Finite-search negative is allowed only with explicit coverage and best near miss."
                 if classification == "FINITE_SEARCH_NEG"
                 else (
                     f"M5-derived launch-window extraction confirmed by independent spotcheck status={spot.get('status')}"
-                    if classification == "ACTUAL_RESULT_M5_DERIVED_WINDOW"
-                    else "Actual result retained because at least one valid complete-return candidate exists."
+                    if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
+                    else "Independent legal-window actual result retained because at least one valid complete-return candidate exists."
                 )
             ),
         )
@@ -687,10 +696,20 @@ def audit_m7() -> list[AuditRecord]:
             )
         )
         classification = mc_json.get("classification")
+        sample_rows_saved = bool(mc_json.get("sample_rows_saved"))
         if classification == "FULL_MC_ACTUAL_RESULT":
             if timeout_diag is None:
                 status = "WARN"
                 notes = "full N=200 Monte Carlo result present, but timeout diagnosis is still pending"
+            elif sample_rows_saved and timeout_diag.get("classification") in (
+                "SAMPLE_LEVEL_TIMEOUT_DIAGNOSIS",
+                "REPLAY_AWARE_TIMEOUT_DIAGNOSIS",
+            ):
+                status = "WARN"
+                notes = (
+                    "full N=200 Monte Carlo result present with sample-level timeout accounting; "
+                    "replay closure may still be pending, but future diagnosis is now code-supported"
+                )
             else:
                 status = "WARN"
                 notes = (

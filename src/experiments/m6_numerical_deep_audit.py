@@ -114,7 +114,7 @@ def main() -> None:
         if row.get("return_vinf_kms") is None:
             red_flags.append(f"ACTUAL_RESULT candidate {row['candidate_id']} missing return_vinf_kms")
 
-    classification = search.get("classification") if search else ("FINITE_SEARCH_NEG" if not actual_rows else "ACTUAL_RESULT")
+    classification = search.get("classification") if search else ("FINITE_SEARCH_NEG" if not actual_rows else "ACTUAL_RESULT_LEGAL_WINDOW")
     if classification == "FINITE_SEARCH_NEG" and search is not None:
         if search.get("search_space") is None:
             red_flags.append("FINITE_SEARCH_NEG missing search_space")
@@ -128,12 +128,13 @@ def main() -> None:
     payload = {
         "task": "M6 numerical deep audit",
         "classification": classification,
-        "status": status,
+        "status": "WARN" if (status == "PASS" and classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW") else status,
         "source_file": "data/results/m6_complete_return_window_search.json",
         "candidate_source": search.get("candidate_source") if search else None,
         "source_grid_reused": search.get("source_grid_reused") if search else None,
         "independent_m6_search": search.get("independent_m6_search") if search else None,
         "m6_interpretation": search.get("m6_interpretation") if search else None,
+        "launch_window": search.get("launch_window") if search else None,
         "legacy_source_file": "data/results/m6_lunar_return_event_audit.json",
         "complete_return_search_source_file": "data/results/m6_complete_return_window_search.json",
         "spotcheck_source_file": "data/results/m6_independent_spotcheck.json",
@@ -179,7 +180,7 @@ def main() -> None:
     print(f"Saved: {json_path}")
     print(f"Saved: {csv_path}")
     print(f"classification = {classification}")
-    print(f"status = {status}")
+    print(f"status = {payload['status']}")
     print(f"legacy candidates = {len(legacy_rows)}")
     print(f"actual candidates = {len(actual_rows)}")
     print(f"near misses = {len(near_miss_rows)}")

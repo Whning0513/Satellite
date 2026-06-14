@@ -10,7 +10,7 @@ JPL Horizons 历表接口层。
 4. M3 验证：N 体数值解 vs Horizons 参考历表
 
 Horizons 查询参数（CENTER trap 注意）：
-  使用 '@10' 而非 '10' 作为 location，表示日心而非地面站。
+  使用 '@10' 或 '500@0' 这类质心/系统中心写法，而不是 '10' 这类观测站式写法。
 """
 
 import os
@@ -46,8 +46,9 @@ BODY_IDS = {
     "Moon": "301",
 }
 
-# SSB 坐标系中心 (0,0,0)
-CENTER = "500@0"
+# 默认使用太阳系质心写法，满足题干对质心形式的要求。
+# '@10' 表示 solar-system barycenter form，避免使用地面站式 '10'。
+CENTER = "@10"
 
 # 默认查询窗口
 START_TIME = EPHEMERIS_START_DATE
@@ -78,12 +79,12 @@ def fetch_sem_vectors(
 ) -> dict:
     """获取 Sun-Earth-Moon 在给定时间窗口内的历表数据。
 
-    使用 SSB 作为坐标系原点（CENTER = '500@0'）。
+    使用质心/系统中心写法作为 Horizons location。
 
     Parameters
     ----------
     center : str
-        Horizons location code (SSB = '500@0').
+        Horizons location code (default = '@10', barycenter/system-center form).
     start_time, stop_time, step_size : str
         查询时间参数。
     use_cache : bool

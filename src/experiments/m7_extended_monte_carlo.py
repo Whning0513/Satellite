@@ -1,25 +1,27 @@
 """
 m7_extended_monte_carlo.py
 ==========================
-Formal M7 Monte Carlo with explicit smoke/full identities and
-Earth-return event semantics.
+Formal M7 Monte Carlo with explicit smoke/full identities,
+Earth-return event semantics, and optional replayable sample outputs.
 
-Rules:
-  - Formal return_vinf is defined only at a valid Earth-return event.
-  - Smoke runs never masquerade as full N=200 results.
-  - Timeout / invalid samples never enter valid-only statistics.
+This file is now structured so a future heavy run can directly emit:
+  - summary JSON
+  - per-sample JSON / CSV
+  - timeout replay manifest
+
+without needing further code changes.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
-import os
 import statistics
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed, TimeoutError as FuturesTimeout
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -31,9 +33,9 @@ sys.path.insert(0, str(_REPO / "src"))
 from constants import AU_KM, GM_EARTH, GM_MOON, GM_SUN
 from event_semantics import compute_earth_return_vinf
 from horizons import fetch_sem_vectors
+from mission_constraints import is_launch_mjd_in_window
 from nbody import propagate_nbody
 from trajectory import DesignParams, interpolate_state_at_mjd, solve_trajectory
-from mission_constraints import is_launch_mjd_in_window
 
 
 RESULTS = _REPO / "data" / "results"
@@ -43,7 +45,6 @@ M5_VALID_T0 = 61065.0
 M5_VALID_RM_KM = 1837.4
 M5_VALID_SIDE = "trailing"
 M5_VALID_RP_AU = 0.3
-M5_VALID_DEP_VINF_KMS = 10.1213
 M5_VALID_RETURN_MJD = 61431.12
 
 EARTH_RETURN_THRESHOLD_KM = 1.5e6
@@ -224,13 +225,11 @@ def _search_return_event(
 
     anchor_mjd = t_end
     anchor_r, anchor_v = coarse_states[0][1], coarse_states[0][2]
-    nominal_anchor_idx = 0
     nominal_start = max(t_end, nominal_return_mjd - NOMINAL_WINDOW_HALF_WIDTH_DAYS)
-    for idx, (mjd, r_snap, v_snap) in enumerate(coarse_states):
+    for mjd, r_snap, v_snap in coarse_states:
         if mjd <= nominal_start:
             anchor_mjd = mjd
             anchor_r, anchor_v = r_snap, v_snap
-            nominal_anchor_idx = idx
         else:
             break
 
@@ -306,7 +305,7 @@ def _worker(sample: dict[str, Any]) -> dict[str, Any]:
     params = DesignParams(
         t0_mjd=sample["t0_mjd"],
         r_m=sample["r_m_km"],
-        side=M5_VALID_SIDE,
+        side=sample["side"],
         r_p=sample["r_p_au"] * AU_KM,
     )
 
@@ -322,6 +321,11 @@ def _worker(sample: dict[str, Any]) -> dict[str, Any]:
                 "success": False,
                 "valid_return_event": False,
                 "reason": "timeout_before_event_search",
+                "t0_mjd": round(sample["t0_mjd"], 6),
+                "r_m_km": round(sample["r_m_km"], 3),
+                "rp_target_au": round(sample["r_p_au"], 6),
+                "side": sample["side"],
+                "nominal_return_mjd": round(nominal_return_mjd, 6),
                 "time_total_sec": round(time.perf_counter() - t_start, 4),
                 "time_in_propagation_sec": round(time_in_propagation, 4),
                 "time_in_event_search_sec": 0.0,
@@ -335,6 +339,11 @@ def _worker(sample: dict[str, Any]) -> dict[str, Any]:
                 "success": False,
                 "valid_return_event": False,
                 "reason": "timeout_after_event_search",
+                "t0_mjd": round(sample["t0_mjd"], 6),
+                "r_m_km": round(sample["r_m_km"], 3),
+                "rp_target_au": round(sample["r_p_au"], 6),
+                "side": sample["side"],
+                "nominal_return_mjd": round(nominal_return_mjd, 6),
                 "time_total_sec": round(time.perf_counter() - t_start, 4),
                 "time_in_propagation_sec": round(time_in_propagation, 4),
                 "time_in_event_search_sec": event["time_in_event_search_sec"],
@@ -348,6 +357,8 @@ def _worker(sample: dict[str, Any]) -> dict[str, Any]:
             "t0_mjd": round(sample["t0_mjd"], 6),
             "r_m_km": round(sample["r_m_km"], 3),
             "rp_target_au": round(sample["r_p_au"], 6),
+            "side": sample["side"],
+            "nominal_return_mjd": round(nominal_return_mjd, 6),
             "perihelion_achieved_au": round(traj.r_p_achieved_km / AU_KM, 6),
             "departure_vinf_kms": round(float(traj.v_inf_earth), 4),
             "valid_return_event": event["valid_return_event"],
@@ -372,6 +383,11 @@ def _worker(sample: dict[str, Any]) -> dict[str, Any]:
             "success": False,
             "valid_return_event": False,
             "reason": f"exception:{type(exc).__name__}",
+            "t0_mjd": round(sample["t0_mjd"], 6),
+            "r_m_km": round(sample["r_m_km"], 3),
+            "rp_target_au": round(sample["r_p_au"], 6),
+            "side": sample["side"],
+            "nominal_return_mjd": round(nominal_return_mjd, 6),
             "time_total_sec": round(time.perf_counter() - t_start, 4),
             "time_in_propagation_sec": 0.0,
             "time_in_event_search_sec": 0.0,
@@ -393,7 +409,8 @@ def _build_samples(
                 "sample_id": sample_id,
                 "t0_mjd": float(reference_candidate["t0_mjd"]) + float(rng.normal(0.0, 1.0)),
                 "r_m_km": float(reference_candidate["r_m_km"]) + float(rng.normal(0.0, 500.0)),
-                "r_p_au": M5_VALID_RP_AU + float(rng.normal(0.0, 0.005)),
+                "r_p_au": float(reference_candidate["target_rp_AU"]) + float(rng.normal(0.0, 0.005)),
+                "side": reference_candidate["side"],
                 "nominal_return_mjd": nominal_return_mjd,
                 "max_runtime_per_sample_sec": max_runtime_per_sample_sec,
             }
@@ -414,6 +431,11 @@ def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: 
                         "success": False,
                         "valid_return_event": False,
                         "reason": "global_runtime_exceeded_before_sample",
+                        "t0_mjd": round(sample["t0_mjd"], 6),
+                        "r_m_km": round(sample["r_m_km"], 3),
+                        "rp_target_au": round(sample["r_p_au"], 6),
+                        "side": sample["side"],
+                        "nominal_return_mjd": round(sample["nominal_return_mjd"], 6),
                         "time_total_sec": 0.0,
                         "time_in_propagation_sec": 0.0,
                         "time_in_event_search_sec": 0.0,
@@ -424,11 +446,9 @@ def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: 
         return sorted(results, key=lambda item: item["sample_id"])
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        future_map = {executor.submit(_worker, sample): sample for sample in samples}
-        for future in as_completed(future_map):
-            sample = future_map[future]
-            remaining = max_runtime_sec - (time.perf_counter() - start)
-            if remaining <= 0:
+        futures = [executor.submit(_worker, sample) for sample in samples]
+        for sample, future in zip(samples, futures, strict=False):
+            if time.perf_counter() - start > max_runtime_sec:
                 results.append(
                     {
                         "sample_id": sample["sample_id"],
@@ -436,27 +456,18 @@ def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: 
                         "success": False,
                         "valid_return_event": False,
                         "reason": "global_runtime_exceeded",
+                        "t0_mjd": round(sample["t0_mjd"], 6),
+                        "r_m_km": round(sample["r_m_km"], 3),
+                        "rp_target_au": round(sample["r_p_au"], 6),
+                        "side": sample["side"],
+                        "nominal_return_mjd": round(sample["nominal_return_mjd"], 6),
                         "time_total_sec": 0.0,
                         "time_in_propagation_sec": 0.0,
                         "time_in_event_search_sec": 0.0,
                     }
                 )
                 continue
-            try:
-                results.append(future.result(timeout=remaining))
-            except FuturesTimeout:
-                results.append(
-                    {
-                        "sample_id": sample["sample_id"],
-                        "classification": "TIMEOUT_NO_FORMAL_RESULT",
-                        "success": False,
-                        "valid_return_event": False,
-                        "reason": "future_timeout",
-                        "time_total_sec": 0.0,
-                        "time_in_propagation_sec": 0.0,
-                        "time_in_event_search_sec": 0.0,
-                    }
-                )
+            results.append(future.result())
     return sorted(results, key=lambda item: item["sample_id"])
 
 
@@ -477,21 +488,20 @@ def _profile(results: list[dict[str, Any]], time_total_sec: float) -> dict[str, 
         "time_in_json_write_sec": 0.0,
         "slowest_sample_id": None if slowest is None else slowest.get("sample_id"),
         "slowest_sample_reason": None if slowest is None else slowest.get("reason", slowest.get("event_reason")),
-        "bottleneck_guess": (
-            "event_search"
-            if sum(event_times) > sum(prop_times)
-            else "trajectory_propagation"
-        ),
+        "bottleneck_guess": "event_search" if sum(event_times) > sum(prop_times) else "trajectory_propagation",
     }
 
 
 def _summarize(
     results: list[dict[str, Any]],
+    *,
     n: int,
     seed: int,
     smoke: bool,
     profile: dict[str, Any],
     reference_candidate: dict[str, Any],
+    sample_rows_path: Path | None,
+    timeout_manifest_path: Path | None,
 ) -> dict[str, Any]:
     valid = [r for r in results if r.get("valid_return_event")]
     invalid = [r for r in results if r.get("classification") == "INVALID_NO_FORMAL_RESULT"]
@@ -509,6 +519,11 @@ def _summarize(
     )
     if not smoke and n < 200:
         classification = "SMOKE_PASS_FULL_PENDING"
+
+    timeout_reason_breakdown: dict[str, int] = {}
+    for row in timeouts:
+        reason = str(row.get("reason") or "unknown")
+        timeout_reason_breakdown[reason] = timeout_reason_breakdown.get(reason, 0) + 1
 
     return {
         "task": "M7 extended Monte Carlo",
@@ -541,6 +556,10 @@ def _summarize(
             "refine_step_s": REFINE_STEP_S,
         },
         "profile": profile,
+        "sample_rows_saved": sample_rows_path is not None,
+        "sample_rows_file": None if sample_rows_path is None else str(sample_rows_path.relative_to(_REPO)).replace("\\", "/"),
+        "timeout_replay_manifest_file": None if timeout_manifest_path is None else str(timeout_manifest_path.relative_to(_REPO)).replace("\\", "/"),
+        "timeout_reason_breakdown": dict(sorted(timeout_reason_breakdown.items())),
     }
 
 
@@ -550,6 +569,49 @@ def _write_json(path: Path, payload: dict[str, Any]) -> float:
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2, ensure_ascii=False)
     return time.perf_counter() - t0
+
+
+def _write_sample_rows_json(path: Path, results: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "task": "M7 Monte Carlo sample rows",
+        "count": len(results),
+        "results": results,
+    }
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _write_sample_rows_csv(path: Path, results: list[dict[str, Any]]) -> None:
+    if not results:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(results[0].keys()))
+        writer.writeheader()
+        writer.writerows(results)
+
+
+def _write_timeout_replay_manifest(path: Path, results: list[dict[str, Any]], summary_output: Path) -> None:
+    timeout_rows = [row for row in results if row.get("classification") == "TIMEOUT_NO_FORMAL_RESULT"]
+    manifest = {
+        "task": "M7 timeout replay manifest",
+        "source_summary_file": str(summary_output.relative_to(_REPO)).replace("\\", "/"),
+        "timeout_count": len(timeout_rows),
+        "samples": [
+            {
+                "sample_id": row["sample_id"],
+                "t0_mjd": row.get("t0_mjd"),
+                "r_m_km": row.get("r_m_km"),
+                "rp_target_au": row.get("rp_target_au"),
+                "side": row.get("side"),
+                "nominal_return_mjd": row.get("nominal_return_mjd"),
+                "reason": row.get("reason"),
+            }
+            for row in timeout_rows
+        ],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -562,6 +624,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-runtime-per-sample-sec", type=float, default=DEFAULT_MAX_RUNTIME_PER_SAMPLE_SEC)
     parser.add_argument("--output", type=str, default=str(RESULTS / "m7_extended_monte_carlo.json"))
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--save-sample-rows", action="store_true")
+    parser.add_argument("--sample-rows-output", type=str, default=str(RESULTS / "m7_extended_monte_carlo_samples.json"))
+    parser.add_argument("--sample-rows-csv-output", type=str, default=str(RESULTS / "m7_extended_monte_carlo_samples.csv"))
+    parser.add_argument("--timeout-replay-manifest-output", type=str, default=str(RESULTS / "m7_timeout_replay_manifest.json"))
     return parser.parse_args()
 
 
@@ -584,6 +650,11 @@ def main() -> int:
     results = _run_pool(samples, max_workers=args.max_workers, max_runtime_sec=args.max_runtime_sec)
     time_total_sec = time.perf_counter() - start
     profile = _profile(results, time_total_sec)
+
+    sample_rows_path = Path(args.sample_rows_output) if args.save_sample_rows else None
+    sample_rows_csv_path = Path(args.sample_rows_csv_output) if args.save_sample_rows else None
+    timeout_manifest_path = Path(args.timeout_replay_manifest_output) if args.save_sample_rows else None
+
     summary = _summarize(
         results,
         n=n,
@@ -591,7 +662,15 @@ def main() -> int:
         smoke=smoke,
         profile=profile,
         reference_candidate=reference_candidate,
+        sample_rows_path=sample_rows_path,
+        timeout_manifest_path=timeout_manifest_path,
     )
+
+    if args.save_sample_rows:
+        _write_sample_rows_json(sample_rows_path, results)
+        _write_sample_rows_csv(sample_rows_csv_path, results)
+        _write_timeout_replay_manifest(timeout_manifest_path, results, output)
+
     json_write_sec = _write_json(output, summary)
     summary["profile"]["time_in_json_write_sec"] = round(json_write_sec, 4)
     _write_json(output, summary)
@@ -604,6 +683,7 @@ def main() -> int:
     print(f"time_total_sec={summary['profile']['time_total_sec']}")
     print(f"time_per_sample_mean_sec={summary['profile']['time_per_sample_mean_sec']}")
     print(f"bottleneck={summary['profile']['bottleneck_guess']}")
+    print(f"sample_rows_saved={summary['sample_rows_saved']}")
     print(f"Saved: {output}")
     return 0
 
