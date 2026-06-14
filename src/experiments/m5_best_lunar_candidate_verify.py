@@ -1,10 +1,11 @@
 """
 m5_best_lunar_candidate_verify.py
 ==================================
-Verifies the best lunar Earth-return candidate from local refine.
+Verifies the current best legal-window lunar Earth-return candidate.
 
-Re-runs the trajectory at t0=61037, side=trailing, r_m=1837.4 km,
-computes full event-semantics check, raw vectors, and budget breakdown.
+The script prefers the best row from the active complete-return search JSON and
+otherwise falls back to the current legal anchor at t0=61065, side=trailing,
+r_m=1837.4 km.
 """
 
 import json, os, sys, math

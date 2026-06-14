@@ -164,11 +164,27 @@ m6-complete-window-search:
 
 m6-legal-window-search:
 	@echo "=== M6 legal-window derived search ==="
-	cd src && $(PYTHON) experiments/m6_complete_return_window_search.py --mode derived-legal-window
+	cd src && $(PYTHON) experiments/m6_legal_window_search.py --mode derived-legal-window
 
 m6-independent-window-search:
 	@echo "=== M6 legal-window independent search ==="
 	cd src && $(PYTHON) experiments/m6_independent_window_search.py
+
+mission-window-audit:
+	@echo "=== Mission window audit ==="
+	cd src && $(PYTHON) experiments/mission_window_audit.py
+
+result-sanity-dashboard:
+	@echo "=== Result sanity dashboard ==="
+	cd src && $(PYTHON) experiments/result_sanity_dashboard.py
+
+m7-distribution-audit:
+	@echo "=== M7 distribution audit (summary/sample-row based unless --replay used manually) ==="
+	cd src && $(PYTHON) experiments/m7_distribution_audit.py
+
+m3-interpretation-check:
+	@echo "=== M3 result interpretation check ==="
+	cd src && $(PYTHON) experiments/m3_result_interpretation_check.py
 
 m6-deep-audit:
 	@echo "=== M6 numerical deep audit ==="

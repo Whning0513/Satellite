@@ -26,7 +26,13 @@ from nbody import propagate_nbody
 from trajectory import DesignParams, interpolate_state_at_mjd, solve_trajectory
 
 RESULTS = _REPO / "data" / "results"
-M6_JSON = RESULTS / "m6_complete_return_window_search.json"
+
+
+def _select_m6_json() -> Path:
+    legal = RESULTS / "m6_legal_window_search.json"
+    if legal.exists():
+        return legal
+    return RESULTS / "m6_complete_return_window_search.json"
 
 
 def _norm(vec: np.ndarray) -> float:
@@ -106,9 +112,10 @@ def _select_candidates(data: dict) -> list[dict]:
 
 
 def main() -> None:
-    if not M6_JSON.exists():
-        raise FileNotFoundError("data/results/m6_complete_return_window_search.json missing")
-    data = json.loads(M6_JSON.read_text(encoding="utf-8"))
+    m6_json = _select_m6_json()
+    if not m6_json.exists():
+        raise FileNotFoundError("data/results/m6_legal_window_search.json and m6_complete_return_window_search.json both missing")
+    data = json.loads(m6_json.read_text(encoding="utf-8"))
     body_data = fetch_sem_vectors(use_cache=True)
 
     checks = []
@@ -157,7 +164,7 @@ def main() -> None:
     )
     payload = {
         "task": "M6 independent spotcheck",
-        "source_file": "data/results/m6_complete_return_window_search.json",
+        "source_file": str(m6_json.relative_to(_REPO)).replace("\\", "/"),
         "candidate_source": data.get("candidate_source"),
         "source_grid_reused": data.get("source_grid_reused"),
         "independent_m6_search": data.get("independent_m6_search"),

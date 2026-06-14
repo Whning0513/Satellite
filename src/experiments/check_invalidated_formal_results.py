@@ -16,6 +16,13 @@ def _near(value, target, tol):
 def _in_launch_window(value):
     return value is not None and MISSION_LAUNCH_START_MJD <= float(value) <= MISSION_LAUNCH_END_MJD
 
+
+def _active_m6_search_name():
+    legal = RESULTS / "m6_legal_window_search.json"
+    if legal.exists():
+        return "m6_legal_window_search.json"
+    return "m6_complete_return_window_search.json"
+
 def check(fp):
     if not fp.exists(): return
     d = json.loads(fp.read_text(encoding="utf-8"))
@@ -158,11 +165,17 @@ def check(fp):
         if d.get("num_pure_returns", -1) != 0:
             ERRORS.append(f"[FAIL] {n}: num_pure_returns should be 0")
 
-    if n == "m6_complete_return_window_search.json":
+    if n in ("m6_complete_return_window_search.json", "m6_legal_window_search.json"):
         if d.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is not True:
             ERRORS.append(f"[FAIL] {n}: missing event semantics guard")
-        if d.get("source_grid_reused") is True and d.get("classification") != "ACTUAL_RESULT_M5_DERIVED_WINDOW":
-            ERRORS.append(f"[FAIL] {n}: reused source grid must classify as ACTUAL_RESULT_M5_DERIVED_WINDOW")
+        if d.get("source_grid_reused") is True and d.get("classification") not in (
+            "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW",
+            "ACTUAL_RESULT_M5_DERIVED_WINDOW",
+        ):
+            ERRORS.append(
+                f"[FAIL] {n}: reused source grid must classify as ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW "
+                "or ACTUAL_RESULT_M5_DERIVED_WINDOW"
+            )
         for c in d.get("candidates", []):
             valid = c.get("valid_return_event")
             ret = c.get("return_vinf_kms")
@@ -181,7 +194,10 @@ def check(fp):
     if n == "m6_numerical_deep_audit.json":
         if d.get("status") == "RED":
             ERRORS.append(f"[FAIL] {n}: status is RED")
-        if d.get("source_grid_reused") is True and d.get("classification") != "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+        if d.get("source_grid_reused") is True and d.get("classification") not in (
+            "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW",
+            "ACTUAL_RESULT_M5_DERIVED_WINDOW",
+        ):
             ERRORS.append(f"[FAIL] {n}: M5-derived window identity not preserved")
         if d.get("classification") == "FINITE_SEARCH_NEG":
             if d.get("search_space") is None:

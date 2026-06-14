@@ -46,6 +46,12 @@ def _load_json(name: str) -> dict | list | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _active_m6_search_name() -> str:
+    if (RESULTS / "m6_legal_window_search.json").exists():
+        return "m6_legal_window_search.json"
+    return "m6_complete_return_window_search.json"
+
+
 def _read_csv_rows(name: str) -> list[dict[str, str]]:
     path = RESULTS / name
     if not path.exists():
@@ -362,8 +368,8 @@ def audit_m4() -> list[AuditRecord]:
 def audit_m5() -> list[AuditRecord]:
     entries: list[AuditRecord] = []
     lunar = _load_json("m5_best_lunar_candidate_verify.json")
-    no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json") or _load_json("m5_no_lunar_t61037_deep_search.json")
-    compare = _load_json("m5_fixed_date_current_compare.json") or _load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
+    no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json")
+    compare = _load_json("m5_fixed_date_current_compare.json")
 
     if not lunar or not no_lunar or not compare:
         entries.append(
@@ -474,7 +480,8 @@ def audit_m5() -> list[AuditRecord]:
 def audit_m6() -> list[AuditRecord]:
     entries: list[AuditRecord] = []
     deep = _load_json("m6_numerical_deep_audit.json")
-    search = _load_json("m6_complete_return_window_search.json")
+    search_name = _active_m6_search_name()
+    search = _load_json(search_name)
     if not deep or not search:
         entries.append(
             _entry(
@@ -489,7 +496,7 @@ def audit_m6() -> list[AuditRecord]:
                 status="RED",
                 classification="UNRESOLVED",
                 action="recompute",
-                notes="Missing m6_numerical_deep_audit.json or m6_complete_return_window_search.json",
+                notes=f"Missing m6_numerical_deep_audit.json or {search_name}",
             )
         )
         return entries
@@ -498,6 +505,19 @@ def audit_m6() -> list[AuditRecord]:
     fair_count = int(search.get("valid_fair_return_count", 0) or 0)
     classification = str(deep.get("classification"))
     spot = deep.get("independent_spotcheck") or {}
+    best_valid = deep.get("best_valid_candidate") or search.get("best_valid_candidate") or {}
+    best_t0 = best_valid.get("t0_mjd")
+    legal_window_ok = is_launch_mjd_in_window(best_t0) if best_t0 is not None else False
+    active_formal_status = (
+        "PASS"
+        if legal_window_ok
+        else "WARN"
+    )
+    active_formal_classification = (
+        "PASS_M5_DERIVED_WINDOW_CONFIRMED"
+        if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
+        else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" else "LEGAL_WINDOW_PENDING")
+    )
     entries.append(
         _entry(
             module="M6",
@@ -508,17 +528,14 @@ def audit_m6() -> list[AuditRecord]:
             unit="count",
             frame="complete-return launch-window search",
             event="full search coverage",
-            status="PASS",
-            classification=(
-                "PASS_M5_DERIVED_WINDOW_CONFIRMED"
-                if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
-                else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" else classification)
-            ),
-            action="keep",
+            status=active_formal_status,
+            classification=active_formal_classification,
+            action="keep" if legal_window_ok else "recompute",
             notes=(
                 f"valid_complete_return_count={valid_count}, valid_fair_return_count={fair_count}, "
                 f"candidate_source={deep.get('candidate_source')}, source_grid_reused={deep.get('source_grid_reused')}, "
-                f"independent_m6_search={deep.get('independent_m6_search')}"
+                f"independent_m6_search={deep.get('independent_m6_search')}, source_file={search_name}, "
+                f"best_t0={best_t0} ({mjd_to_date_str(best_t0) if best_t0 is not None else 'N/A'})"
             ),
         )
     )
@@ -559,20 +576,24 @@ def audit_m6() -> list[AuditRecord]:
             unit="enum",
             frame="deep-audit classification",
             event="m6_numerical_deep_audit",
-            status="PASS",
+            status="PASS" if legal_window_ok else "WARN",
             classification=(
                 "PASS_WITH_PROVENANCE"
-                if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
-                else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" else classification)
+                if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW" and legal_window_ok
+                else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" and legal_window_ok else "LEGAL_WINDOW_PENDING")
             ),
-            action="keep",
+            action="keep" if legal_window_ok else "recompute",
             notes=(
                 "Finite-search negative is allowed only with explicit coverage and best near miss."
                 if classification == "FINITE_SEARCH_NEG"
                 else (
                     f"M5-derived launch-window extraction confirmed by independent spotcheck status={spot.get('status')}"
-                    if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
-                    else "Independent legal-window actual result retained because at least one valid complete-return candidate exists."
+                    if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW" and legal_window_ok
+                    else (
+                        "Independent legal-window actual result retained because at least one valid complete-return candidate exists."
+                        if classification == "ACTUAL_RESULT_LEGAL_WINDOW" and legal_window_ok
+                        else "Current on-disk M6 result is still pre-legal-window or historical; legal-window regeneration is pending."
+                    )
                 )
             ),
         )

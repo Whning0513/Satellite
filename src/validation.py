@@ -18,6 +18,16 @@ validation.py
 
 import sys
 import argparse
+import subprocess
+from pathlib import Path
+
+
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _run_script(rel_path: str, *args: str) -> None:
+    cmd = [sys.executable, str(REPO / rel_path), *args]
+    subprocess.run(cmd, check=True)
 
 
 def _run_case(case_name: str) -> bool:
@@ -39,16 +49,16 @@ def _run_case(case_name: str) -> bool:
         _run_m4_regression()
         return True
     elif case_name == "m5":
-        from trajectory import _run_m5_regression
-        _run_m5_regression()
+        _run_script("src/experiments/m5_best_lunar_candidate_verify.py")
+        _run_script("src/experiments/m5_no_lunar_fixed_date_deep_search.py")
+        _run_script("src/experiments/m5_fixed_date_current_compare.py")
         return True
     elif case_name == "m6":
-        from optimize_window import _run_m6_regression
-        _run_m6_regression()
+        _run_script("src/experiments/m6_legal_window_search.py", "--mode", "derived-legal-window")
+        _run_script("src/experiments/m6_numerical_deep_audit.py")
         return True
     elif case_name == "m7":
-        from sensitivity import _run_m7_regression
-        _run_m7_regression()
+        _run_script("src/experiments/m7_timeout_diagnosis.py")
         return True
     elif case_name == "m8":
         from plotting import _run_m8_regression
@@ -66,7 +76,7 @@ def main():
     parser.add_argument(
         "--case", "-c",
         default="all",
-        help="Test case: m1, m2, m3, m4, m5, or all (default: all)",
+        help="Test case: m1, m2, m3, m4, m5, m6, m7, m8, or all (default: all)",
     )
     args = parser.parse_args()
 

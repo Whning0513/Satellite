@@ -43,6 +43,12 @@ OPTIONAL_LABELS = {
 }
 
 
+def _active_m6_search_file() -> str:
+    if (RESULTS / "m6_legal_window_search.json").exists():
+        return "m6_legal_window_search.json"
+    return "m6_complete_return_window_search.json"
+
+
 def _warn_missing(path_rel):
     canonical = OPTIONAL_LABELS.get(path_rel, path_rel)
     if canonical in OPTIONAL_MISSING_SEEN:
@@ -291,7 +297,13 @@ def check_m6_outputs():
 
     _check(
         "m6_numerical_deep_audit.json",
-        full.get("classification") in ("ACTUAL_RESULT", "ACTUAL_RESULT_M5_DERIVED_WINDOW", "FINITE_SEARCH_NEG"),
+        full.get("classification") in (
+            "ACTUAL_RESULT",
+            "ACTUAL_RESULT_LEGAL_WINDOW",
+            "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW",
+            "ACTUAL_RESULT_M5_DERIVED_WINDOW",
+            "FINITE_SEARCH_NEG",
+        ),
         f"unexpected classification {full.get('classification')!r}",
     )
     _check(
@@ -329,11 +341,11 @@ def check_m6_outputs():
     if full.get("classification") == "FINITE_SEARCH_NEG":
         _check("m6_numerical_deep_audit.json", full.get("search_space") is not None, "FINITE_SEARCH_NEG missing search_space")
         _check("m6_numerical_deep_audit.json", full.get("best_near_miss") is not None, "FINITE_SEARCH_NEG missing best_near_miss")
-    if full.get("classification") == "ACTUAL_RESULT_M5_DERIVED_WINDOW":
+    if full.get("classification") in ("ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW", "ACTUAL_RESULT_M5_DERIVED_WINDOW"):
         _check(
             "m6_numerical_deep_audit.json",
-            full.get("candidate_source") == "m5_lunar_return_local_refine_grid",
-            f"expected candidate_source m5_lunar_return_local_refine_grid, got {full.get('candidate_source')!r}",
+            full.get("candidate_source") in ("m5_lunar_return_local_refine_grid", "m5_legal_window_search_grid"),
+            f"unexpected candidate_source for M5-derived result: {full.get('candidate_source')!r}",
         )
         _check(
             "m6_numerical_deep_audit.json",
@@ -341,9 +353,10 @@ def check_m6_outputs():
             "M5-derived deep audit must declare reused source grid and non-independent search",
         )
 
-    search = _load("m6_complete_return_window_search.json")
+    search_name = _active_m6_search_file()
+    search = _load(search_name)
     if search is None:
-        ERRORS.append("[FAIL] m6_complete_return_window_search.json: required file not found")
+        ERRORS.append(f"[FAIL] {search_name}: required file not found")
         return
     for key in [
         "candidate_source",
@@ -357,17 +370,17 @@ def check_m6_outputs():
         "side_values",
         "not_a_legacy_perihelion_vinf_search",
     ]:
-        _check("m6_complete_return_window_search.json", key in search, f"missing required provenance key {key}")
+        _check(search_name, key in search, f"missing required provenance key {key}")
     _check(
-        "m6_complete_return_window_search.json",
+        search_name,
         search.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is True,
         "missing return-event semantics guard",
     )
     if search.get("source_grid_reused") is True:
         _check(
-            "m6_complete_return_window_search.json",
-            search.get("classification") == "ACTUAL_RESULT_M5_DERIVED_WINDOW",
-            f"expected ACTUAL_RESULT_M5_DERIVED_WINDOW, got {search.get('classification')!r}",
+            search_name,
+            search.get("classification") in ("ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW", "ACTUAL_RESULT_M5_DERIVED_WINDOW"),
+            f"expected ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW or ACTUAL_RESULT_M5_DERIVED_WINDOW, got {search.get('classification')!r}",
         )
     spot = _load("m6_independent_spotcheck.json")
     if spot is None:
@@ -376,7 +389,7 @@ def check_m6_outputs():
         _check("m6_independent_spotcheck.json", spot.get("candidates_recomputed", 0) >= 2, "too few spotchecked candidates")
         _check("m6_independent_spotcheck.json", spot.get("status") in ("PASS", "WARN"), f"unexpected status {spot.get('status')!r}")
     _check(
-        "m6_complete_return_window_search.json",
+        search_name,
         search.get("status") in ("valid_complete_return_found", "finite_search_negative"),
         f"unexpected status {search.get('status')!r}",
     )

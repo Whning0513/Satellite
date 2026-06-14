@@ -35,6 +35,64 @@ def _load_optional_rows() -> list[dict] | None:
     return rows if isinstance(rows, list) else None
 
 
+def _compute_timeout_reason_breakdown(full: dict, sample_rows: list[dict] | None) -> dict:
+    if isinstance(full.get("timeout_reason_breakdown"), dict) and full["timeout_reason_breakdown"]:
+        return dict(full["timeout_reason_breakdown"])
+    if isinstance(sample_rows, list):
+        breakdown: dict[str, int] = {}
+        for row in sample_rows:
+            if row.get("classification") != "TIMEOUT_NO_FORMAL_RESULT":
+                continue
+            reason = str(row.get("reason") or "unknown")
+            breakdown[reason] = int(breakdown.get(reason, 0)) + 1
+        return dict(sorted(breakdown.items()))
+    timeout_count = int(full.get("timeout_count", 0) or 0)
+    if timeout_count <= 0:
+        return {}
+    return {"aggregate_timeout_without_sample_rows": timeout_count}
+
+
+def _backfill_summary_fields(full: dict, sample_rows: list[dict] | None) -> bool:
+    changed = False
+    sample_rows_path = RESULTS / "m7_extended_monte_carlo_samples.json"
+    replay_manifest_path = RESULTS / "m7_timeout_replay_manifest.json"
+    has_sample_rows = isinstance(sample_rows, list)
+
+    desired_saved = has_sample_rows
+    if full.get("sample_rows_saved") != desired_saved:
+        full["sample_rows_saved"] = desired_saved
+        changed = True
+
+    desired_sample_rows_file = (
+        "data/results/m7_extended_monte_carlo_samples.json" if has_sample_rows else None
+    )
+    if full.get("sample_rows_file") != desired_sample_rows_file:
+        full["sample_rows_file"] = desired_sample_rows_file
+        changed = True
+
+    desired_timeout_manifest = (
+        "data/results/m7_timeout_replay_manifest.json"
+        if replay_manifest_path.exists()
+        else None
+    )
+    if full.get("timeout_replay_manifest_file") != desired_timeout_manifest:
+        full["timeout_replay_manifest_file"] = desired_timeout_manifest
+        changed = True
+
+    desired_breakdown = _compute_timeout_reason_breakdown(full, sample_rows)
+    if full.get("timeout_reason_breakdown") != desired_breakdown:
+        full["timeout_reason_breakdown"] = desired_breakdown
+        changed = True
+
+    # Keep file paths synchronized with actual lightweight artifacts if they exist.
+    if has_sample_rows and not sample_rows_path.exists():
+        full["sample_rows_saved"] = False
+        full["sample_rows_file"] = None
+        changed = True
+
+    return changed
+
+
 def main() -> int:
     full = _load("m7_extended_monte_carlo.json")
     smoke = _load("m7_extended_monte_carlo_smoke.json")
@@ -74,6 +132,11 @@ def main() -> int:
     )
 
     sample_rows = _load_optional_rows()
+    if _backfill_summary_fields(full, sample_rows):
+        (RESULTS / "m7_extended_monte_carlo.json").write_text(
+            json.dumps(full, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
     replay = _load("m7_timeout_replay.json")
     sample_level_results_available = isinstance(sample_rows, list)
     timeout_reason_breakdown: dict[str, int | str] = {}
@@ -98,11 +161,7 @@ def main() -> int:
                 "rp_target_au_max": round(max(rp_vals), 6) if rp_vals else None,
             }
     else:
-        timeout_reason_breakdown = {
-            "timeout_before_event_search": "unknown_count_without_sample_rows",
-            "timeout_after_event_search": "unknown_count_without_sample_rows",
-            "future_timeout": "unknown_count_without_sample_rows",
-        }
+        timeout_reason_breakdown = _compute_timeout_reason_breakdown(full, sample_rows)
 
     if replay is not None:
         replay_results = replay.get("results", [])

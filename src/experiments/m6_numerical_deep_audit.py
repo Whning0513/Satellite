@@ -23,6 +23,13 @@ _REPO = Path(__file__).resolve().parents[2]
 RESULTS = _REPO / "data" / "results"
 
 
+def _active_m6_search_file() -> str:
+    legal = RESULTS / "m6_legal_window_search.json"
+    if legal.exists():
+        return "m6_legal_window_search.json"
+    return "m6_complete_return_window_search.json"
+
+
 def _load(name: str) -> dict | None:
     path = RESULTS / name
     if not path.exists():
@@ -76,14 +83,15 @@ def _search_rows(search_json: dict) -> list[dict]:
 
 def main() -> None:
     legacy = _load("m6_lunar_return_event_audit.json")
-    search = _load("m6_complete_return_window_search.json")
+    search_file = _active_m6_search_file()
+    search = _load(search_file)
     spotcheck = _load("m6_independent_spotcheck.json")
 
     red_flags: list[str] = []
     if legacy is None:
         red_flags.append("missing data/results/m6_lunar_return_event_audit.json")
     if search is None:
-        red_flags.append("missing data/results/m6_complete_return_window_search.json")
+        red_flags.append(f"missing data/results/{search_file}")
     if spotcheck is None:
         red_flags.append("missing data/results/m6_independent_spotcheck.json")
 
@@ -129,14 +137,14 @@ def main() -> None:
         "task": "M6 numerical deep audit",
         "classification": classification,
         "status": "WARN" if (status == "PASS" and classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW") else status,
-        "source_file": "data/results/m6_complete_return_window_search.json",
+        "source_file": f"data/results/{search_file}",
         "candidate_source": search.get("candidate_source") if search else None,
         "source_grid_reused": search.get("source_grid_reused") if search else None,
         "independent_m6_search": search.get("independent_m6_search") if search else None,
         "m6_interpretation": search.get("m6_interpretation") if search else None,
         "launch_window": search.get("launch_window") if search else None,
         "legacy_source_file": "data/results/m6_lunar_return_event_audit.json",
-        "complete_return_search_source_file": "data/results/m6_complete_return_window_search.json",
+        "complete_return_search_source_file": f"data/results/{search_file}",
         "spotcheck_source_file": "data/results/m6_independent_spotcheck.json",
         "search_space": search.get("search_space") if search else None,
         "search_window_mjd": search.get("search_window_mjd") if search else None,

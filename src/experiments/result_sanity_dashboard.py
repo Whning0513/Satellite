@@ -30,6 +30,14 @@ def _load_json(name: str) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_active_m6() -> tuple[dict[str, Any] | None, str | None]:
+    for name in ["m6_legal_window_search.json", "m6_numerical_deep_audit.json", "m6_complete_return_window_search.json"]:
+        data = _load_json(name)
+        if data is not None:
+            return data, name
+    return None, None
+
+
 def _fmt(value: Any) -> Any:
     if isinstance(value, float):
         return round(value, 6)
@@ -166,8 +174,8 @@ def main() -> int:
         )
 
     m5_verify = _load_json("m5_best_lunar_candidate_verify.json")
-    m5_compare = _load_json("m5_fixed_date_current_compare.json") or _load_json("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
-    m5_no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json") or _load_json("m5_no_lunar_t61037_deep_search.json")
+    m5_compare = _load_json("m5_fixed_date_current_compare.json")
+    m5_no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json")
     if m5_verify and m5_compare and m5_no_lunar:
         launch_ok = is_launch_mjd_in_window(m5_compare["same_t0"])
         t0_label = f"same_t0={m5_compare['same_t0']} ({mjd_to_date_str(m5_compare['same_t0'])})"
@@ -233,9 +241,12 @@ def main() -> int:
             ]
         )
 
-    m6 = _load_json("m6_numerical_deep_audit.json")
+    m6, m6_source = _load_active_m6()
     if m6:
         best_valid = m6.get("best_valid_candidate") or {}
+        classification = m6.get("classification", "UNRESOLVED")
+        legal_window_ok = is_launch_mjd_in_window(best_valid.get("t0_mjd")) if best_valid.get("t0_mjd") is not None else False
+        source_desc = m6_source or "unknown"
         rows.extend(
             [
                 _row(
@@ -244,8 +255,12 @@ def main() -> int:
                     m6.get("candidate_source"),
                     "enum",
                     "launch-window provenance",
-                    m6.get("classification", "UNRESOLVED"),
-                    "Current formal M6 result is credible as a derived window extraction because provenance is explicit.",
+                    classification,
+                    (
+                        f"Loaded from {source_desc}; provenance is explicit."
+                        if source_desc != "m6_complete_return_window_search.json"
+                        else "Legacy pre-legal-window file still loaded; current formal legal-window result is pending regeneration."
+                    ),
                 ),
                 _row(
                     "M6",
@@ -253,17 +268,21 @@ def main() -> int:
                     m6.get("independent_m6_search"),
                     "bool",
                     "launch-window provenance",
-                    m6.get("classification", "UNRESOLVED"),
+                    classification,
                     "False means this file is not overstating itself as an independent search.",
                 ),
                 _row(
                     "M6",
                     "valid complete returns",
-                    m6.get("valid_complete_return_count"),
+                    m6.get("valid_complete_return_count", m6.get("valid_complete_return_count")),
                     "count",
                     "complete-return window set",
-                    m6.get("classification", "UNRESOLVED"),
-                    "High count argues the valid window is not a single-candidate fluke inside the reused grid.",
+                    classification,
+                    (
+                        "High count argues the valid window is not a single-candidate fluke inside the reused grid."
+                        if m6.get("valid_complete_return_count") is not None
+                        else "Legal-window count not regenerated yet."
+                    ),
                 ),
                 _row(
                     "M6",
@@ -277,8 +296,12 @@ def main() -> int:
                     },
                     "dict",
                     "Earth-return event / vinf_basis",
-                    m6.get("classification", "UNRESOLVED"),
-                    "Spotcheck recomputation matched the stored best candidate within 0.2 km and 0.0 km/s.",
+                    classification,
+                    (
+                        "Best candidate is inside the legal 2026 launch window."
+                        if legal_window_ok
+                        else "Best candidate is not yet a legal-window formal result; regenerate M6 legal-window search."
+                    ),
                 ),
             ]
         )

@@ -11,6 +11,12 @@ RESULTS = _REPO / "data" / "results"
 ERRORS: list[str] = []
 
 
+def _active_search_name() -> str:
+    if (RESULTS / "m6_legal_window_search.json").exists():
+        return "m6_legal_window_search.json"
+    return "m6_complete_return_window_search.json"
+
+
 def _load(name: str) -> dict:
     path = RESULTS / name
     if not path.exists():
@@ -142,7 +148,7 @@ def check_deep_audit(audit: dict) -> None:
 
 
 def main() -> int:
-    search = _load("m6_complete_return_window_search.json")
+    search = _load(_active_search_name())
     audit = _load("m6_numerical_deep_audit.json")
     if search:
         check_search(search)

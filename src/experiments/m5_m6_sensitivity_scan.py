@@ -1,7 +1,11 @@
 """
 m5_m6_sensitivity_scan.py
 =========================
-Sensitivity scan around the current best lunar Earth-return candidate.
+Sensitivity scan around the current legal-window lunar Earth-return anchor.
+
+This file used to be tied to the historical 61037 anchor. It now loads the
+formal legal anchor from current result JSON so the scan stays aligned with the
+active M5/M6/M7 storyline.
 """
 
 from __future__ import annotations
@@ -21,17 +25,14 @@ SRC = REPO / "src"
 RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
-from constants import AU_KM, DT_MAIN
+from constants import AU_KM, DT_MAIN, R_MOON
 from horizons import fetch_sem_vectors
+from mission_constraints import is_launch_mjd_in_window
 from trajectory import DesignParams, solve_trajectory
 
 from experiments.return_search_tools import search_best_return_event
 
 
-BEST_T0 = 61037.0
-BEST_SIDE = "trailing"
-BEST_RM_KM = 1837.4
-BEST_RETURN_MJD = 61404.87
 TARGET_RP_AU = 0.3
 RETURN_BRAKE_THRESHOLD_KMS = 15.0
 
@@ -72,12 +73,46 @@ def _classification(fair_fraction: float) -> str:
     return "fragile"
 
 
+def _load_reference_candidate() -> dict[str, Any]:
+    verify = _load_json("m5_best_lunar_candidate_verify.json")
+    compare = _load_json("m5_fixed_date_current_compare.json")
+    if verify is not None:
+        candidate = verify.get("candidate", {})
+        event = verify.get("event_check", {})
+        t0_mjd = float(candidate.get("t0_mjd", 61065.0))
+        if not is_launch_mjd_in_window(t0_mjd):
+            raise ValueError(f"M5 sensitivity reference t0={t0_mjd} is outside the formal 2026 launch window")
+        return {
+            "source": "m5_best_lunar_candidate_verify.json",
+            "t0_mjd": t0_mjd,
+            "side": str(candidate.get("side", "trailing")),
+            "r_m_km": float(candidate.get("r_m_km", R_MOON + 100.0)),
+            "return_event_mjd": float(event.get("return_epoch_mjd", event.get("return_event_mjd", t0_mjd + 365.0))),
+        }
+    return {
+        "source": "built_in_fallback",
+        "t0_mjd": 61065.0,
+        "side": "trailing",
+        "r_m_km": R_MOON + 100.0,
+        "return_event_mjd": float(compare.get("return_event_mjd", 61431.12)) if compare else 61431.12,
+    }
+
+
+def _load_current_no_lunar_total() -> float | None:
+    current = _load_json("m5_no_lunar_fixed_date_deep_search.json")
+    if current and current.get("best_valid"):
+        return float(current["best_valid"]["total_dv_proxy_kms"])
+    return None
+
+
 def main() -> int:
     body_data = fetch_sem_vectors(use_cache=True)
-    m5_no_lunar = _load_json("m5_no_lunar_t61037_deep_search.json")
-    no_lunar_total = None
-    if m5_no_lunar and m5_no_lunar.get("best_valid"):
-        no_lunar_total = float(m5_no_lunar["best_valid"]["total_dv_proxy_kms"])
+    reference = _load_reference_candidate()
+    best_t0 = float(reference["t0_mjd"])
+    best_side = str(reference["side"])
+    best_r_m_km = float(reference["r_m_km"])
+    best_return_mjd = float(reference["return_event_mjd"])
+    no_lunar_total = _load_current_no_lunar_total()
 
     physical_runs: list[dict[str, Any]] = []
     eval_rows: list[dict[str, Any]] = []
@@ -89,15 +124,15 @@ def main() -> int:
         for rm_offset in RM_OFFSETS_KM:
             for dt_label, dt_value in DT_OPTIONS.items():
                 run_idx += 1
-                t0_mjd = BEST_T0 + t0_offset
-                r_m_km = BEST_RM_KM + rm_offset
-                params = DesignParams(t0_mjd=t0_mjd, r_m=r_m_km, side=BEST_SIDE, r_p=TARGET_RP_AU * AU_KM)
+                t0_mjd = best_t0 + t0_offset
+                r_m_km = best_r_m_km + rm_offset
+                params = DesignParams(t0_mjd=t0_mjd, r_m=r_m_km, side=best_side, r_p=TARGET_RP_AU * AU_KM)
                 traj = solve_trajectory(params, body_data, verbose=False, dt_integrate=dt_value)
                 event = search_best_return_event(
                     traj=traj,
                     body_data=body_data,
                     launch_mjd=t0_mjd,
-                    nominal_return_mjd=BEST_RETURN_MJD,
+                    nominal_return_mjd=best_return_mjd,
                     threshold_km=max(EARTH_THRESHOLDS_KM),
                     nominal_window_half_width_days=60.0,
                     fallback_window_half_width_days=180.0,
@@ -116,7 +151,7 @@ def main() -> int:
                     "t0_offset_days": t0_offset,
                     "r_m_km": round(r_m_km, 3),
                     "r_m_offset_km": rm_offset,
-                    "side": BEST_SIDE,
+                    "side": best_side,
                     "side_perturbation_supported": False,
                     "dt_label": dt_label,
                     "dt_seconds": dt_value,
@@ -145,7 +180,7 @@ def main() -> int:
                             and float(ret_vinf) <= RETURN_BRAKE_THRESHOLD_KMS
                         )
                         ratio = None
-                        if no_lunar_total is not None and abs(t0_mjd - BEST_T0) < 1e-9 and fair and total_vinf is not None:
+                        if no_lunar_total is not None and abs(t0_mjd - best_t0) < 1e-9 and fair and total_vinf is not None:
                             ratio = round((no_lunar_total - total_vinf) / no_lunar_total, 6)
                         eval_rows.append(
                             {
@@ -154,7 +189,7 @@ def main() -> int:
                                 "perihelion_tolerance_AU": peri_tol_au,
                                 "valid_return_event": valid_return,
                                 "fair": fair,
-                                "saving_ratio_vs_t0_61037_no_lunar": ratio,
+                                "saving_ratio_vs_current_legal_no_lunar": ratio,
                             }
                         )
                 print(f"[{run_idx}/{total_runs}] t0={t0_mjd:.2f}, r_m={r_m_km:.1f}, dt={dt_label}")
@@ -177,9 +212,9 @@ def main() -> int:
     valid_return_vinf = [float(row["return_vinf_kms"]) for row in valid_rows if row["return_vinf_kms"] is not None]
     valid_total = [float(row["total_vinf_basis_kms"]) for row in valid_rows if row["total_vinf_basis_kms"] is not None]
     valid_ratios = [
-        float(row["saving_ratio_vs_t0_61037_no_lunar"])
+        float(row["saving_ratio_vs_current_legal_no_lunar"])
         for row in fair_rows
-        if row["saving_ratio_vs_t0_61037_no_lunar"] is not None
+        if row["saving_ratio_vs_current_legal_no_lunar"] is not None
     ]
 
     best_valid = min(fair_rows, key=lambda row: (row["total_vinf_basis_kms"], row["event_distance_km"])) if fair_rows else None
@@ -187,12 +222,7 @@ def main() -> int:
 
     payload = {
         "task": "M5/M6 sensitivity scan",
-        "reference_candidate": {
-            "t0_mjd": BEST_T0,
-            "side": BEST_SIDE,
-            "r_m_km": BEST_RM_KM,
-            "return_event_mjd": BEST_RETURN_MJD,
-        },
+        "reference_candidate": reference,
         "tested_perturbations": {
             "t0_offsets_days": T0_OFFSETS_DAYS,
             "r_m_offsets_km": RM_OFFSETS_KM,
@@ -209,7 +239,7 @@ def main() -> int:
         "p95_return_distance_km": round(float(np.percentile(valid_distances, 95)), 3) if valid_distances else None,
         "return_vinf_stats_kms": _stats(valid_return_vinf),
         "total_vinf_basis_stats_kms": _stats(valid_total),
-        "saving_ratio_range_vs_t0_61037_no_lunar": (
+        "saving_ratio_range_vs_current_legal_no_lunar": (
             {
                 "min": round(min(valid_ratios), 6),
                 "max": round(max(valid_ratios), 6),
