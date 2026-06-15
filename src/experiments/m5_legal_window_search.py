@@ -29,10 +29,22 @@ from experiments.legal_window_search_tools import (
     legal_refine_t0_values,
     summarize_legal_window_results,
 )
+from experiments.progress_resume import JsonlCheckpoint, ProgressBar
 
 
 RESULTS = _REPO / "data" / "results"
 _BODY_DATA = None
+
+
+def _job_key(stage: str, t0: float, side: str, r_m_km: float) -> str:
+    return f"{stage}|{t0:.6f}|{side}|{r_m_km:.3f}"
+
+
+def _strip_checkpoint_fields(row: dict) -> dict:
+    cleaned = dict(row)
+    cleaned.pop("_checkpoint_key", None)
+    cleaned.pop("_checkpoint_stage", None)
+    return cleaned
 
 
 def _candidate_rank(row: dict) -> tuple:
@@ -67,33 +79,66 @@ def _worker_eval(payload: tuple[SearchConfig, float, str, float]) -> dict:
     return evaluate_lunar_candidate(_BODY_DATA, t0, side, r_m_km, config=config)
 
 
-def _run_grid(body_data: dict, config: SearchConfig, *, max_workers: int) -> list[dict]:
-    rows = []
+def _run_grid(
+    body_data: dict,
+    config: SearchConfig,
+    *,
+    max_workers: int,
+    stage: str,
+    checkpoint: JsonlCheckpoint | None,
+) -> list[dict]:
     jobs = _iter_jobs(config)
     total = len(jobs)
-    done = 0
-    started = time.time()
+    rows: list[dict] = []
+    pending_jobs: list[tuple[float, str, float]] = []
+    for t0, side, r_m_km in jobs:
+        key = _job_key(stage, t0, side, r_m_km)
+        if checkpoint is not None and checkpoint.has_key(key):
+            rows.append(_strip_checkpoint_fields(checkpoint.rows_by_key[key]))
+        else:
+            pending_jobs.append((t0, side, r_m_km))
+
+    progress = ProgressBar(total, label=stage)
+    progress.update(len(rows), extra=f"resume={len(rows)}")
     if max_workers <= 1:
-        for t0, side, r_m_km in jobs:
-            done += 1
+        for t0, side, r_m_km in pending_jobs:
             row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=config)
             rows.append(row)
-            if done % 25 == 0 or done == total:
-                print(f"  progress {done}/{total} ({time.time()-started:.0f}s)")
+            if checkpoint is not None:
+                checkpoint.append(
+                    {
+                        **row,
+                        "_checkpoint_stage": stage,
+                        "_checkpoint_key": _job_key(stage, t0, side, r_m_km),
+                    }
+                )
+            progress.update(len(rows))
+        progress.finish(extra="serial")
         return rows
 
     try:
         with ProcessPoolExecutor(max_workers=max_workers, initializer=_worker_init) as pool:
-            for row in pool.map(_worker_eval, [(config, t0, side, r_m_km) for t0, side, r_m_km in jobs], chunksize=1):
-                done += 1
+            for (t0, side, r_m_km), row in zip(
+                pending_jobs,
+                pool.map(_worker_eval, [(config, t0, side, r_m_km) for t0, side, r_m_km in pending_jobs], chunksize=1),
+                strict=False,
+            ):
                 rows.append(row)
-                if done % 25 == 0 or done == total:
-                    print(f"  progress {done}/{total} ({time.time()-started:.0f}s)")
+                if checkpoint is not None:
+                    checkpoint.append(
+                        {
+                            **row,
+                            "_checkpoint_stage": stage,
+                            "_checkpoint_key": _job_key(stage, t0, side, r_m_km),
+                        }
+                    )
+                progress.update(len(rows), extra=f"workers={max_workers}")
     except Exception as exc:
         raise RuntimeError(
             "ProcessPoolExecutor failed during M5 legal-window search. "
             "Retry with --max-workers 1 to force serial execution on Windows."
         ) from exc
+    progress.finish(extra=f"workers={max_workers}")
     return rows
 
 
@@ -108,6 +153,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rm-values-km", type=str, default="")
     parser.add_argument("--sides", type=str, default="trailing,leading")
     parser.add_argument("--output", type=str, default=str(RESULTS / "m5_legal_window_search.json"))
+    parser.add_argument("--checkpoint-jsonl", type=str, default=str(RESULTS / "m5_legal_window_search.resume.jsonl"))
+    parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
 
 
@@ -127,6 +174,10 @@ def main() -> int:
     print("=" * 66)
     started_total = time.time()
     body_data = fetch_sem_vectors(use_cache=True)
+    checkpoint = None if args.no_resume else JsonlCheckpoint(
+        Path(args.checkpoint_jsonl),
+        key_fn=lambda row: str(row["_checkpoint_key"]),
+    )
 
     coarse_t0_values = _parse_float_list(args.t0_values) if args.t0_values else legal_coarse_t0_values(args.coarse_step_days)
     rm_values = _parse_float_list(args.rm_values_km) if args.rm_values_km else default_rm_values()
@@ -143,7 +194,13 @@ def main() -> int:
         fallback_window_half_width_days=260.0,
     )
     print(f"coarse t0 count = {len(coarse_cfg.t0_values)}")
-    coarse_rows = _run_grid(body_data, coarse_cfg, max_workers=max(1, int(args.max_workers)))
+    coarse_rows = _run_grid(
+        body_data,
+        coarse_cfg,
+        max_workers=max(1, int(args.max_workers)),
+        stage="coarse",
+        checkpoint=checkpoint,
+    )
     coarse_rows_sorted = sorted(coarse_rows, key=_candidate_rank)
 
     refine_rows: list[dict] = []
@@ -162,7 +219,13 @@ def main() -> int:
             fallback_window_half_width_days=340.0,
         )
         print(f"refine t0 count = {len(refine_cfg.t0_values)}")
-        refine_rows = _run_grid(body_data, refine_cfg, max_workers=max(1, int(args.max_workers)))
+        refine_rows = _run_grid(
+            body_data,
+            refine_cfg,
+            max_workers=max(1, int(args.max_workers)),
+            stage="refine",
+            checkpoint=checkpoint,
+        )
     else:
         seed_t0 = [row["t0_mjd"] for row in coarse_rows_sorted[: max(1, int(args.top_k_seeds))]]
         refine_t0 = []
@@ -195,6 +258,8 @@ def main() -> int:
         },
         "search_runtime_sec": round(time.time() - started_total, 3),
         "max_workers": int(args.max_workers),
+        "resume_enabled": checkpoint is not None,
+        "checkpoint_jsonl": None if checkpoint is None else str(Path(args.checkpoint_jsonl).relative_to(_REPO)).replace("\\", "/"),
         **summary,
         "classification": "LEGAL_WINDOW_COARSE_PLUS_LOCAL_REFINE",
         "full_year_fine_search_pending": True,

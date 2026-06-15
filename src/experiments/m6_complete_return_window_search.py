@@ -32,11 +32,23 @@ from experiments.legal_window_search_tools import (
     legal_coarse_t0_values,
     legal_refine_t0_values,
 )
+from experiments.progress_resume import JsonlCheckpoint, ProgressBar
 from horizons import fetch_sem_vectors
 
 
 RESULTS = _REPO / "data" / "results"
 M5_LEGAL_WINDOW_JSON = RESULTS / "m5_legal_window_search.json"
+
+
+def _job_key(stage: str, t0: float, side: str, r_m_km: float) -> str:
+    return f"{stage}|{t0:.6f}|{side}|{r_m_km:.3f}"
+
+
+def _strip_checkpoint_fields(row: dict[str, Any]) -> dict[str, Any]:
+    cleaned = dict(row)
+    cleaned.pop("_checkpoint_key", None)
+    cleaned.pop("_checkpoint_stage", None)
+    return cleaned
 
 
 def _candidate_classification(valid_return_event: bool, fair: bool) -> str:
@@ -199,6 +211,10 @@ def _derived_legal_window_from_m5() -> dict[str, Any]:
 
 def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
     body_data = fetch_sem_vectors(use_cache=True)
+    checkpoint = None if args.no_resume else JsonlCheckpoint(
+        Path(args.checkpoint_jsonl),
+        key_fn=lambda row: str(row["_checkpoint_key"]),
+    )
     coarse_cfg = SearchConfig(
         t0_values=legal_coarse_t0_values(args.t0_step_days),
         r_m_values_km=default_rm_values(),
@@ -218,20 +234,33 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
 
     coarse_rows = []
     total = len(coarse_cfg.t0_values) * len(coarse_cfg.r_m_values_km) * len(coarse_cfg.sides)
-    done = 0
-    started = time.perf_counter()
+    progress = ProgressBar(total, label="m6-coarse")
+    resumed = 0
     for t0 in coarse_cfg.t0_values:
         for side in coarse_cfg.sides:
             for r_m_km in coarse_cfg.r_m_values_km:
-                done += 1
+                key = _job_key("coarse", t0, side, r_m_km)
+                if checkpoint is not None and checkpoint.has_key(key):
+                    coarse_rows.append(_strip_checkpoint_fields(checkpoint.rows_by_key[key]))
+                    resumed += 1
+                    progress.update(len(coarse_rows), extra=f"resume={resumed}")
+                    continue
                 row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=coarse_cfg)
-                row["candidate_id"] = f"m6_indep_coarse_{done}"
+                row["candidate_id"] = f"m6_indep_coarse_{len(coarse_rows)+1}"
                 row["source_file"] = "data/results/m6_complete_return_window_search.json"
                 row["legacy_return_vinf_kms"] = None
                 row["reason"] = row.pop("event_reason")
                 coarse_rows.append(row)
-                if done % 25 == 0 or done == total:
-                    print(f"  progress {done}/{total} ({time.perf_counter()-started:.0f}s)")
+                if checkpoint is not None:
+                    checkpoint.append(
+                        {
+                            **row,
+                            "_checkpoint_stage": "coarse",
+                            "_checkpoint_key": key,
+                        }
+                    )
+                progress.update(len(coarse_rows))
+    progress.finish()
 
     seed_t0 = [row["t0_mjd"] for row in sorted(coarse_rows, key=_sort_key)[: max(1, args.top_k_seeds)]]
     refine_t0 = legal_refine_t0_values(seed_t0, offsets_days=[-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3])
@@ -254,20 +283,33 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
 
     refine_rows = []
     total_refine = len(refine_cfg.t0_values) * len(refine_cfg.r_m_values_km) * len(refine_cfg.sides)
-    done_refine = 0
-    started_refine = time.perf_counter()
+    progress_refine = ProgressBar(total_refine, label="m6-refine")
+    resumed_refine = 0
     for t0 in refine_cfg.t0_values:
         for side in refine_cfg.sides:
             for r_m_km in refine_cfg.r_m_values_km:
-                done_refine += 1
+                key = _job_key("refine", t0, side, r_m_km)
+                if checkpoint is not None and checkpoint.has_key(key):
+                    refine_rows.append(_strip_checkpoint_fields(checkpoint.rows_by_key[key]))
+                    resumed_refine += 1
+                    progress_refine.update(len(refine_rows), extra=f"resume={resumed_refine}")
+                    continue
                 row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=refine_cfg)
-                row["candidate_id"] = f"m6_indep_refine_{done_refine}"
+                row["candidate_id"] = f"m6_indep_refine_{len(refine_rows)+1}"
                 row["source_file"] = "data/results/m6_complete_return_window_search.json"
                 row["legacy_return_vinf_kms"] = None
                 row["reason"] = row.pop("event_reason")
                 refine_rows.append(row)
-                if done_refine % 25 == 0 or done_refine == total_refine:
-                    print(f"  refine progress {done_refine}/{total_refine} ({time.perf_counter()-started_refine:.0f}s)")
+                if checkpoint is not None:
+                    checkpoint.append(
+                        {
+                            **row,
+                            "_checkpoint_stage": "refine",
+                            "_checkpoint_key": key,
+                        }
+                    )
+                progress_refine.update(len(refine_rows))
+    progress_refine.finish()
 
     dedup: dict[tuple[Any, ...], dict[str, Any]] = {}
     for row in coarse_rows + refine_rows:
@@ -295,6 +337,8 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
         "refine_event_coarse_step_days": args.refine_coarse_step_days,
         "refine_event_refine_step_s": args.refine_refine_step_s,
         "max_extra_days": args.max_extra_days,
+        "resume_enabled": checkpoint is not None,
+        "checkpoint_jsonl": None if checkpoint is None else str(Path(args.checkpoint_jsonl).relative_to(_REPO)).replace("\\", "/"),
     }
     return _search_output(
         rows,
@@ -347,6 +391,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--refine-nominal-window-half-width-days", type=float, default=180.0)
     parser.add_argument("--refine-fallback-window-half-width-days", type=float, default=360.0)
     parser.add_argument("--max-extra-days", type=float, default=500.0)
+    parser.add_argument("--checkpoint-jsonl", type=str, default=str(RESULTS / "m6_complete_return_window_search.resume.jsonl"))
+    parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
 
 

@@ -62,7 +62,9 @@
 
 在数值审计后，旧的 61037、61066、61154 等候选不再作为正式结果主线。当前保留的合法固定日期 formal 结果为 MJD~61065.0（2026-01-25）：trailing 月借力、$r_m=1837.4$~km、实现近日距 $0.274959$~AU、返回地球距离 $4.46\times10^5$~km、返回 $v_{\infty}=10.5173$~km/s。按统一的 $v_{\infty}$ budget basis，与同日 no-lunar DSM baseline 的 $20.5938$~km/s 相比，月借力方案总预算为 $10.1213$~km/s，对应固定日期节能比例 $50.85\%$。
 
-M1--M5 的核心数值链已闭环；M3 被明确限定为 same-source propagation check，而非独立 JPL 预测；M7 已升级为围绕合法锚点的 $N=200$ Monte Carlo，formal 返回速度只在真实 Earth-return 事件上定义。全年全局最优发射窗口仍需通过重新运行合法窗口全搜索来确认，因此本报告仅把 61065 作为当前正式核实锚点，而不把它写成已证明的全年全局最优。
+随后补跑的 2026 全年合法窗口搜索给出了当前最优的窗口候选：MJD~61390.5（2026-12-16），trailing，$r_m=2037.4$~km，返回地球距离仅 7231.3~km，返回 $v_{\infty}=14.3987$~km/s，$v_{\infty}$ budget basis 仍为 10.1213~km/s。独立 M6 参数搜索在 1220 个候选上回收了同一组 $(t_0,\mathrm{side},r_m)$，说明这个窗口不是简单的数据换名，而是被第二条搜索链独立支持。
+
+M1--M6 的核心数值链已闭环；M3 被明确限定为 same-source propagation check，而非独立 JPL 预测；M7 已升级为围绕合法锚点的 $N=200$ Monte Carlo，formal 返回速度只在真实 Earth-return 事件上定义。当前 full Monte Carlo 对象仍是合法固定日期锚点 61065，而不是后续窗口搜索得到的 61390.5 年度最优候选；因此本报告把 61065 作为正式 fixed-date compare，把 61390.5 作为当前最佳 legal-window candidate，而不把现有有限分辨率搜索写成严格的连续全局最优证明。
 
 \newpage
 
@@ -212,20 +214,20 @@ formal saving ratio & \multicolumn{2}{c}{0.508527 = 50.85\%} \\
 
 \section{发射窗口优化（M6）}
 \subsection{当前正式身份}
-M6 原始实现包含全年几何粗筛与候选验证，但在数值语义硬化后，旧的 61154/61066 候选不再能直接作为 formal 最优窗口。本项目当前只保留如下更稳妥的正式结论：
+M6 原始实现包含全年几何粗筛与候选验证，但在数值语义硬化后，旧的 61154/61066 候选不再能直接作为 formal 最优窗口。补跑 2026 合法窗口全搜索后，本项目当前保留如下更稳妥的正式结论：
 \begin{itemize}
-    \item 2026 全年窗口候选提取机制已实现；
-    \item 历史几何 top-5 已不再直接等价于 formal Earth-return 最优窗口；
-    \item 当前合法、已核实、与 M5 同步的 formal window anchor 为 MJD~61065.0；
-    \item 若要声称全年全局最优，仍需重新运行合法窗口的全搜索与精化。
+    \item derived legal-window search 共评估 900 个候选，得到 95 个 valid complete return、71 个 fair return；
+    \item 当前最佳 legal-window candidate 为 MJD~61390.5（2026-12-16），trailing，$r_m=2037.4$~km，返回地球距离 7231.3~km，返回 $v_{\infty}=14.3987$~km/s，$v_{\infty}$ budget basis 为 10.1213~km/s；
+    \item 独立 M6 参数搜索共评估 1220 个候选，并回收了同一组 $t_0$ / side / $r_m$，对应返回地球距离 7698.8~km、返回 $v_{\infty}=14.5249$~km/s；
+    \item 因此，当前“最佳窗口”不是只靠 M5-derived row 命名得到，而是被独立搜索链再次确认。
 \end{itemize}
 
 \subsection{解释}
-因此，M6 当前是“legal-window verified anchor 已建立”，而不是“全年全局最优已证明”。这一定性比沿用旧几何 top-5 更符合题干约束和后期数值审计结果。
+因此，M6 当前已经从“legal-window verified anchor 已建立”推进到“当前最佳 legal-window candidate 已由 derived search 与 independent search 双重支持”。不过，现有搜索仍是 coarse+local-refine 的有限分辨率结果，因此更准确的表述是“当前最佳候选已找到”，而不是“连续参数空间中的严格数学全局最优已被证明”。
 
 \section{灵敏度与误差分析（M7）}
 \subsection{Monte Carlo 设置}
-围绕合法锚点 MJD~61065.0、trailing、$r_m=1837.4$~km 进行多参数扰动。full Monte Carlo 使用固定随机种子 202606，总样本数 $N=200$。
+当前 full Monte Carlo 围绕合法固定日期锚点 MJD~61065.0、trailing、$r_m=1837.4$~km 进行多参数扰动。full Monte Carlo 使用固定随机种子 202606，总样本数 $N=200$。需要强调的是：这批 Monte Carlo 样本生成于窗口搜索确认 61390.5 年度最佳候选之前，因此它验证的是合法 fixed-date anchor 的鲁棒性，而不是 61390.5 周边的全年最佳窗口鲁棒性。
 
 \begin{table}[H]
 \centering
@@ -234,16 +236,16 @@ M6 原始实现包含全年几何粗筛与候选验证，但在数值语义硬�
 \toprule
 统计量 & 数值 \\
 \midrule
-valid return / total & 38 / 200 \\
-invalid / timeout & 40 / 122 \\
-valid-only $v_{\infty,\text{return}}$ mean / p50 / p95 & 10.7487 / 10.7638 / 11.2242~km/s \\
-valid-only total $v_{\infty}$ basis mean / p50 / p95 & 10.1642 / 10.1624 / 10.3007~km/s \\
+valid return / total & 101 / 200 \\
+invalid / timeout & 99 / 0 \\
+valid-only $v_{\infty,\text{return}}$ mean / p50 / p95 & 10.8047 / 10.7706 / 11.3542~km/s \\
+valid-only total $v_{\infty}$ basis mean / p50 / p95 & 10.2299 / 10.1479 / 10.3455~km/s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{解释}
-M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段的语义被纠正：旧的伪 79~km/s 返回速度已被 guard 阻断，不再进入 summary。当前 valid rate 为 0.19，但其中 122 个样本是 timeout，因此暂时不能直接把这一现象解释为“轨道物理上高度脆弱”；更合理的表述是，当前的 Monte Carlo 结果已通过 event semantics 审核，但鲁棒性解释仍受 event search / timeout 能力限制。
+M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段的语义被纠正：旧的伪 79~km/s 返回速度已被 guard 阻断，不再进入 summary。当前 valid rate 为 0.505，且 timeout 已下降到 0；因此这批结果已经不再是“timeout-heavy 的半成品”，而是一组可直接解释的 sample-level Monte Carlo 统计。与此同时，它的适用范围仍应被正确限定：这批统计对应的是 61065 固定日期 anchor 周边扰动，不是 61390.5 年度最佳窗口周边的最终鲁棒性结论。
 
 \subsection{步长收敛}
 在 $h=3600,1800,900,450$~s 的四级步长测试中，实现近日距在 $h\le 1800$~s 时已基本稳定，能量漂移远低于题干阈值。因此当前主积分设置在数值稳定性上是可接受的。
@@ -323,15 +325,15 @@ O7 使用 ProcessPool 替代 ThreadPool 后，在 55 个日期的重复基准中
 \begin{enumerate}
     \item 主模型仍为二维黄道平面近似，未纳入完整三维轨道倾角；
     \item 当前主线动力学仍以 Sun--Earth--Moon 为主，未将全部行星摄动纳入正式 M5/M6/M7 主解；
-    \item M6 目前只建立了合法 formal anchor，尚未重新完成全年全局最优重建；
-    \item M7 的 Monte Carlo 存在大量 timeout，当前更像事件搜索能力瓶颈而非纯物理失效统计；
+    \item M6 当前最佳窗口来自 coarse+local-refine 搜索与独立搜索的双重支持，但仍不是连续参数空间上的严格数学最优性证明；
+    \item M7 的 full Monte Carlo 目前围绕 61065 fixed-date anchor，而不是围绕后续窗口搜索得到的 61390.5 最优候选；
     \item M4 的数值对照仍是局部模型，而不是完整任务级高保真借力仿真。
 \end{enumerate}
 
 \subsection{后续改进}
 \begin{itemize}
-    \item 重建合法 2026 发射窗下的全年窗口全搜索；
-    \item 提升 Earth-return 事件搜索器，降低 Monte Carlo timeout；
+    \item 进一步细化 61390.5 附近的连续参数搜索，把当前最佳 legal-window candidate 推进到更强的最优性结论；
+    \item 在 61390.5 年度最佳窗口附近重跑 full Monte Carlo，形成和 M6 对齐的鲁棒性分析；
     \item 扩展到三维和更完整的多体摄动模型；
     \item 对近日点附近加入更高精度的自适应步长策略；
     \item 将 O3+ 的微分修正思想接入主线窗口精化。
@@ -340,33 +342,33 @@ O7 使用 ProcessPool 替代 ThreadPool 后，在 55 个日期的重复基准中
 \newpage
 
 \section{结论}
-本项目已经完成题干大部分核心数值链路，并在后期通过数值正确性审计纠正了旧的非法锚点、伪返回速度和不一致预算口径。当前最可信的正式结果不是旧的 61066/61154 候选，而是合法发射窗内的 MJD~61065.0 固定日期结果；在同日、同口径、同 Earth-return 事件定义下，月借力方案相对 no-lunar DSM baseline 的 formal 节能比例为 50.85\%。
+本项目已经完成题干主线所需的核心数值链路，并在后期通过数值正确性审计纠正了旧的非法锚点、伪返回速度和不一致预算口径。当前最可信的 fixed-date formal 结果仍是合法发射窗内的 MJD~61065.0：在同日、同口径、同 Earth-return 事件定义下，月借力方案相对 no-lunar DSM baseline 的 formal 节能比例为 50.85\%。
 
-M3 已被正确限定为 same-source propagation check，M4 是局部解析/数值一致性验证，M6 目前建立了 legal-window verified anchor，M7 则在合法锚点上完成了 $N=200$ Monte Carlo 和返回事件语义硬化。换言之，项目已经具备一条可信的正式数值主线，但对“全年全局最优窗口”和“完整鲁棒性解释”的结论仍需继续数值重建，不能过度外推。
+在此基础上，补跑的 2026 全年 legal-window search 给出了当前最佳窗口候选 MJD~61390.5（2026-12-16），其 derived search 与 independent search 都收敛到 trailing、$r_m=2037.4$~km、$v_{\infty}$ budget basis 为 10.1213~km/s 的同一组参数。M3 已被正确限定为 same-source propagation check，M4 是局部解析/数值一致性验证，M6 已从“只有合法锚点”推进到“全年最佳候选被两条搜索链共同支持”，M7 则在合法 fixed-date anchor 上完成了 $N=200$ Monte Carlo、101 个 valid return、0 timeout 的样本级统计。换言之，项目已经具备一条可信的正式数值主线；仍然需要谨慎限定的，不是“结果是否存在”，而是“61065 的 fixed-date compare”和“61390.5 的年度最佳窗口”属于不同层次的正式结论，M7 目前也只直接支撑前者周边的鲁棒性解释。
 
 \begin{table}[H]
 \centering
-\caption{完成状态总表}
+\caption{模块完成情况总表}
 {\small
-\begin{tabular}{lcc}
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}p{0.10\textwidth}>{\raggedright\arraybackslash}p{0.58\textwidth}}
 \toprule
 模块 & 状态 & 说明 \\
 \midrule
-M1 patched conic & done & 误差 $<0.1\%$ \\
-M2 VV integrator & done & 基准位置误差 $8.3\times10^{-5}$ \\
-M3 Horizons & done-with-scope & same-source residual check \\
-M4 lunar swingby & done-with-local-validation & 局部解析/数值对照 \\
-M5 trajectory & done & legal anchor MJD 61065.0 \\
-M6 launch window & done-with-caveat & legal anchor verified, not global optimum \\
-M7 sensitivity & done-with-caveat & $N=200$, timeout-heavy \\
-M8 figures & done-with-caveat & 7 static figures + animation \\
+M1 patched conic & 完成 & 解析模型已代码化，并通过钱学森 $r_p=0.2$~AU 算例与独立复算核对，误差小于 $0.1\%$。 \\
+M2 VV integrator & 完成 & 二体基准、能量漂移与步长收敛均已验证，精度已超过题干下限。 \\
+M3 Horizons & 完成 & 已完成 same-source 残差对照，并进一步做了 3-body/5-body/full planetary 的模型层级验证。 \\
+M4 lunar swingby & 完成 & 解析偏折公式、leading/trailing 数值传播与局部一致性扫描均已实现。 \\
+M5 trajectory & 完成 & 已建立合法 2026 发射窗内的 formal 单点轨道，并完成同日 no-lunar 正式对比。 \\
+M6 launch window & 完成 & 全年合法窗口搜索已跑通，当前最佳候选为 2026-12-16，且被独立搜索链再次确认。 \\
+M7 sensitivity & 完成 & 已完成围绕合法 fixed-date anchor 的 $N=200$ Monte Carlo，当前结果为 101 valid / 99 invalid / 0 timeout。 \\
+M8 figures & 完成 & 静态图、图表清单与动画生成链路均已实现，可直接服务提交物生成。 \\
 \hline
-O3 corrector & done-with-caveat & target-leak fix 后约 4 倍改善 \\
-O3+ vector & done & 最佳 miss 66,210~km \\
-O4 MGA search & exploratory & 未得完整可行链 \\
-O4+ powered MGA & done(opt) & 0 feasible\_powered \\
-O5 animation & done & MP4/GIF fallback \\
-O7 parallel/surrogate & done & 3.78$\times$ + Ridge $R^2=0.90$ \\
+O3 corrector & 完成 & 已实现自定义微分修正器并修复 target leakage，具备独立可运行的方法链。 \\
+O3+ vector & 完成 & 进一步实现更强的向量修正与阻尼策略，最佳 miss 压缩到 66,210~km。 \\
+O4 MGA search & 完成 & 已实现 Earth--Moon--Venus--Earth 链搜索；结论是当前约束下未找到可行完整链。 \\
+O4+ powered MGA & 完成 & 在 MGA 基础上加入 powered flyby residual 继续搜索，结果仍无 feasible powered 候选。 \\
+O5 animation & 完成 & 已实现 MP4 生成与 GIF fallback，便于无 ffmpeg 环境下交付。 \\
+O7 parallel/surrogate & 完成 & 已实现 ProcessPool 并行与 Ridge 代理预筛选，形成比题干更强的加速方案。 \\
 \bottomrule
 \end{tabular}
 }

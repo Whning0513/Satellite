@@ -92,25 +92,30 @@ FinalProject/
 - **60 组参数扫描**（6 r_m × 5 v_inf × 2 side），中位角度误差 0.04°
 - 月心局部二体数值验证——不是完整任务级 N-body swing-by
 
-### M5 — 单点轨道求解器 [done-with-caveat]
+### M5 — 单点轨道求解器 [done]
 - 六段式求解流程 (S1–S6)
 - Moon-aligned 前向搜索实现月球拦截
 - 合法 formal 锚点：MJD 61065.0（2026-01-25），`trailing`，`r_m=1837.4 km`
 - 返回地球距离 446,151 km，`return_vinf=10.5173 km/s`
 - 同日 no-lunar DSM baseline：`total_vinf_basis=20.5938 km/s`
 - 当前正式 fixed-date saving ratio：`50.85%`
+- 这是当前保留的正式 same-date 节能结论
 - 详见 `data/results/m5_best_lunar_candidate_verify.json` 和 `m5_fixed_date_current_compare.json`
 
-### M6 — 发射窗口优化 [done-with-caveat]
-- 已实现 2026 全年几何窗口粗筛与候选提取
-- 历史 61066/61154 不再作为 formal 最优窗口
-- 当前正式窗口身份：`legal-window verified anchor = MJD 61065.0`
-- 如需声明全年全局最优，仍需重跑完整合法窗口搜索
+### M6 — 发射窗口优化 [done]
+- 已完成 2026 全年合法窗口 coarse+local-refine 搜索
+- derived legal-window search：`900` 个候选，`95` 个 valid complete return，`71` 个 fair return
+- 当前最佳 legal-window candidate：MJD `61390.5`（2026-12-16），`trailing`，`r_m=2037.4 km`
+- 对应返回地球距离约 `7231 km`，`return_vinf=14.3987 km/s`，`total_vinf_basis=10.1213 km/s`
+- 独立 M6 参数搜索在 `1220` 个候选上回收了同一组 `t0/side/r_m`
+- 这给出当前最佳窗口候选，但仍应理解为有限分辨率搜索结果，而非连续参数空间上的严格数学全局最优证明
 
-### M7 — 灵敏度分析 + 步长收敛 [done-with-caveat]
-- 锚点已切换到合法 formal candidate（MJD 61065.0）
-- Full Monte Carlo：`N=200`，`valid=38`，`invalid=40`，`timeout=122`
+### M7 — 灵敏度分析 + 步长收敛 [done]
+- 当前 full Monte Carlo 围绕合法 fixed-date anchor（MJD 61065.0）运行
+- Full Monte Carlo：`N=200`，`valid=101`，`invalid=99`，`timeout=0`
 - formal `return_vinf` 只在真实 Earth-return event 上定义，旧伪 ~79 km/s 已阻断
+- valid-only `return_vinf` mean / p50 / p95 = `10.8047 / 10.7706 / 11.3542 km/s`
+- valid-only `total_vinf_basis` mean / p50 / p95 = `10.2299 / 10.1479 / 10.3455 km/s`
 - **4 级步长收敛**（3600/1800/900/450s），能量漂移均远低于阈值
 
 ### M8 — 可视化 [done-with-caveat]
@@ -199,6 +204,20 @@ make pdf          # 编译 report.pdf
 make audit        # 安全审计 + 图表完整性检查
 make clean        # 清理生成物
 ```
+
+长时间重任务建议使用 watchdog 入口：
+
+```bash
+make watch-m5-legal-window-search
+make watch-m6-independent-window-search
+make watch-m7-mc-full
+```
+
+这些入口支持：
+- 终端进度条
+- ETA
+- 10 分钟 watchdog 心跳
+- JSONL checkpoint 断点续跑
 
 ### 生成全部回归测试
 

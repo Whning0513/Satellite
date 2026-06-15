@@ -21,7 +21,7 @@ import math
 import statistics
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +36,7 @@ from horizons import fetch_sem_vectors
 from mission_constraints import is_launch_mjd_in_window
 from nbody import propagate_nbody
 from trajectory import DesignParams, interpolate_state_at_mjd, solve_trajectory
+from experiments.progress_resume import JsonlCheckpoint, ProgressBar
 
 
 RESULTS = _REPO / "data" / "results"
@@ -63,6 +64,10 @@ FALLBACK_WINDOW_HALF_WIDTH_DAYS = 60.0
 MAX_EXTRA_DAYS = 360.0
 
 _BODY_DATA_CACHE: dict[str, Any] | None = None
+
+
+def _sample_key(sample_id: int) -> str:
+    return f"sample|{int(sample_id)}"
 
 
 def _quantiles(values: list[float]) -> dict[str, float] | None:
@@ -418,56 +423,98 @@ def _build_samples(
     return samples
 
 
-def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: float) -> list[dict[str, Any]]:
+def _timeout_row(sample: dict[str, Any], reason: str) -> dict[str, Any]:
+    return {
+        "sample_id": sample["sample_id"],
+        "classification": "TIMEOUT_NO_FORMAL_RESULT",
+        "success": False,
+        "valid_return_event": False,
+        "reason": reason,
+        "t0_mjd": round(sample["t0_mjd"], 6),
+        "r_m_km": round(sample["r_m_km"], 3),
+        "rp_target_au": round(sample["r_p_au"], 6),
+        "side": sample["side"],
+        "nominal_return_mjd": round(sample["nominal_return_mjd"], 6),
+        "time_total_sec": 0.0,
+        "time_in_propagation_sec": 0.0,
+        "time_in_event_search_sec": 0.0,
+    }
+
+
+def _strip_checkpoint_fields(row: dict[str, Any]) -> dict[str, Any]:
+    cleaned = dict(row)
+    cleaned.pop("_checkpoint_key", None)
+    return cleaned
+
+
+def _run_pool(
+    samples: list[dict[str, Any]],
+    max_workers: int,
+    max_runtime_sec: float,
+    *,
+    checkpoint: JsonlCheckpoint | None,
+) -> list[dict[str, Any]]:
     start = time.perf_counter()
     results: list[dict[str, Any]] = []
+    progress = ProgressBar(len(samples), label="m7-mc")
+
+    pending_samples: list[dict[str, Any]] = []
+    resumed = 0
+    for sample in samples:
+        key = _sample_key(int(sample["sample_id"]))
+        if checkpoint is not None and checkpoint.has_key(key):
+            results.append(_strip_checkpoint_fields(checkpoint.rows_by_key[key]))
+            resumed += 1
+        else:
+            pending_samples.append(sample)
+    progress.update(len(results), extra=f"resume={resumed}")
+
     if max_workers <= 1:
-        for sample in samples:
+        for sample in pending_samples:
             if time.perf_counter() - start > max_runtime_sec:
-                results.append(
-                    {
-                        "sample_id": sample["sample_id"],
-                        "classification": "TIMEOUT_NO_FORMAL_RESULT",
-                        "success": False,
-                        "valid_return_event": False,
-                        "reason": "global_runtime_exceeded_before_sample",
-                        "t0_mjd": round(sample["t0_mjd"], 6),
-                        "r_m_km": round(sample["r_m_km"], 3),
-                        "rp_target_au": round(sample["r_p_au"], 6),
-                        "side": sample["side"],
-                        "nominal_return_mjd": round(sample["nominal_return_mjd"], 6),
-                        "time_total_sec": 0.0,
-                        "time_in_propagation_sec": 0.0,
-                        "time_in_event_search_sec": 0.0,
-                    }
-                )
+                row = _timeout_row(sample, "global_runtime_exceeded_before_sample")
+                results.append(row)
+                if checkpoint is not None:
+                    checkpoint.append({**row, "_checkpoint_key": _sample_key(int(sample["sample_id"]))})
+                progress.update(len(results))
                 continue
-            results.append(_worker(sample))
+            row = _worker(sample)
+            results.append(row)
+            if checkpoint is not None:
+                checkpoint.append({**row, "_checkpoint_key": _sample_key(int(sample["sample_id"]))})
+            progress.update(len(results))
+        progress.finish(extra="serial")
         return sorted(results, key=lambda item: item["sample_id"])
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_worker, sample) for sample in samples]
-        for sample, future in zip(samples, futures, strict=False):
+        future_map = {executor.submit(_worker, sample): sample for sample in pending_samples}
+        pending_futures = set(future_map.keys())
+        while pending_futures:
             if time.perf_counter() - start > max_runtime_sec:
-                results.append(
-                    {
-                        "sample_id": sample["sample_id"],
-                        "classification": "TIMEOUT_NO_FORMAL_RESULT",
-                        "success": False,
-                        "valid_return_event": False,
-                        "reason": "global_runtime_exceeded",
-                        "t0_mjd": round(sample["t0_mjd"], 6),
-                        "r_m_km": round(sample["r_m_km"], 3),
-                        "rp_target_au": round(sample["r_p_au"], 6),
-                        "side": sample["side"],
-                        "nominal_return_mjd": round(sample["nominal_return_mjd"], 6),
-                        "time_total_sec": 0.0,
-                        "time_in_propagation_sec": 0.0,
-                        "time_in_event_search_sec": 0.0,
-                    }
-                )
+                for future in pending_futures:
+                    future.cancel()
+                for future in pending_futures:
+                    sample = future_map[future]
+                    row = _timeout_row(sample, "global_runtime_exceeded")
+                    results.append(row)
+                    if checkpoint is not None:
+                        checkpoint.append({**row, "_checkpoint_key": _sample_key(int(sample["sample_id"]))})
+                    progress.update(len(results), extra=f"workers={max_workers}")
+                break
+
+            done_now, pending_futures = wait(pending_futures, timeout=5.0, return_when=FIRST_COMPLETED)
+            if not done_now:
+                progress.update(len(results), extra=f"workers={max_workers}")
                 continue
-            results.append(future.result())
+
+            for future in done_now:
+                sample = future_map[future]
+                row = future.result()
+                results.append(row)
+                if checkpoint is not None:
+                    checkpoint.append({**row, "_checkpoint_key": _sample_key(int(sample["sample_id"]))})
+                progress.update(len(results), extra=f"workers={max_workers}")
+    progress.finish(extra=f"workers={max_workers}")
     return sorted(results, key=lambda item: item["sample_id"])
 
 
@@ -628,6 +675,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-rows-output", type=str, default=str(RESULTS / "m7_extended_monte_carlo_samples.json"))
     parser.add_argument("--sample-rows-csv-output", type=str, default=str(RESULTS / "m7_extended_monte_carlo_samples.csv"))
     parser.add_argument("--timeout-replay-manifest-output", type=str, default=str(RESULTS / "m7_timeout_replay_manifest.json"))
+    parser.add_argument("--checkpoint-jsonl", type=str, default=str(RESULTS / "m7_extended_monte_carlo.resume.jsonl"))
+    parser.add_argument("--no-resume", action="store_true")
     return parser.parse_args()
 
 
@@ -640,6 +689,10 @@ def main() -> int:
     smoke = bool(args.smoke)
     output = Path(args.output)
     start = time.perf_counter()
+    checkpoint = None if args.no_resume else JsonlCheckpoint(
+        Path(args.checkpoint_jsonl),
+        key_fn=lambda row: str(row["_checkpoint_key"]),
+    )
     samples = _build_samples(
         n=n,
         seed=args.seed,
@@ -647,7 +700,12 @@ def main() -> int:
         max_runtime_per_sample_sec=args.max_runtime_per_sample_sec,
         reference_candidate=reference_candidate,
     )
-    results = _run_pool(samples, max_workers=args.max_workers, max_runtime_sec=args.max_runtime_sec)
+    results = _run_pool(
+        samples,
+        max_workers=args.max_workers,
+        max_runtime_sec=args.max_runtime_sec,
+        checkpoint=checkpoint,
+    )
     time_total_sec = time.perf_counter() - start
     profile = _profile(results, time_total_sec)
 
@@ -673,6 +731,9 @@ def main() -> int:
 
     json_write_sec = _write_json(output, summary)
     summary["profile"]["time_in_json_write_sec"] = round(json_write_sec, 4)
+    summary["resume_enabled"] = checkpoint is not None
+    summary["checkpoint_jsonl"] = None if checkpoint is None else str(Path(args.checkpoint_jsonl).relative_to(_REPO)).replace("\\", "/")
+    summary["completed_from_checkpoint"] = 0 if checkpoint is None else len(checkpoint)
     _write_json(output, summary)
 
     print("=" * 66)

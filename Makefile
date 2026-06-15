@@ -317,6 +317,22 @@ m7-mc-full:
 	@echo "=== M7 MC full (n=200) ==="
 	cd src && $(PYTHON) experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --save-sample-rows --output ../data/results/m7_extended_monte_carlo.json
 
+m5-legal-window-search:
+	@echo "=== M5 legal-window search (resume enabled) ==="
+	cd src && $(PYTHON) experiments/m5_legal_window_search.py
+
+watch-m5-legal-window-search:
+	@echo "=== Watchdog + M5 legal-window search ==="
+	$(PYTHON) src/experiments/run_with_watchdog.py --name m5-legal-window --interval-min 10 -- $(PYTHON) src/experiments/m5_legal_window_search.py
+
+watch-m6-independent-window-search:
+	@echo "=== Watchdog + M6 independent legal-window search ==="
+	$(PYTHON) src/experiments/run_with_watchdog.py --name m6-independent-window --interval-min 10 -- $(PYTHON) src/experiments/m6_independent_window_search.py
+
+watch-m7-mc-full:
+	@echo "=== Watchdog + M7 MC full ==="
+	$(PYTHON) src/experiments/run_with_watchdog.py --name m7-mc-full --interval-min 10 -- $(PYTHON) src/experiments/m7_extended_monte_carlo.py --n 200 --seed 202606 --save-sample-rows --output data/results/m7_extended_monte_carlo.json
+
 m7-timeout-replay:
 	@echo "=== M7 timeout replay ==="
 	cd src && $(PYTHON) experiments/m7_timeout_replay.py

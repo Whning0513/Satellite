@@ -4,13 +4,14 @@ m5_saving_ratio_resolver.py
 Resolves the M5 saving ratio.
 
 PRIMARY source (if available):
-  data/results/m5_t61037_lunar_vs_no_lunar_deep_compare.json
-  This contains a validated fixed-date comparison at t0=61037 with
-  verified Earth-return events for both lunar and no-lunar trajectories.
+  data/results/m5_fixed_date_current_compare.json
+  This contains the active validated fixed-date comparison inside the
+  formal 2026 launch window with verified Earth-return events for both
+  lunar and no-lunar trajectories.
 
 FALLBACK (if primary not available):
-  Reads m5_dsm_no_lunar_search.json and m5_lunar_budget_recomputed.json.
-  Outputs null if lunar return event is missing.
+  Preserve the historical invalidated status rather than silently
+  reviving old 61037-era comparisons.
 
 Output: data/results/m5_saving_ratio_resolved.json
 """
@@ -35,8 +36,8 @@ def main():
     print("M5 saving ratio resolver")
     print("=" * 66)
 
-    # ── PRIMARY: validated fixed-date comparison ──
-    comp = _load("m5_t61037_lunar_vs_no_lunar_deep_compare.json")
+    # ── PRIMARY: active 2026-window fixed-date comparison ──
+    comp = _load("m5_fixed_date_current_compare.json")
 
     if comp and comp.get("formal_ratio_vinf_basis") is not None:
         ratio = comp["formal_ratio_vinf_basis"]
@@ -44,24 +45,25 @@ def main():
         no_lunar_total = comp["no_lunar_dsm_total_vinf_basis"]
         lunar_ok = comp.get("lunar_valid", False)
         no_lunar_ok = comp.get("no_lunar_valid", False)
+        same_t0 = float(comp.get("same_t0"))
 
-        print(f"\n  [PRIMARY] Validated fixed-date comparison (t0={comp.get('same_t0', '?')}):")
+        print(f"\n  [PRIMARY] Active fixed-date comparison (t0={same_t0}):")
         print(f"    lunar total: {lunar_total:.2f} km/s (valid={lunar_ok})")
         print(f"    no-lunar total: {no_lunar_total:.2f} km/s (valid={no_lunar_ok})")
         print(f"    saving ratio: {ratio:.6f} ({ratio*100:.1f}%)")
         print(f"    basis: vinf_basis (excess hyperbolic speed)")
-        print(f"    same t0: {comp.get('same_t0')}")
+        print(f"    same t0: {same_t0}")
         print(f"    same budget basis: {comp.get('same_budget_basis', True)}")
         print(f"    lunar saves delta_v: {ratio > 0}")
 
         out = {
             "task": "M5 saving ratio resolved",
             "status": "formal_fixed_date_positive_ratio",
-            "primary_source": "m5_t61037_lunar_vs_no_lunar_deep_compare.json",
+            "primary_source": "m5_fixed_date_current_compare.json",
             "formal_fixed_date_ratio": round(ratio, 6),
             "formal_fixed_date_ratio_percent": round(ratio * 100, 1),
             "ratio_basis": "vinf_basis",
-            "same_t0_mjd": 61037.0,
+            "same_t0_mjd": same_t0,
             "same_budget_basis": bool(comp.get("same_budget_basis", True)),
             "lunar_total_vinf_basis_kms": round(lunar_total, 4),
             "lunar_valid_return_event": bool(lunar_ok),
@@ -78,7 +80,7 @@ def main():
             ),
         }
     else:
-        print("\n  [FALLBACK] Primary validated comparison not available.")
+        print("\n  [FALLBACK] Active fixed-date comparison not available.")
         out = {
             "task": "M5 saving ratio resolved (fallback)",
             "status": "historical_anchor_invalidated",
