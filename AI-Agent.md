@@ -258,8 +258,27 @@
 
 ### 审计与提交准备
 
-- **Claude Code**：生成 FINAL_AUDIT.md、PROJECT_DETAIL_DUMP.md、校对 README
+- **Claude Code**：生成 FINAL_AUDIT.md、exp_statics/project_archive.md、校对 README
 - **人工审定**：所有数值来自实际脚本输出，非 AI 编造；阈值和状态判断经人工检查
+
+### 本轮维护与运行支持（2026-06-14 / 2026-06-15）
+
+- **Claude Code 角色**：环境修复、运行编排、缺陷定位与最小补丁
+- **执行内容**：
+  - 统一工作目录到 `/data3/whn/Programfiles/FinalProject_Satellite`
+  - 处理父目录写权限问题，改用当前用户可写的 workspace
+  - 在系统缺少 `python3-venv` 的情况下改用 `virtualenv` 建立 `.venv`
+  - 安装 `numpy`、`scipy`、`matplotlib`、`astropy`、`astroquery`
+  - 补齐 `config/proxy.ini` 与 `data/results/`，恢复 Horizons 转发与结果落盘
+  - 跑通 `compileall`、`mission_window_audit.py`、`result_sanity_dashboard.py`、`check_result_schemas.py`
+  - 识别并修复 `m6_complete_return_window_search.py` 的参数名不一致问题
+  - 修复 `m7_extended_monte_carlo.py` 的 timeout replay manifest 路径归一化问题
+  - 为夜间运行挂载 `tmux` 窗口，分别承担 `M6 independent`、`M6 complete`、`M7` 和后续审计
+- **验证结果**：
+  - `M5` 结果文件已落盘，`M6 complete` 成功接续
+  - `M7` 的 sample rows 与 timeout manifest 生成路径已恢复正常
+  - `M6 independent` 仍在长时间运行，进程状态与 CPU 占用符合预期
+- **人工审定**：本轮变更限于环境、调度和最小修补，不改动任务定义与数值判据
 
 ### 本轮 AI 使用原则
 

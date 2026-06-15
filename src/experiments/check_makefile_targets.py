@@ -39,10 +39,9 @@ REQUIRED_TARGETS = {
 DOC_FILES = [
     "README.md",
     "FINAL_AUDIT.md",
-    "PROJECT_FINAL_HANDOFF.md",
-    "IMPACT_ANALYSIS.md",
-    "M5_REAL_REPAIR_AUDIT.md",
-    "M3_M6_ACTUAL_REPAIR_AUDIT.md",
+    "AI-Agent.md",
+    "exp_statics/project_archive.md",
+    "exp_statics/engineering_audit_archive.md",
 ]
 
 

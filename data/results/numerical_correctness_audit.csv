@@ -1,0 +1,14 @@
+module,quantity,project_value,independent_check_value,relative_error,unit,frame,event,status,classification,action,notes
+M1,Qian_0.2_AU_v_launch_kms,16.836346,16.847794,0.0006795514116409107,km/s,Earth launch / heliocentric transfer split,departure,PASS,ACTUAL_RESULT,keep,"delta_v_helio=-12.603800 km/s, 2*v_launch=33.6727 km/s"
+M1,Project_0.3_AU_v_launch_kms,14.703554,14.713501,0.0006760647209263033,km/s,Earth launch / heliocentric transfer split,departure,PASS,ACTUAL_RESULT,keep,"delta_v_helio=-9.565286 km/s, 2*v_launch=29.4071 km/s"
+M1,0.3_AU_symmetric_total,29.4071,29.4072,3.1618443695752377e-06,km/s,Qian-style symmetric patched-conic budget,round_trip_budget,PASS,ACTUAL_RESULT,keep,"Checks that 29.41 km/s = 2 × v_launch, not 2 × heliocentric impulse."
+M2,two_body_pos_err_h_0.004,0.0013226162147204309,,,nondim,2-body nondimensional circular orbit,1_period,WARN,ACTUAL_RESULT,fix,"rel_E_err=3.060e-15, rel_L_err=1.414e-16"
+M2,two_body_pos_err_h_0.002,0.0003307137114001462,,,nondim,2-body nondimensional circular orbit,1_period,WARN,ACTUAL_RESULT,fix,"rel_E_err=2.160e-15, rel_L_err=1.131e-15"
+M2,two_body_pos_err_h_0.001,8.268216005150561e-05,,,nondim,2-body nondimensional circular orbit,1_period,PASS,ACTUAL_RESULT,keep,"rel_E_err=4.500e-15, rel_L_err=2.120e-15"
+M2,two_body_pos_err_h_0.0005,2.0670773383722278e-05,,,nondim,2-body nondimensional circular orbit,1_period,PASS,ACTUAL_RESULT,keep,"rel_E_err=2.520e-15, rel_L_err=1.272e-15"
+M2,dt_halving_convergence_ratio,"[np.float64(3.9993), np.float64(3.9998), np.float64(4.0)]",4.0,,ratio,2-body nondimensional circular orbit,convergence,PASS,ACTUAL_RESULT,keep,Velocity-Verlet should approach second-order under dt halving.
+M3,deep_audit_required_files,,,,,,,RED,UNRESOLVED,recompute,Missing m3_model_hierarchy.json or m3_numerical_deep_audit.json
+M4,swingby_scan_csv,,,,,moon-centric 2-body,SOI_entry_exit,RED,UNRESOLVED,recompute,Missing data/results/m4_swingby_scan.csv
+M5,required_result_files,,,,,,,RED,UNRESOLVED,recompute,Missing one of the current M5 formal comparison files
+M6,deep_audit_required_files,,,,,,,RED,UNRESOLVED,recompute,Missing m6_numerical_deep_audit.json or m6_complete_return_window_search.json
+M7,stepsize_convergence_csv,,,,,trajectory convergence,dt_sweep,RED,UNRESOLVED,recompute,Missing data/results/m7_stepsize_convergence.csv

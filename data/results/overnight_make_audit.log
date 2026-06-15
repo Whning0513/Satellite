@@ -1,0 +1,152 @@
+=== Portable audit ===
+python src/experiments/portable_audit.py
+Traceback (most recent call last):
+  File "/data3/whn/Programfiles/FinalProject_Satellite/src/experiments/check_m5_fresh_reproducibility.py", line 109, in <module>
+    raise SystemExit(main())
+  File "/data3/whn/Programfiles/FinalProject_Satellite/src/experiments/check_m5_fresh_reproducibility.py", line 69, in main
+    compare = load_json("m5_fixed_date_current_compare.json")
+  File "/data3/whn/Programfiles/FinalProject_Satellite/src/experiments/check_m5_fresh_reproducibility.py", line 45, in load_json
+    with path.open("r", encoding="utf-8") as handle:
+  File "/usr/lib/python3.10/pathlib.py", line 1119, in open
+    return self._accessor.open(self, mode, buffering, encoding, errors,
+FileNotFoundError: [Errno 2] No such file or directory: '/data3/whn/Programfiles/FinalProject_Satellite/data/results/m5_fixed_date_current_compare.json'
+=== Portable audit ===
+repo = /data3/whn/Programfiles/FinalProject_Satellite
+platform = posix
+
+--- Security ---
+  [OK] config/ is gitignored
+  [OK] no token leaks
+
+--- Large files (>5 MB) ---
+  [WARN] large files detected
+    .venv/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so
+    .venv/lib/python3.10/site-packages/scipy/optimize/_highspy/_core.cpython-310-x86_64-linux-gnu.so
+    .venv/lib/python3.10/site-packages/numpy/_core/_multiarray_umath.cpython-310-x86_64-linux-gnu.so
+    .venv/lib/python3.10/site-packages/kiwisolver/_cext.cpython-310-x86_64-linux-gnu.so
+    .venv/lib/python3.10/site-packages/numpy.libs/libscipy_openblas64_-56d6093b.so
+
+--- Repo size ---
+  417.0 MiB
+--- Git status ---
+M src/experiments/m6_complete_return_window_search.py
+
+--- Required source files ---
+  [OK] src/validation.py
+  [OK] src/event_semantics.py
+  [OK] src/experiments/check_invalidated_formal_results.py
+  [OK] src/experiments/check_m3_horizons_semantics.py
+  [OK] src/experiments/check_m6_return_semantics.py
+  [OK] src/experiments/check_m7_return_semantics.py
+  [OK] src/experiments/check_result_schemas.py
+  [OK] src/experiments/check_makefile_targets.py
+  [OK] src/experiments/check_m5_fresh_reproducibility.py
+  [OK] src/experiments/m3_numerical_deep_audit.py
+  [OK] src/experiments/m5_saving_ratio_resolver.py
+  [OK] src/experiments/m5_t61037_lunar_vs_no_lunar_deep_compare.py
+  [OK] src/experiments/m6_complete_return_window_search.py
+  [OK] src/experiments/m6_independent_spotcheck.py
+  [OK] src/experiments/m6_numerical_deep_audit.py
+  [OK] src/experiments/m7_extended_monte_carlo.py
+
+--- Makefile targets ---
+=== Makefile target check ===
+[OK] target present: m1
+[OK] target present: m2
+[OK] target present: m3-hierarchy
+[OK] target present: m4
+[OK] target present: repair-m5-real
+[OK] target present: complete-lunar-return-search
+[OK] target present: m5-lunar-best-fixed-date-compare
+[OK] target present: m5-t61037-deep-compare
+[OK] target present: m5-same-window-pareto
+[OK] target present: m6-complete-window-search
+[OK] target present: m6-independent-spotcheck
+[OK] target present: m6-deep-audit
+[OK] target present: check-m6-return-semantics
+[OK] target present: m3-deep-audit
+[OK] target present: check-m3-horizons-semantics
+[OK] target present: check-invalidated-results
+[OK] target present: return-semantics-test
+[OK] target present: check-m7-return-semantics
+[OK] target present: figure-manifest
+[OK] target present: audit
+
+All required targets exist.
+
+--- Required result JSON ---
+
+--- M5 resolved ratio ---
+
+--- M3 Horizons semantics ---
+
+--- M6 return semantics ---
+[FAIL] m6_numerical_deep_audit.json: missing result file
+
+1 failure(s)
+
+--- M7 return semantics ---
+OK: M7 return semantics checks passed.
+
+--- Invalidated value guard ---
+OK: No forbidden formal values in active result files.
+
+--- M5 fresh reproducibility guard ---
+=== M5 fresh reproducibility guard ===
+repair-m5-real recipe:
+  @echo "=== M5 complete pipeline: legal-window lunar anchor + same-date no-lunar DSM + saving ratio ==="
+  cd src && $(PYTHON) experiments/m5_lunar_return_local_refine.py
+  cd src && $(PYTHON) experiments/m5_best_lunar_candidate_verify.py
+  cd src && $(PYTHON) experiments/m5_no_lunar_fixed_date_deep_search.py
+  cd src && $(PYTHON) experiments/m5_fixed_date_current_compare.py
+  cd src && $(PYTHON) experiments/m5_same_window_lunar_no_lunar_pareto.py
+  cd src && $(PYTHON) experiments/m5_saving_ratio_resolver.py
+
+--- Figure manifest ---
+
+--- Figure reference check (report.tex -> data/results/) ---
+  [MISS] data/results/m8_delta_v_launch_date.png
+  [MISS] data/results/m8_energy_drift.png
+  [MISS] data/results/m8_launch_windows.png
+  [MISS] data/results/m8_lunar_swingby.png
+  [MISS] data/results/m8_sensitivity.png
+  [MISS] data/results/m8_t0_rp_contour.png
+  [MISS] data/results/m8_trajectory.png
+
+--- M5 result files ---
+  [MISS] data/results/m5_fair_no_lunar_baseline.json
+  [MISS] data/results/m5_fair_no_lunar_baseline.csv
+  [MISS] data/results/m5_no_lunar_lambert_baseline.json
+  [MISS] data/results/m5_no_lunar_lambert_baseline.csv
+  [MISS] data/results/m5_no_lunar_lambert_pareto_t061066.json
+  [MISS] data/results/m5_no_lunar_lambert_pareto.png
+  [MISS] data/results/m5_no_lunar_lambert_pareto_t061154.json
+
+--- Windows path compatibility ---
+  [OK] no obvious shell-specific audit/clean lines remain
+
+--- Summary ---
+  failures = 11
+  warnings = 10
+  [WARN] large files present: ['.venv/lib/python3.10/site-packages/scipy.libs/libscipy_openblas-68440149.so', '.venv/lib/python3.10/site-packages/scipy/optimize/_highspy/_core.cpython-310-x86_64-linux-gnu.so', '.venv/lib/python3.10/site-packages/numpy/_core/_multiarray_umath.cpython-310-x86_64-linux-gnu.so', '.venv/lib/python3.10/site-packages/kiwisolver/_cext.cpython-310-x86_64-linux-gnu.so', '.venv/lib/python3.10/site-packages/numpy.libs/libscipy_openblas64_-56d6093b.so']
+  [WARN] working tree is not clean
+  [WARN] missing report figures: ['data/results/m8_delta_v_launch_date.png', 'data/results/m8_energy_drift.png', 'data/results/m8_launch_windows.png', 'data/results/m8_lunar_swingby.png', 'data/results/m8_sensitivity.png', 'data/results/m8_t0_rp_contour.png', 'data/results/m8_trajectory.png']
+  [WARN] optional M5 audit artifact missing: data/results/m5_fair_no_lunar_baseline.json
+  [WARN] optional M5 audit artifact missing: data/results/m5_fair_no_lunar_baseline.csv
+  [WARN] optional M5 audit artifact missing: data/results/m5_no_lunar_lambert_baseline.json
+  [WARN] optional M5 audit artifact missing: data/results/m5_no_lunar_lambert_baseline.csv
+  [WARN] optional M5 audit artifact missing: data/results/m5_no_lunar_lambert_pareto_t061066.json
+  [WARN] optional M5 audit artifact missing: data/results/m5_no_lunar_lambert_pareto.png
+  [WARN] optional M5 audit artifact missing: data/results/m5_no_lunar_lambert_pareto_t061154.json
+  [FAIL] missing required result file: data/results/m3_numerical_deep_audit.json
+  [FAIL] missing required result file: data/results/m5_t61037_lunar_vs_no_lunar_deep_compare.json
+  [FAIL] missing required result file: data/results/m5_saving_ratio_resolved.json
+  [FAIL] missing required result file: data/results/m6_independent_spotcheck.json
+  [FAIL] missing required result file: data/results/m6_numerical_deep_audit.json
+  [FAIL] missing required result file: data/results/m7_extended_monte_carlo.json
+  [FAIL] M5 resolved/compare JSON missing
+  [FAIL] check_m3_horizons_semantics.py reported failures
+  [FAIL] check_m6_return_semantics.py reported failures
+  [FAIL] check_m5_fresh_reproducibility.py reported failures
+  [FAIL] figure_manifest.json missing
+make: *** [Makefile:351: audit] Error 1

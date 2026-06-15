@@ -63,7 +63,10 @@ FinalProject/
 │       ├── m5_global_no_lunar_baseline.py # M5 global no-lunar baseline diagnostic
 │       └── m6_pareto_window_diagnostic.py # M6 Pareto trade-off diagnostic
 ├── delta_v_budget.py       # Δv budget unified module
-└── PROJECT_DETAIL_DUMP.md  # 项目细节快照（供审查者参考）
+├── exp_statics/            # 归档审计、交接、追踪文档
+│   ├── engineering_audit_archive.md
+│   └── project_archive.md
+└── AI-Agent.md             # AI 辅助开发报告
 ```
 
 ---

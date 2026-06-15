@@ -1,0 +1,11 @@
+==================================================================
+M6 complete-return window search
+==================================================================
+mode = derived-legal-window
+Saved: /data3/whn/Programfiles/FinalProject_Satellite/data/results/m6_complete_return_window_search.json
+Saved: /data3/whn/Programfiles/FinalProject_Satellite/data/results/m6_complete_return_window_search.csv
+classification = ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW
+candidates evaluated = 900
+valid complete returns = 95
+valid fair returns = 71
+best valid: t0=61390.5 side=trailing r_m=2037.4 total=10.1213

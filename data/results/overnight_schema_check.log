@@ -1,0 +1,25 @@
+==================================================================
+Result schema check (existing files only)
+==================================================================
+
+  Errors:   11
+  Warnings: 6
+    [OPTIONAL] delta_v_budget_unified.json - optional diagnostic file not generated
+    [OPTIONAL] o4plus_powered_mga_optimizer.json - optional diagnostic file not generated
+    [OPTIONAL] m5_global_no_lunar_baseline.json - optional diagnostic file not generated
+    [OPTIONAL] m6_pareto_window_diagnostic.json - optional diagnostic file not generated
+    [OPTIONAL] o3plus_vector_corrector.json - optional diagnostic file not generated
+    [OPTIONAL] o7_parallel_scan.json - optional diagnostic file not generated
+
+  ERRORS (need fixing):
+    [FAIL] figure_manifest.json: required file not found
+    [FAIL] figure_manifest.json: required file not found
+    [FAIL] m5_best_lunar_candidate_verify.json: required file not found
+    [FAIL] m5_fixed_date_current_compare.json: required file not found
+    [FAIL] m5_no_lunar_fixed_date_deep_search.json: required file not found
+    [FAIL] m3_numerical_deep_audit.json: required file not found
+    [FAIL] m3_numerical_deep_audit.json: required file not found for M3 deep validation
+    [FAIL] m6_numerical_deep_audit.json: required file not found
+    [FAIL] m6_numerical_deep_audit.json: required file not found for M6 deep validation
+    [FAIL] m7_extended_monte_carlo.json: required file not found
+    [FAIL] m7_extended_monte_carlo.json: required file not found for full-stage validation

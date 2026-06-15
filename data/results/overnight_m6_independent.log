@@ -1,0 +1,128 @@
+==================================================================
+M6 complete-return window search
+==================================================================
+mode = independent-legal-window
+max_workers = 32
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+  [#-----------------------] 25/1060   2.4% elapsed=00:01:09 eta=00:47:55 coarse
+  [#-----------------------] 50/1060   4.7% elapsed=00:02:12 eta=00:44:29 coarse
+  [##----------------------] 75/1060   7.1% elapsed=00:03:10 eta=00:41:46 coarse
+  [##----------------------] 100/1060   9.4% elapsed=00:04:08 eta=00:39:40 coarse
+  [###---------------------] 125/1060  11.8% elapsed=00:04:15 eta=00:31:50 coarse
+  [###---------------------] 150/1060  14.2% elapsed=00:05:10 eta=00:31:21 coarse
+  [####--------------------] 175/1060  16.5% elapsed=00:06:10 eta=00:31:12 coarse
+  [#####-------------------] 200/1060  18.9% elapsed=00:07:04 eta=00:30:24 coarse
+  [#####-------------------] 225/1060  21.2% elapsed=00:08:09 eta=00:30:16 coarse
+  [######------------------] 250/1060  23.6% elapsed=00:08:28 eta=00:27:28 coarse
+  [######------------------] 275/1060  25.9% elapsed=00:09:21 eta=00:26:42 coarse
+  [#######-----------------] 300/1060  28.3% elapsed=00:10:17 eta=00:26:04 coarse
+  [#######-----------------] 325/1060  30.7% elapsed=00:11:19 eta=00:25:37 coarse
+  [########----------------] 350/1060  33.0% elapsed=00:11:55 eta=00:24:12 coarse
+  [########----------------] 375/1060  35.4% elapsed=00:12:38 eta=00:23:06 coarse
+  [#########---------------] 400/1060  37.7% elapsed=00:13:33 eta=00:22:21 coarse
+  [##########--------------] 425/1060  40.1% elapsed=00:14:36 eta=00:21:49 coarse
+  [##########--------------] 450/1060  42.5% elapsed=00:15:32 eta=00:21:03 coarse
+  [###########-------------] 475/1060  44.8% elapsed=00:15:53 eta=00:19:33 coarse
+  [###########-------------] 500/1060  47.2% elapsed=00:16:51 eta=00:18:52 coarse
+  [############------------] 525/1060  49.5% elapsed=00:17:39 eta=00:17:59 coarse
+  [############------------] 550/1060  51.9% elapsed=00:18:36 eta=00:17:15 coarse
+  [#############-----------] 575/1060  54.2% elapsed=00:19:11 eta=00:16:11 coarse
+  [##############----------] 600/1060  56.6% elapsed=00:19:50 eta=00:15:12 coarse
+  [##############----------] 625/1060  59.0% elapsed=00:20:45 eta=00:14:26 coarse
+  [###############---------] 650/1060  61.3% elapsed=00:21:44 eta=00:13:43 coarse
+  [###############---------] 675/1060  63.7% elapsed=00:22:43 eta=00:12:57 coarse
+  [################--------] 700/1060  66.0% elapsed=00:23:19 eta=00:11:59 coarse
+  [################--------] 725/1060  68.4% elapsed=00:24:14 eta=00:11:12 coarse
+  [#################-------] 750/1060  70.8% elapsed=00:24:51 eta=00:10:16 coarse
+  [##################------] 775/1060  73.1% elapsed=00:25:39 eta=00:09:25 coarse
+  [##################------] 800/1060  75.5% elapsed=00:26:35 eta=00:08:38 coarse
+  [###################-----] 825/1060  77.8% elapsed=00:27:34 eta=00:07:51 coarse
+  [###################-----] 850/1060  80.2% elapsed=00:27:53 eta=00:06:53 coarse
+  [####################----] 875/1060  82.5% elapsed=00:28:51 eta=00:06:06 coarse
+  [####################----] 900/1060  84.9% elapsed=00:29:48 eta=00:05:18 coarse
+  [#####################---] 925/1060  87.3% elapsed=00:30:55 eta=00:04:30 coarse
+  [######################--] 950/1060  89.6% elapsed=00:31:09 eta=00:03:36 coarse
+  [######################--] 975/1060  92.0% elapsed=00:32:05 eta=00:02:47 coarse
+  [#######################-] 1000/1060  94.3% elapsed=00:32:49 eta=00:01:58 coarse
+  [#######################-] 1025/1060  96.7% elapsed=00:33:44 eta=00:01:09 coarse
+  [########################] 1050/1060  99.1% elapsed=00:34:15 eta=00:00:19 coarse
+  [########################] 1060/1060 100.0% elapsed=00:34:44 eta=00:00:00 coarse
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+[Horizons] Loading cached data from /data3/whn/Programfiles/FinalProject_Satellite/data/sem_horizons_2025-2029.json
+  [###---------------------] 25/180  13.9% elapsed=00:02:13 eta=00:13:49 refine
+  [#######-----------------] 50/180  27.8% elapsed=00:03:19 eta=00:08:39 refine
+  [##########--------------] 75/180  41.7% elapsed=00:04:26 eta=00:06:12 refine
+  [#############-----------] 100/180  55.6% elapsed=00:04:35 eta=00:03:40 refine
+  [#################-------] 125/180  69.4% elapsed=00:06:43 eta=00:02:57 refine
+  [####################----] 150/180  83.3% elapsed=00:08:48 eta=00:01:45 refine
+  [#######################-] 175/180  97.2% elapsed=00:10:31 eta=00:00:18 refine
+  [########################] 180/180 100.0% elapsed=00:10:40 eta=00:00:00 refine
+Saved: /data3/whn/Programfiles/FinalProject_Satellite/data/results/m6_independent_window_search.json
+Saved: /data3/whn/Programfiles/FinalProject_Satellite/data/results/m6_independent_window_search.csv
+classification = ACTUAL_RESULT_LEGAL_WINDOW
+candidates evaluated = 1220
+valid complete returns = 88
+valid fair returns = 71
+best valid: t0=61390.5 side=trailing r_m=2037.4 total=10.1213

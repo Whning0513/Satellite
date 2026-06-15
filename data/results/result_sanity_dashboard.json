@@ -1,0 +1,56 @@
+{
+  "task": "Result sanity dashboard",
+  "rows": [
+    {
+      "module": "M1",
+      "result": "0.2 AU v_launch",
+      "value": 16.836346,
+      "unit": "km/s",
+      "event_frame_basis": "departure / Earth launch",
+      "classification": "ACTUAL_RESULT",
+      "sanity": "Independent patched-conic recompute agrees; heliocentric impulse=-12.6038 km/s, launch=16.8363 km/s."
+    },
+    {
+      "module": "M1",
+      "result": "0.2 AU heliocentric impulse",
+      "value": -12.6038,
+      "unit": "km/s",
+      "event_frame_basis": "heliocentric transfer at 1 AU",
+      "classification": "INDEPENDENT_CHECK",
+      "sanity": "This is the Sun-centered speed change, not the surface-launch equivalent."
+    },
+    {
+      "module": "M1",
+      "result": "0.3 AU v_launch",
+      "value": 14.703554,
+      "unit": "km/s",
+      "event_frame_basis": "departure / Earth launch",
+      "classification": "ACTUAL_RESULT",
+      "sanity": "Independent patched-conic recompute agrees; heliocentric impulse=-9.5653 km/s, launch=14.7036 km/s."
+    },
+    {
+      "module": "M1",
+      "result": "0.3 AU heliocentric impulse",
+      "value": -9.565286,
+      "unit": "km/s",
+      "event_frame_basis": "heliocentric transfer at 1 AU",
+      "classification": "INDEPENDENT_CHECK",
+      "sanity": "This is the Sun-centered speed change, not the surface-launch equivalent."
+    },
+    {
+      "module": "M1",
+      "result": "0.3 AU 2x v_launch",
+      "value": 29.407107,
+      "unit": "km/s",
+      "event_frame_basis": "Qian-style symmetric round-trip basis",
+      "classification": "ACTUAL_RESULT",
+      "sanity": "Uses 2 x v_launch = 29.4071 km/s; 2 x heliocentric impulse would be 19.1000 km/s and is not the same quantity."
+    }
+  ],
+  "summary": {
+    "row_count": 5,
+    "modules": [
+      "M1"
+    ]
+  }
+}

@@ -15,7 +15,9 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -37,6 +39,7 @@ from horizons import fetch_sem_vectors
 
 RESULTS = _REPO / "data" / "results"
 M5_LEGAL_WINDOW_JSON = RESULTS / "m5_legal_window_search.json"
+_BODY_DATA_CACHE: dict[str, Any] | None = None
 
 
 def _candidate_classification(valid_return_event: bool, fair: bool) -> str:
@@ -53,6 +56,33 @@ def _sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
         float(row.get("distance_to_earth_km")) if row.get("distance_to_earth_km") is not None else float("inf"),
         float(row.get("perihelion_error_AU")) if row.get("perihelion_error_AU") is not None else float("inf"),
     )
+
+
+def _progress_line(done: int, total: int, started: float, label: str) -> str:
+    elapsed = time.perf_counter() - started
+    pct = (done / total * 100.0) if total else 100.0
+    rate = done / elapsed if elapsed > 0 else 0.0
+    eta = (total - done) / rate if rate > 0 else float("inf")
+    bar_len = 24
+    filled = int(round(bar_len * done / total)) if total else bar_len
+    bar = "#" * min(filled, bar_len) + "-" * max(bar_len - filled, 0)
+    eta_text = "unknown" if not (eta < float("inf")) else time.strftime("%H:%M:%S", time.gmtime(max(0.0, eta)))
+    elapsed_text = time.strftime("%H:%M:%S", time.gmtime(max(0.0, elapsed)))
+    return f"[{bar}] {done}/{total} {pct:5.1f}% elapsed={elapsed_text} eta={eta_text} {label}"
+
+
+def _worker_init() -> None:
+    global _BODY_DATA_CACHE
+    if _BODY_DATA_CACHE is None:
+        _BODY_DATA_CACHE = fetch_sem_vectors(use_cache=True)
+
+
+def _worker_eval(payload: tuple[SearchConfig, float, str, float]) -> dict[str, Any]:
+    global _BODY_DATA_CACHE
+    if _BODY_DATA_CACHE is None:
+        _worker_init()
+    config, t0, side, r_m_km = payload
+    return evaluate_lunar_candidate(_BODY_DATA_CACHE, t0, side, r_m_km, config=config)
 
 
 def _search_output(
@@ -206,7 +236,7 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
         target_rp_au=args.target_rp_au,
         peri_tol_au=args.peri_tol_au,
         earth_return_threshold_km=args.earth_return_threshold_km,
-        return_brake_threshold_kms=args.return_brake_threshold_kms,
+        return_brake_threshold_kms=args.return_vinf_brake_threshold_kms,
         nominal_window_half_width_days=args.nominal_window_half_width_days,
         fallback_window_half_width_days=args.fallback_window_half_width_days,
         coarse_step_days=args.coarse_step_days,
@@ -218,20 +248,46 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
 
     coarse_rows = []
     total = len(coarse_cfg.t0_values) * len(coarse_cfg.r_m_values_km) * len(coarse_cfg.sides)
-    done = 0
     started = time.perf_counter()
-    for t0 in coarse_cfg.t0_values:
-        for side in coarse_cfg.sides:
-            for r_m_km in coarse_cfg.r_m_values_km:
+    max_workers = max(1, int(args.max_workers))
+    coarse_jobs = [
+        (coarse_cfg, float(t0), str(side), float(r_m_km))
+        for t0 in coarse_cfg.t0_values
+        for side in coarse_cfg.sides
+        for r_m_km in coarse_cfg.r_m_values_km
+    ]
+    if max_workers <= 1:
+        done = 0
+        last_heartbeat = started
+        for config, t0, side, r_m_km in coarse_jobs:
+            done += 1
+            row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=config)
+            row["candidate_id"] = f"m6_indep_coarse_{done}"
+            row["source_file"] = "data/results/m6_complete_return_window_search.json"
+            row["legacy_return_vinf_kms"] = None
+            row["reason"] = row.pop("event_reason")
+            coarse_rows.append(row)
+            now = time.perf_counter()
+            if done % 25 == 0 or done == total or now - last_heartbeat >= 600.0:
+                print(f"  {_progress_line(done, total, started, 'coarse')}", flush=True)
+                last_heartbeat = now
+    else:
+        done = 0
+        last_heartbeat = started
+        with ProcessPoolExecutor(max_workers=max_workers, initializer=_worker_init) as pool:
+            futures = [pool.submit(_worker_eval, job) for job in coarse_jobs]
+            for future in as_completed(futures):
                 done += 1
-                row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=coarse_cfg)
+                row = future.result()
                 row["candidate_id"] = f"m6_indep_coarse_{done}"
                 row["source_file"] = "data/results/m6_complete_return_window_search.json"
                 row["legacy_return_vinf_kms"] = None
                 row["reason"] = row.pop("event_reason")
                 coarse_rows.append(row)
-                if done % 25 == 0 or done == total:
-                    print(f"  progress {done}/{total} ({time.perf_counter()-started:.0f}s)")
+                now = time.perf_counter()
+                if done % 25 == 0 or done == total or now - last_heartbeat >= 600.0:
+                    print(f"  {_progress_line(done, total, started, 'coarse')}", flush=True)
+                    last_heartbeat = now
 
     seed_t0 = [row["t0_mjd"] for row in sorted(coarse_rows, key=_sort_key)[: max(1, args.top_k_seeds)]]
     refine_t0 = legal_refine_t0_values(seed_t0, offsets_days=[-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3])
@@ -242,7 +298,7 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
         target_rp_au=args.target_rp_au,
         peri_tol_au=args.peri_tol_au,
         earth_return_threshold_km=args.earth_return_threshold_km,
-        return_brake_threshold_kms=args.return_brake_threshold_kms,
+        return_brake_threshold_kms=args.return_vinf_brake_threshold_kms,
         nominal_window_half_width_days=args.refine_nominal_window_half_width_days,
         fallback_window_half_width_days=args.refine_fallback_window_half_width_days,
         coarse_step_days=args.refine_coarse_step_days,
@@ -254,20 +310,45 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
 
     refine_rows = []
     total_refine = len(refine_cfg.t0_values) * len(refine_cfg.r_m_values_km) * len(refine_cfg.sides)
-    done_refine = 0
     started_refine = time.perf_counter()
-    for t0 in refine_cfg.t0_values:
-        for side in refine_cfg.sides:
-            for r_m_km in refine_cfg.r_m_values_km:
+    refine_jobs = [
+        (refine_cfg, float(t0), str(side), float(r_m_km))
+        for t0 in refine_cfg.t0_values
+        for side in refine_cfg.sides
+        for r_m_km in refine_cfg.r_m_values_km
+    ]
+    if max_workers <= 1:
+        done_refine = 0
+        last_refine_heartbeat = started_refine
+        for config, t0, side, r_m_km in refine_jobs:
+            done_refine += 1
+            row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=config)
+            row["candidate_id"] = f"m6_indep_refine_{done_refine}"
+            row["source_file"] = "data/results/m6_complete_return_window_search.json"
+            row["legacy_return_vinf_kms"] = None
+            row["reason"] = row.pop("event_reason")
+            refine_rows.append(row)
+            now = time.perf_counter()
+            if done_refine % 25 == 0 or done_refine == total_refine or now - last_refine_heartbeat >= 600.0:
+                print(f"  {_progress_line(done_refine, total_refine, started_refine, 'refine')}", flush=True)
+                last_refine_heartbeat = now
+    else:
+        done_refine = 0
+        last_refine_heartbeat = started_refine
+        with ProcessPoolExecutor(max_workers=max_workers, initializer=_worker_init) as pool:
+            futures = [pool.submit(_worker_eval, job) for job in refine_jobs]
+            for future in as_completed(futures):
                 done_refine += 1
-                row = evaluate_lunar_candidate(body_data, t0, side, r_m_km, config=refine_cfg)
+                row = future.result()
                 row["candidate_id"] = f"m6_indep_refine_{done_refine}"
                 row["source_file"] = "data/results/m6_complete_return_window_search.json"
                 row["legacy_return_vinf_kms"] = None
                 row["reason"] = row.pop("event_reason")
                 refine_rows.append(row)
-                if done_refine % 25 == 0 or done_refine == total_refine:
-                    print(f"  refine progress {done_refine}/{total_refine} ({time.perf_counter()-started_refine:.0f}s)")
+                now = time.perf_counter()
+                if done_refine % 25 == 0 or done_refine == total_refine or now - last_refine_heartbeat >= 600.0:
+                    print(f"  {_progress_line(done_refine, total_refine, started_refine, 'refine')}", flush=True)
+                    last_refine_heartbeat = now
 
     dedup: dict[tuple[Any, ...], dict[str, Any]] = {}
     for row in coarse_rows + refine_rows:
@@ -287,7 +368,7 @@ def _independent_direct_search(args: argparse.Namespace) -> dict[str, Any]:
         "earth_return_threshold_km": args.earth_return_threshold_km,
         "perihelion_target_AU": args.target_rp_au,
         "perihelion_tolerance_AU": args.peri_tol_au,
-        "return_vinf_brake_threshold_kms": args.return_brake_threshold_kms,
+        "return_vinf_brake_threshold_kms": args.return_vinf_brake_threshold_kms,
         "coarse_trajectory_dt_integrate_s": args.trajectory_dt_integrate_s,
         "coarse_event_coarse_step_days": args.coarse_step_days,
         "coarse_event_refine_step_s": args.refine_step_s,
@@ -321,11 +402,13 @@ def _write_outputs(payload: dict[str, Any], output_json: Path, output_csv: Path)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
+    default_workers = 1 if os.name == "nt" else 8
     parser.add_argument(
         "--mode",
         choices=["derived-legal-window", "independent-legal-window"],
         default="derived-legal-window",
     )
+    parser.add_argument("--max-workers", type=int, default=default_workers)
     parser.add_argument("--output", type=str, default=str(RESULTS / "m6_complete_return_window_search.json"))
     parser.add_argument("--csv-output", type=str, default=str(RESULTS / "m6_complete_return_window_search.csv"))
     parser.add_argument("--t0-step-days", type=int, default=7)
@@ -356,6 +439,8 @@ def main() -> int:
     print("M6 complete-return window search")
     print("=" * 66)
     print(f"mode = {args.mode}")
+    if args.mode == "independent-legal-window":
+        print(f"max_workers = {max(1, int(args.max_workers))}")
 
     if args.mode == "derived-legal-window":
         payload = _derived_legal_window_from_m5()

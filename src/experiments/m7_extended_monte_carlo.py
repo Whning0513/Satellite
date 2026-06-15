@@ -21,7 +21,7 @@ import math
 import statistics
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -422,6 +422,7 @@ def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: 
     start = time.perf_counter()
     results: list[dict[str, Any]] = []
     if max_workers <= 1:
+        last_heartbeat = start
         for sample in samples:
             if time.perf_counter() - start > max_runtime_sec:
                 results.append(
@@ -443,11 +444,20 @@ def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: 
                 )
                 continue
             results.append(_worker(sample))
+            done = len(results)
+            now = time.perf_counter()
+            if done % 10 == 0 or done == len(samples) or now - last_heartbeat >= 60.0:
+                print(f"  {_progress_line(done, len(samples), start, 'serial')}", flush=True)
+                last_heartbeat = now
         return sorted(results, key=lambda item: item["sample_id"])
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         futures = [executor.submit(_worker, sample) for sample in samples]
-        for sample, future in zip(samples, futures, strict=False):
+        future_to_sample = {future: sample for sample, future in zip(samples, futures, strict=False)}
+        last_heartbeat = start
+        done = 0
+        for future in as_completed(future_to_sample):
+            sample = future_to_sample[future]
             if time.perf_counter() - start > max_runtime_sec:
                 results.append(
                     {
@@ -468,6 +478,11 @@ def _run_pool(samples: list[dict[str, Any]], max_workers: int, max_runtime_sec: 
                 )
                 continue
             results.append(future.result())
+            done += 1
+            now = time.perf_counter()
+            if done % 10 == 0 or done == len(samples) or now - last_heartbeat >= 60.0:
+                print(f"  {_progress_line(done, len(samples), start, 'pool')}", flush=True)
+                last_heartbeat = now
     return sorted(results, key=lambda item: item["sample_id"])
 
 
@@ -593,6 +608,7 @@ def _write_sample_rows_csv(path: Path, results: list[dict[str, Any]]) -> None:
 
 def _write_timeout_replay_manifest(path: Path, results: list[dict[str, Any]], summary_output: Path) -> None:
     timeout_rows = [row for row in results if row.get("classification") == "TIMEOUT_NO_FORMAL_RESULT"]
+    summary_output = summary_output.resolve()
     manifest = {
         "task": "M7 timeout replay manifest",
         "source_summary_file": str(summary_output.relative_to(_REPO)).replace("\\", "/"),
@@ -612,6 +628,19 @@ def _write_timeout_replay_manifest(path: Path, results: list[dict[str, Any]], su
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def _progress_line(done: int, total: int, started: float, label: str) -> str:
+    elapsed = time.perf_counter() - started
+    pct = (done / total * 100.0) if total else 100.0
+    rate = done / elapsed if elapsed > 0 else 0.0
+    eta = (total - done) / rate if rate > 0 else float("inf")
+    bar_len = 24
+    filled = int(round(bar_len * done / total)) if total else bar_len
+    bar = "#" * min(filled, bar_len) + "-" * max(bar_len - filled, 0)
+    eta_text = "unknown" if not (eta < float("inf")) else time.strftime("%H:%M:%S", time.gmtime(max(0.0, eta)))
+    elapsed_text = time.strftime("%H:%M:%S", time.gmtime(max(0.0, elapsed)))
+    return f"[{bar}] {done}/{total} {pct:5.1f}% elapsed={elapsed_text} eta={eta_text} {label}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -638,7 +667,7 @@ def main() -> int:
 
     n = args.n if not args.smoke else min(args.n, DEFAULT_N_SMOKE)
     smoke = bool(args.smoke)
-    output = Path(args.output)
+    output = Path(args.output).resolve()
     start = time.perf_counter()
     samples = _build_samples(
         n=n,
@@ -651,9 +680,9 @@ def main() -> int:
     time_total_sec = time.perf_counter() - start
     profile = _profile(results, time_total_sec)
 
-    sample_rows_path = Path(args.sample_rows_output) if args.save_sample_rows else None
-    sample_rows_csv_path = Path(args.sample_rows_csv_output) if args.save_sample_rows else None
-    timeout_manifest_path = Path(args.timeout_replay_manifest_output) if args.save_sample_rows else None
+    sample_rows_path = Path(args.sample_rows_output).resolve() if args.save_sample_rows else None
+    sample_rows_csv_path = Path(args.sample_rows_csv_output).resolve() if args.save_sample_rows else None
+    timeout_manifest_path = Path(args.timeout_replay_manifest_output).resolve() if args.save_sample_rows else None
 
     summary = _summarize(
         results,

@@ -1,0 +1,63 @@
+{
+  "task": "M7 extended Monte Carlo",
+  "classification": "FULL_MC_ACTUAL_RESULT",
+  "n": 200,
+  "seed": 202606,
+  "reference_candidate": {
+    "source": "built_in_fallback",
+    "t0_mjd": 61065.0,
+    "r_m_km": 1837.4,
+    "side": "trailing",
+    "target_rp_AU": 0.3,
+    "nominal_return_mjd": 61431.12
+  },
+  "valid_return_count": 101,
+  "invalid_count": 99,
+  "timeout_count": 0,
+  "valid_return_rate": 0.505,
+  "return_vinf_valid_only": {
+    "mean": 10.804728,
+    "std": 1.414351,
+    "p5": 10.3913,
+    "p50": 10.7706,
+    "p95": 11.3542
+  },
+  "total_vinf_basis_valid_only": {
+    "mean": 10.229935,
+    "std": 0.735914,
+    "p5": 9.9996,
+    "p50": 10.1479,
+    "p95": 10.3455
+  },
+  "event_distance_km_valid_only": {
+    "max": 1385857.9,
+    "p95": 1167192.4
+  },
+  "old_invalid_return_vinf_guard": true,
+  "event_semantics": {
+    "return_vinf_defined_only_at_earth_return": true,
+    "earth_return_threshold_km": 1500000.0,
+    "nominal_window_half_width_days": 30.0,
+    "fallback_window_half_width_days": 60.0,
+    "coarse_step_days": 2.0,
+    "coarse_dt_internal_s": 10800.0,
+    "refine_step_s": 3600.0
+  },
+  "profile": {
+    "samples_total": 200,
+    "samples_valid": 101,
+    "time_total_sec": 140.5239,
+    "time_per_sample_mean_sec": 20.4014,
+    "time_per_sample_p95_sec": 21.846,
+    "time_in_propagation_sec": 3738.1227,
+    "time_in_event_search_sec": 341.5684,
+    "time_in_json_write_sec": 0.0005,
+    "slowest_sample_id": 15,
+    "slowest_sample_reason": "spacecraft is 9519693 km from Earth (>1500000 km threshold); this is not an Earth-return event",
+    "bottleneck_guess": "trajectory_propagation"
+  },
+  "sample_rows_saved": true,
+  "sample_rows_file": "data/results/m7_extended_monte_carlo_samples.json",
+  "timeout_replay_manifest_file": "data/results/m7_timeout_replay_manifest.json",
+  "timeout_reason_breakdown": {}
+}

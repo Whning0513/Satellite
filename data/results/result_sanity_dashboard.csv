@@ -1,0 +1,6 @@
+module,result,value,unit,event_frame_basis,classification,sanity
+M1,0.2 AU v_launch,16.836346,km/s,departure / Earth launch,ACTUAL_RESULT,"Independent patched-conic recompute agrees; heliocentric impulse=-12.6038 km/s, launch=16.8363 km/s."
+M1,0.2 AU heliocentric impulse,-12.6038,km/s,heliocentric transfer at 1 AU,INDEPENDENT_CHECK,"This is the Sun-centered speed change, not the surface-launch equivalent."
+M1,0.3 AU v_launch,14.703554,km/s,departure / Earth launch,ACTUAL_RESULT,"Independent patched-conic recompute agrees; heliocentric impulse=-9.5653 km/s, launch=14.7036 km/s."
+M1,0.3 AU heliocentric impulse,-9.565286,km/s,heliocentric transfer at 1 AU,INDEPENDENT_CHECK,"This is the Sun-centered speed change, not the surface-launch equivalent."
+M1,0.3 AU 2x v_launch,29.407107,km/s,Qian-style symmetric round-trip basis,ACTUAL_RESULT,Uses 2 x v_launch = 29.4071 km/s; 2 x heliocentric impulse would be 19.1000 km/s and is not the same quantity.
