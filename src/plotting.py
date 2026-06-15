@@ -18,7 +18,7 @@ import json
 import os
 import numpy as np
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 
 from constants import (
     GM_SUN, GM_EARTH, GM_MOON, AU_KM,
@@ -40,6 +40,53 @@ def _ensure_matplotlib():
     return plt
 
 
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _results_dir() -> Path:
+    return _repo_root() / "data" / "results"
+
+
+def _save_figure(fig, filename: str, dpi: int) -> str:
+    out_dir = _results_dir()
+    os.makedirs(out_dir, exist_ok=True)
+    path = out_dir / filename
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    return str(path)
+
+
+def _load_result_json(filename: str) -> dict:
+    path = _results_dir() / filename
+    if not path.exists():
+        raise FileNotFoundError(f"required result file missing: {path}")
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_m7_sample_rows() -> List[dict]:
+    data = _load_result_json("m7_extended_monte_carlo_samples.json")
+    if isinstance(data, dict):
+        return list(data.get("results", data.get("sample_rows", [])))
+    return list(data)
+
+
+def _extract_search_rows(search_result: Any) -> List[dict]:
+    if isinstance(search_result, dict) and "search_rows" in search_result:
+        return list(search_result.get("search_rows", []))
+    if hasattr(search_result, "windows"):
+        rows = []
+        for w in getattr(search_result, "windows", []):
+            rows.append({
+                "t0_mjd": float(w.t0_mjd),
+                "moon_angle_deg": float(getattr(w, "moon_angle_deg", np.nan)),
+                "score": float(getattr(w, "score", np.nan)),
+                "feasible": bool(getattr(w, "feasible", False)),
+            })
+        return rows
+    return []
+
+
 # =========================
 # 1. 基础轨道绘图
 # =========================
@@ -50,6 +97,7 @@ def plot_trajectory(
     filename: str = "trajectory.png",
     dpi: int = 150,
     show_earth_moon: bool = True,
+    formal_result: Optional[dict] = None,
 ) -> str:
     """绘制完整轨道图（日心系）。
 
@@ -126,31 +174,43 @@ def plot_trajectory(
 
     ax.plot(x_orbit, y_orbit, "r-", linewidth=1.5, alpha=0.8, label="Transfer orbit (patched conic)")
 
+    formal_result = formal_result or {}
+
     # 标记近日点
-    r_p_achieved = km_to_au(result.r_p_achieved_km)
+    r_p_achieved = float(formal_result.get("perihelion_AU", km_to_au(result.r_p_achieved_km)))
     ax.scatter(-r_p_achieved if result.elements and result.elements.delta_v < 0 else r_p_achieved,
                0, c="red", s=80, marker="*", zorder=6, label=f"Perihelion ({r_p_achieved:.3f} AU)")
 
     # 标记近月点
     r_moon_arrival = km_to_au(result.r_at_moon)
     ax.scatter(*r_moon_arrival, c="purple", s=60, marker="^", zorder=5,
-               label=f"Moon flyby ({result.dist_moon_min:.0f} km)")
+               label=f"Moon flyby (sampled closest approach {result.dist_moon_min:.0f} km)")
 
     # 标注信息
-    info_text = (
-        f"t0 = MJD {result.t0_mjd:.1f}\n"
-        f"v_launch = {result.v_launch:.2f} km/s\n"
-        f"r_p = {r_p_achieved:.4f} AU\n"
-        f"v_reentry = {result.v_reentry:.2f} km/s\n"
-        f"T_total = {result.t_total_days:.1f} days"
-    )
+    formal_return_vinf = formal_result.get("return_vinf_kms")
+    formal_return_dist = formal_result.get("distance_to_earth_km")
+    formal_budget = formal_result.get("total_vinf_basis_kms")
+    formal_t0 = formal_result.get("t0_mjd", result.t0_mjd)
+    info_lines = [
+        f"t0 = MJD {formal_t0:.1f}",
+        f"v_launch = {result.v_launch:.2f} km/s",
+        f"r_p = {r_p_achieved:.4f} AU",
+    ]
+    if formal_budget is not None:
+        info_lines.append(f"total vinf basis = {formal_budget:.4f} km/s")
+    if formal_return_vinf is not None:
+        info_lines.append(f"return vinf = {formal_return_vinf:.4f} km/s")
+    if formal_return_dist is not None:
+        info_lines.append(f"return distance = {formal_return_dist:.0f} km")
+    info_lines.append(f"T_total = {result.t_total_days:.1f} days")
+    info_text = "\n".join(info_lines)
     ax.text(0.02, 0.98, info_text, transform=ax.transAxes,
             fontsize=9, verticalalignment="top",
             bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.8))
 
     ax.set_xlabel("X (AU)")
     ax.set_ylabel("Y (AU)")
-    ax.set_title("Space Trajectory: Earth -> Moon Swingby -> Perihelion -> Earth")
+    ax.set_title("Legal-Window Trajectory Geometry with Formal Earth-Return Annotation")
     ax.legend(loc="lower left", fontsize=8)
     ax.grid(True, alpha=0.3)
 
@@ -159,11 +219,7 @@ def plot_trajectory(
     ax.set_xlim(-max_extent, max_extent)
     ax.set_ylim(-max_extent, max_extent)
 
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
     print(f"[Plot] Saved trajectory plot to {path}")
     return str(path)
@@ -177,6 +233,7 @@ def plot_lunar_swingby(
     result,
     filename: str = "lunar_swingby.png",
     dpi: int = 150,
+    formal_result: Optional[dict] = None,
 ) -> str:
     """绘制月球借力局部放大图。
 
@@ -186,6 +243,8 @@ def plot_lunar_swingby(
 
     fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_aspect("equal")
+
+    formal_result = formal_result or {}
 
     # 以月球位置为中心
     moon_center = km_to_au(result.r_at_moon)
@@ -204,37 +263,53 @@ def plot_lunar_swingby(
                              label="Moon")
     ax.add_patch(moon_circle)
 
-    # 近月点标记
-    ax.scatter(*moon_center, c="purple", s=80, marker="^", zorder=5,
-               label=f"Closest approach ({result.dist_moon_min:.0f} km)")
+    # 设计近月距与采样最小距离半径圈
+    sampled_closest_au = km_to_au(result.dist_moon_min)
+    design_r_m_au = km_to_au(result.params.r_m)
+    sampled_circle = plt.Circle(
+        moon_center, sampled_closest_au, fill=False,
+        edgecolor="purple", linewidth=1.1, alpha=0.8,
+        label=f"Sampled closest-approach radius ({result.dist_moon_min:.0f} km)",
+    )
+    design_circle = plt.Circle(
+        moon_center, design_r_m_au, fill=False,
+        edgecolor="royalblue", linewidth=0.9, linestyle=":",
+        alpha=0.8, label=f"Design perilune radius ({result.params.r_m:.0f} km)",
+    )
+    ax.add_patch(sampled_circle)
+    ax.add_patch(design_circle)
 
     # 火箭到达 / 离开方向（箭头示意）
-    v_arrival = km_to_au(result.v_at_moon) * 0.01  # 缩放箭头
-    arrival_dir = v_arrival / np.linalg.norm(v_arrival) * soi_au * 0.8
+    v_arrival = km_to_au(result.v_at_moon) * 0.01
+    arrival_dir = v_arrival / np.linalg.norm(v_arrival) * soi_au * 0.22
     ax.arrow(moon_center[0] - arrival_dir[0],
              moon_center[1] - arrival_dir[1],
              arrival_dir[0] * 0.9, arrival_dir[1] * 0.9,
-             head_width=soi_au * 0.08, color="red", alpha=0.7,
+             head_width=soi_au * 0.03, color="red", alpha=0.75,
              label="Rocket arrival")
 
     if result.swingby:
         v_depart = km_to_au(result.v_post_swingby) * 0.01
-        depart_dir = v_depart / np.linalg.norm(v_depart) * soi_au * 0.8
+        depart_dir = v_depart / np.linalg.norm(v_depart) * soi_au * 0.22
         ax.arrow(moon_center[0] - depart_dir[0],
                  moon_center[1] - depart_dir[1],
                  depart_dir[0] * 0.9, depart_dir[1] * 0.9,
-                 head_width=soi_au * 0.08, color="orange", alpha=0.7,
+                 head_width=soi_au * 0.03, color="orange", alpha=0.75,
                  label="Rocket departure")
 
     # 显示 swingby 参数
     if result.swingby:
-        info = (
-            f"v_inf = {result.swingby.v_inf:.2f} km/s\n"
-            f"delta = {result.swingby.delta_deg:.1f} deg\n"
-            f"dv = {result.swingby.dv_mag:.2f} km/s\n"
-            f"r_p_moon = {result.params.r_m:.0f} km\n"
-            f"side = {result.params.side}"
-        )
+        info_lines = [
+            f"v_inf = {result.swingby.v_inf:.2f} km/s",
+            f"delta = {result.swingby.delta_deg:.1f} deg",
+            f"dv = {result.swingby.dv_mag:.2f} km/s",
+            f"design r_m = {result.params.r_m:.0f} km",
+            f"sampled min dist = {result.dist_moon_min:.0f} km",
+            f"side = {result.params.side}",
+        ]
+        if formal_result.get("return_vinf_kms") is not None:
+            info_lines.append(f"formal return vinf = {formal_result['return_vinf_kms']:.4f} km/s")
+        info = "\n".join(info_lines)
         ax.text(0.02, 0.98, info, transform=ax.transAxes,
                 fontsize=9, verticalalignment="top",
                 bbox=dict(boxstyle="round", facecolor="lightyellow", alpha=0.9))
@@ -249,11 +324,7 @@ def plot_lunar_swingby(
     ax.set_xlim(moon_center[0] - soi_au * 1.2, moon_center[0] + soi_au * 1.2)
     ax.set_ylim(moon_center[1] - soi_au * 1.2, moon_center[1] + soi_au * 1.2)
 
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
     print(f"[Plot] Saved lunar swingby plot to {path}")
     return str(path)
@@ -268,65 +339,97 @@ def plot_launch_windows(
     filename: str = "launch_windows.png",
     dpi: int = 150,
 ) -> str:
-    """绘制全年 Moon 对准角雷达图。
-
-    以日期为角度轴，对准角为半径，直观展示发射窗口分布。
-    """
+    """绘制 2026 合法窗口分布图。"""
     plt = _ensure_matplotlib()
 
-    windows = optimization_result.windows
-    if not windows:
+    rows = _extract_search_rows(optimization_result)
+    if not rows:
         print("[Plot] No window data to plot")
         return ""
 
-    fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={"projection": "polar"})
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
-    # 提取数据
-    angles = []
-    radii = []
-    colors = []
+    if "distance_to_earth_km" in rows[0]:
+        valid_rows = [r for r in rows if r.get("valid_return_event")]
+        fair_rows = [r for r in rows if r.get("fair")]
+        invalid_rows = [r for r in rows if not r.get("valid_return_event")]
 
-    for w in windows:
-        # 角度：将 MJD 映射到 0-2π
-        day_of_year = w.t0_mjd - int(w.t0_mjd)  # fallback to fractional
-        # 用实际 MJD 计算角度
-        angle = 2 * np.pi * (w.t0_mjd - windows[0].t0_mjd) / 365.0
-        angles.append(angle)
+        if invalid_rows:
+            ax1.scatter(
+                [r["t0_mjd"] for r in invalid_rows],
+                [max(1.0, float(r.get("distance_to_earth_km", np.nan))) for r in invalid_rows],
+                c="lightcoral", s=10, alpha=0.35, label="Invalid / near-miss",
+            )
+        if valid_rows:
+            ax1.scatter(
+                [r["t0_mjd"] for r in valid_rows],
+                [float(r["distance_to_earth_km"]) for r in valid_rows],
+                c="darkorange", s=14, alpha=0.7, label="Valid return",
+            )
+        if fair_rows:
+            ax1.scatter(
+                [r["t0_mjd"] for r in fair_rows],
+                [float(r["distance_to_earth_km"]) for r in fair_rows],
+                c="forestgreen", s=18, alpha=0.85, label="Fair candidate",
+            )
+        ax1.axhline(1.5e6, color="red", linestyle="--", linewidth=0.9, alpha=0.6,
+                    label="Earth-return threshold")
+        ax1.set_ylabel("Return distance to Earth (km)")
+        ax1.set_yscale("log")
+        ax1.set_title("2026 Legal-Window Candidate Distribution")
+        ax1.legend(fontsize=8)
+        ax1.grid(True, alpha=0.3)
 
-        # 半径：对准角（deg），90deg = 最差
-        radii.append(min(w.moon_angle_deg / 90.0, 1.0))
-        colors.append("green" if w.feasible else "red")
-
-    ax.scatter(angles, radii, c=colors, s=10, alpha=0.6)
-
-    # 季度标记
-    season_labels = ["Jan", "Apr", "Jul", "Oct"]
-    season_angles = [0, np.pi/2, np.pi, 3*np.pi/2]
-    ax.set_xticks(season_angles)
-    ax.set_xticklabels(season_labels)
-
-    ax.set_ylim(0, 1.0)
-    ax.set_yticklabels(["0deg", "22.5deg", "45deg", "67.5deg", "90deg"])
-    ax.set_title("Launch Window Alignment (2026)\nGreen=feasible, Red=marginal", va="bottom")
-
-    # 标注最佳窗口
-    if optimization_result.best_windows:
-        best = optimization_result.best_windows[0]
-        best_angle = 2 * np.pi * (best.t0_mjd - windows[0].t0_mjd) / 365.0
-        ax.annotate(
-            f"Best: MJD {best.t0_mjd:.0f}\n({best.moon_angle_deg:.1f}deg)",
-            xy=(best_angle, best.moon_angle_deg / 90.0),
-            xytext=(best_angle + 0.3, best.moon_angle_deg / 90.0 + 0.1),
-            fontsize=8,
-            arrowprops=dict(arrowstyle="->", color="blue"),
-            bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.7),
+        ax2.scatter(
+            [r["t0_mjd"] for r in rows],
+            [float(r.get("perihelion_AU", np.nan)) for r in rows],
+            c=["forestgreen" if r.get("fair") else ("darkorange" if r.get("valid_return_event") else "lightcoral")
+               for r in rows],
+            s=12, alpha=0.65,
         )
+        ax2.axhline(0.3, color="navy", linestyle="--", linewidth=0.9, alpha=0.7,
+                    label="Target perihelion 0.3 AU")
+        ax2.set_xlabel("Launch Date (MJD)")
+        ax2.set_ylabel("Achieved perihelion (AU)")
+        ax2.legend(fontsize=8)
+        ax2.grid(True, alpha=0.3)
 
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+        best = min(fair_rows or valid_rows, key=lambda r: float(r.get("distance_to_earth_km", np.inf))) if (fair_rows or valid_rows) else None
+        if best:
+            ax1.scatter([best["t0_mjd"]], [best["distance_to_earth_km"]], c="blue", s=40, marker="*",
+                        zorder=6)
+            ax1.annotate(
+                f"Best legal candidate\nMJD {best['t0_mjd']:.1f}\nr_m={best['r_m_km']:.0f} km",
+                xy=(best["t0_mjd"], best["distance_to_earth_km"]),
+                xytext=(best["t0_mjd"] - 45, best["distance_to_earth_km"] * 3.5),
+                fontsize=8,
+                arrowprops=dict(arrowstyle="->", color="blue"),
+                bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
+            )
+    else:
+        windows = optimization_result.windows
+        angles = []
+        radii = []
+        colors = []
+        for w in windows:
+            angle = 2 * np.pi * (w.t0_mjd - windows[0].t0_mjd) / 365.0
+            angles.append(angle)
+            radii.append(min(w.moon_angle_deg / 90.0, 1.0))
+            colors.append("green" if w.feasible else "red")
+        plt.close(fig)
+        fig, ax = plt.subplots(figsize=(10, 8), subplot_kw={"projection": "polar"})
+        ax.scatter(angles, radii, c=colors, s=10, alpha=0.6)
+        ax.set_xticks([0, np.pi / 2, np.pi, 3 * np.pi / 2])
+        ax.set_xticklabels(["Jan", "Apr", "Jul", "Oct"])
+        ax.set_ylim(0, 1.0)
+        ax.set_title("Launch Window Alignment (legacy fast geometry)", va="bottom")
+        path = _save_figure(fig, filename, dpi)
+        plt.close(fig)
+        print(f"[Plot] Saved launch window plot to {path}")
+        return str(path)
+
+    fig.tight_layout()
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
     print(f"[Plot] Saved launch window plot to {path}")
     return str(path)
@@ -341,79 +444,89 @@ def plot_sensitivity(
     filename: str = "sensitivity.png",
     dpi: int = 150,
 ) -> str:
-    """绘制灵敏度散点图。
-
-    横轴：参数类型，纵轴：r_p_achieved (AU)，不同颜色表示不同参数。
-    """
+    """绘制当前 legal anchor 的 Monte Carlo 分布图。"""
     plt = _ensure_matplotlib()
 
-    points = sensitivity_result.points
-    if not points:
+    sample_rows = []
+    summary = {}
+    if isinstance(sensitivity_result, dict):
+        sample_rows = list(sensitivity_result.get("results", sensitivity_result.get("sample_rows", [])))
+        summary = sensitivity_result.get("summary", sensitivity_result)
+    elif hasattr(sensitivity_result, "points"):
+        sample_rows = list(getattr(sensitivity_result, "points", []))
+    if not sample_rows:
         print("[Plot] No sensitivity data to plot")
         return ""
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+    valid_rows = [r for r in sample_rows if r.get("valid_return_event") and r.get("return_vinf_kms") is not None]
+    invalid_rows = [r for r in sample_rows if not r.get("valid_return_event")]
 
-    # 分组
-    t0_pts = [p for p in points if "t0" in p.label and p.success]
-    rm_pts = [p for p in points if "r_m" in p.label and p.success]
-    rp_pts = [p for p in points if "r_p" in p.label and p.success]
-    mc_pts = [p for p in points if "mc_" in p.label and p.success]
-
-    # t0 扰动子图
     ax = axes[0]
-    if t0_pts:
-        x = [p.perturbation for p in t0_pts]
-        y = [p.r_p_achieved_AU for p in t0_pts]
-        ax.scatter(x, y, c="blue", alpha=0.7)
-        ax.axhline(y=sensitivity_result.nominal_r_p_achieved, color="gray",
-                   linestyle="--", alpha=0.5, label=f"Nominal ({sensitivity_result.nominal_r_p_achieved:.4f} AU)")
-        ax.set_xlabel("Δt₀ (days)")
-        ax.set_ylabel("r_p (AU)")
-        ax.set_title("t₀ Sensitivity")
+    ret_vinf = [float(r["return_vinf_kms"]) for r in valid_rows]
+    if ret_vinf:
+        ax.hist(ret_vinf, bins=14, color="steelblue", alpha=0.8, edgecolor="black")
+        p50 = summary.get("return_vinf_valid_only", {}).get("p50")
+        p95 = summary.get("return_vinf_valid_only", {}).get("p95")
+        if p50 is not None:
+            ax.axvline(p50, color="navy", linestyle="--", linewidth=1.0, label=f"p50={p50:.2f}")
+        if p95 is not None:
+            ax.axvline(p95, color="crimson", linestyle=":", linewidth=1.0, label=f"p95={p95:.2f}")
         ax.legend(fontsize=8)
+    ax.set_xlabel("Valid-only return vinf (km/s)")
+    ax.set_ylabel("Count")
+    ax.set_title("M7 Return vinf Distribution")
     ax.grid(True, alpha=0.3)
 
-    # r_m 扰动子图
     ax = axes[1]
-    if rm_pts:
-        x = [p.perturbation for p in rm_pts]
-        y = [p.r_p_achieved_AU for p in rm_pts]
-        ax.scatter(x, y, c="green", alpha=0.7)
-        ax.axhline(y=sensitivity_result.nominal_r_p_achieved, color="gray",
-                   linestyle="--", alpha=0.5)
-        ax.set_xlabel("Δr_m (km)")
-        ax.set_title("r_m (Perilune) Sensitivity")
-    ax.grid(True, alpha=0.3)
-
-    # MC 直方图
-    ax = axes[2]
-    if mc_pts:
-        rp_mc = [p.r_p_achieved_AU for p in mc_pts]
-        ax.hist(rp_mc, bins=10, color="purple", alpha=0.7, edgecolor="black")
-        ax.axvline(x=sensitivity_result.nominal_r_p_achieved, color="red",
-                   linestyle="--", alpha=0.7, label=f"Nominal")
-        ax.set_xlabel("r_p (AU)")
-        ax.set_ylabel("Count")
-        ax.set_title("Monte Carlo Distribution")
+    total_vinf = [float(r["total_vinf_basis_kms"]) for r in valid_rows if r.get("total_vinf_basis_kms") is not None]
+    if total_vinf:
+        ax.hist(total_vinf, bins=14, color="seagreen", alpha=0.8, edgecolor="black")
+        p50 = summary.get("total_vinf_basis_valid_only", {}).get("p50")
+        p95 = summary.get("total_vinf_basis_valid_only", {}).get("p95")
+        if p50 is not None:
+            ax.axvline(p50, color="darkgreen", linestyle="--", linewidth=1.0, label=f"p50={p50:.2f}")
+        if p95 is not None:
+            ax.axvline(p95, color="crimson", linestyle=":", linewidth=1.0, label=f"p95={p95:.2f}")
         ax.legend(fontsize=8)
+    ax.set_xlabel("Valid-only total vinf basis (km/s)")
+    ax.set_title("M7 Total Budget Distribution")
     ax.grid(True, alpha=0.3)
 
-    fig.suptitle("Sensitivity Analysis", fontsize=14)
+    ax = axes[2]
+    valid_dist = [float(r["event_distance_km"]) for r in valid_rows if r.get("event_distance_km") is not None]
+    invalid_dist = [float(r["event_distance_km"]) for r in invalid_rows if r.get("event_distance_km") is not None]
+    if valid_dist:
+        ax.scatter([1] * len(valid_dist), valid_dist, c="forestgreen", s=12, alpha=0.5, label="Valid")
+    if invalid_dist:
+        ax.scatter([2] * len(invalid_dist), invalid_dist, c="lightcoral", s=12, alpha=0.5, label="Invalid")
+    ax.axhline(1.5e6, color="red", linestyle="--", linewidth=0.9, alpha=0.7, label="Return threshold")
+    ax.set_xticks([1, 2])
+    ax.set_xticklabels(["Valid", "Invalid"])
+    ax.set_yscale("log")
+    ax.set_ylabel("Closest Earth distance (km)")
+    ax.set_title("Earth-Return Event Distance")
+    counts_text = (
+        f"valid={len(valid_rows)}\n"
+        f"invalid={len(invalid_rows)}\n"
+        f"timeout={summary.get('timeout_count', 0)}"
+    )
+    ax.text(0.05, 0.95, counts_text, transform=ax.transAxes, va="top",
+            bbox=dict(boxstyle="round", facecolor="white", alpha=0.8), fontsize=8)
+    ax.legend(fontsize=8)
+    ax.grid(True, alpha=0.3)
+
+    fig.suptitle("M7 Monte Carlo Diagnostics Around the Legal Fixed-Date Anchor", fontsize=14)
     fig.tight_layout()
 
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
     print(f"[Plot] Saved sensitivity plot to {path}")
     return str(path)
 
 
 # =========================
-# 5. 诊断图：Horizons 残差、能量漂移、Δv 曲线、等值线
+# 5. 诊断图：Horizons 残差、能量漂移、dv 曲线、等值线
 # =========================
 
 def plot_horizons_residual(
@@ -421,73 +534,79 @@ def plot_horizons_residual(
     filename: str = "m8_horizons_residual.png",
     dpi: int = 150,
 ) -> str:
-    """绘制 M3 位置残差时间序列（Sun/Earth/Moon + 6000 km 阈值）。
-
-    Parameters
-    ----------
-    residuals_path : str, optional
-        m3_residuals.json 的路径，默认 data/results/m3_residuals.json。
-    filename : str
-        保存文件名。
-    dpi : int
-        分辨率。
-
-    Returns
-    -------
-    str : 图像保存路径。
-    """
+    """绘制 M3 same-source 对照图，优先用旧日残差，否则回退到深度审计结果。"""
     plt = _ensure_matplotlib()
 
     if residuals_path is None:
-        repo_root = Path(__file__).resolve().parents[1]
-        residuals_path = repo_root / "data" / "results" / "m3_residuals.json"
+        residuals_path = _results_dir() / "m3_residuals.json"
 
-    if not Path(residuals_path).exists():
-        print(f"[Plot] Residuals file not found: {residuals_path}")
-        return ""
+    if Path(residuals_path).exists():
+        with open(residuals_path, "r", encoding="utf-8") as f:
+            rows = json.load(f)
 
-    with open(residuals_path, "r") as f:
-        rows = json.load(f)
+        epochs = [r["epoch"] for r in rows]
+        err_sun = [r.get("err_r_Sun_km", 0) or 0 for r in rows]
+        err_earth = [r.get("err_r_Earth_km", 0) or 0 for r in rows]
+        err_moon = [r.get("err_r_Moon_km", 0) or 0 for r in rows]
 
-    epochs = [r["epoch"] for r in rows]
-    err_sun = [r.get("err_r_Sun_km", 0) or 0 for r in rows]
-    err_earth = [r.get("err_r_Earth_km", 0) or 0 for r in rows]
-    err_moon = [r.get("err_r_Moon_km", 0) or 0 for r in rows]
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+        threshold_km = 6000.0
+        ax1.axhline(threshold_km, color="red", linestyle="--", linewidth=0.8,
+                    alpha=0.6, label=f"Threshold ({threshold_km:.0f} km)")
+        ax1.plot(epochs, err_sun, label="Sun", alpha=0.8)
+        ax1.plot(epochs, err_earth, label="Earth", alpha=0.8)
+        ax1.plot(epochs, err_moon, label="Moon", alpha=0.8)
+        ax1.set_ylabel("Position Error (km)")
+        ax1.set_title("M3: N-body vs JPL Horizons Daily Position Residuals")
+        ax1.legend(fontsize=8)
+        ax1.grid(True, alpha=0.3)
+        ax1.set_yscale("log")
 
-    # 位置残差
-    threshold_km = 6000.0
-    ax1.axhline(threshold_km, color="red", linestyle="--", linewidth=0.8,
-                alpha=0.6, label=f"Threshold ({threshold_km:.0f} km)")
-    ax1.plot(epochs, err_sun, label="Sun", alpha=0.8)
-    ax1.plot(epochs, err_earth, label="Earth", alpha=0.8)
-    ax1.plot(epochs, err_moon, label="Moon", alpha=0.8)
-    ax1.set_ylabel("Position Error (km)")
-    ax1.set_title("M3: N-body vs JPL Horizons — Daily Position Residuals")
-    ax1.legend(fontsize=8)
-    ax1.grid(True, alpha=0.3)
-    ax1.set_yscale("log")
+        v_sun = [abs(r.get("err_v_Sun_kms", 0) or 0) for r in rows]
+        v_earth = [abs(r.get("err_v_Earth_kms", 0) or 0) for r in rows]
+        v_moon = [abs(r.get("err_v_Moon_kms", 0) or 0) for r in rows]
+        ax2.plot(epochs, v_sun, label="Sun", alpha=0.8)
+        ax2.plot(epochs, v_earth, label="Earth", alpha=0.8)
+        ax2.plot(epochs, v_moon, label="Moon", alpha=0.8)
+        ax2.set_xlabel("Epoch (day of year)")
+        ax2.set_ylabel("Velocity Error (km/s)")
+        ax2.set_title("Velocity Residuals")
+        ax2.legend(fontsize=8)
+        ax2.grid(True, alpha=0.3)
+    else:
+        deep = _load_result_json("m3_numerical_deep_audit.json")
+        models = deep.get("models", {})
+        names = []
+        residuals = []
+        for key in ["3body_sun_earth_moon", "5body_sem_jupiter_venus", "full_planetary"]:
+            block = models.get(key)
+            if not block:
+                continue
+            names.append(key.replace("_", "\n"))
+            residuals.append(float(block["residual_km"]))
+        dt_rows = deep.get("dt_convergence", {}).get("values", [])
 
-    # 速度残差
-    v_sun = [abs(r.get("err_v_Sun_kms", 0) or 0) for r in rows]
-    v_earth = [abs(r.get("err_v_Earth_kms", 0) or 0) for r in rows]
-    v_moon = [abs(r.get("err_v_Moon_kms", 0) or 0) for r in rows]
-    ax2.plot(epochs, v_sun, label="Sun", alpha=0.8)
-    ax2.plot(epochs, v_earth, label="Earth", alpha=0.8)
-    ax2.plot(epochs, v_moon, label="Moon", alpha=0.8)
-    ax2.set_xlabel("Epoch (day of year)")
-    ax2.set_ylabel("Velocity Error (km/s)")
-    ax2.set_title("Velocity Residuals")
-    ax2.legend(fontsize=8)
-    ax2.grid(True, alpha=0.3)
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
+        ax1.bar(names, residuals, color=["steelblue", "seagreen", "darkorange"], alpha=0.85)
+        ax1.axhline(6000.0, color="red", linestyle="--", linewidth=0.8, alpha=0.6, label="6000 km threshold")
+        ax1.set_ylabel("Residual (km)")
+        ax1.set_yscale("log")
+        ax1.set_title("M3 Same-Source Residual Hierarchy")
+        ax1.legend(fontsize=8)
+        ax1.grid(True, alpha=0.3, axis="y")
+
+        if dt_rows:
+            ax2.plot([int(r["dt_sec"]) for r in dt_rows],
+                     [float(r["residual_km"]) for r in dt_rows],
+                     "o-", color="purple", alpha=0.85)
+        ax2.set_xlabel("dt (s)")
+        ax2.set_ylabel("3-body heliocentric residual (km)")
+        ax2.set_title("Step-Size Convergence Interpretation")
+        ax2.grid(True, alpha=0.3)
 
     fig.tight_layout()
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
     print(f"[Plot] Saved horizons residual plot to {path}")
     return str(path)
@@ -592,85 +711,66 @@ def plot_delta_v_launch_date(
     filename: str = "m8_delta_v_launch_date.png",
     dpi: int = 150,
 ) -> str:
-    """绘制 Δv 随发射日期变化的曲线。
-
-    Parameters
-    ----------
-    optimization_result : OptimizationResult, optional
-        M6 扫描结果。
-    filename : str
-    dpi : int
-
-    Returns
-    -------
-    str : 图像保存路径。
-    """
+    """绘制 legal-window 搜索中预算与返回速度随日期变化。"""
     plt = _ensure_matplotlib()
 
     if optimization_result is None:
-        # 用轻量级扫描获取数据
-        from optimize_window import scan_launch_window
-        body_data = fetch_sem_vectors(use_cache=True)
-        optimization_result = scan_launch_window(
-            r_p_AU=0.3, r_m_km=R_MOON + 500.0,
-            side="trailing", mode="fast", verbose=False,
-            body_data=body_data,
-        )
+        optimization_result = _load_result_json("m5_legal_window_search.json")
 
-    windows = optimization_result.windows
-    if not windows:
+    rows = _extract_search_rows(optimization_result)
+    if not rows or "total_vinf_basis_kms" not in rows[0]:
         print("[Plot] No window data to plot")
         return ""
 
-    # 提取：日期 vs 评分（score 反映 C3 + 几何质量 → Δv proxy）
-    mjds = [w.t0_mjd for w in windows]
-    scores = [w.score for w in windows]
-    angles = [w.moon_angle_deg for w in windows]
-    feasible = [w.feasible for w in windows]
+    valid_rows = [r for r in rows if r.get("valid_return_event") and r.get("total_vinf_basis_kms") is not None]
+    fair_rows = [r for r in valid_rows if r.get("fair")]
+    best = min(fair_rows or valid_rows, key=lambda r: float(r.get("distance_to_earth_km", np.inf)))
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
 
-    # 上部：评分 vs 日期
-    ax1.scatter(mjds, scores, c=["green" if f else "red" for f in feasible],
-                s=5, alpha=0.5)
-    ax1.axhline(6.0, color="orange", linestyle="--", linewidth=0.8, alpha=0.5,
-                label="Feasibility threshold")
-    ax1.set_ylabel("Geometric Score (lower = better)")
-    ax1.set_title("Launch Window Scan (2026) — Alignment Score")
+    ax1.scatter(
+        [r["t0_mjd"] for r in valid_rows],
+        [float(r["total_vinf_basis_kms"]) for r in valid_rows],
+        c="darkorange", s=12, alpha=0.55, label="Valid return",
+    )
+    if fair_rows:
+        ax1.scatter(
+            [r["t0_mjd"] for r in fair_rows],
+            [float(r["total_vinf_basis_kms"]) for r in fair_rows],
+            c="forestgreen", s=16, alpha=0.8, label="Fair candidate",
+        )
+    ax1.scatter([best["t0_mjd"]], [best["total_vinf_basis_kms"]], c="blue", s=40, marker="*",
+                zorder=5, label="Best legal candidate")
+    ax1.set_ylabel("Total vinf basis (km/s)")
+    ax1.set_title("Legal-Window Budget and Return-Speed Diagnostics")
     ax1.legend(fontsize=8)
     ax1.grid(True, alpha=0.3)
-    ax1.set_yscale("log")
 
-    # 下部：Moon 对准角
-    ax2.scatter(mjds, angles, c=["green" if f else "red" for f in feasible],
-                s=5, alpha=0.5)
-    ax2.axhline(65.0, color="orange", linestyle="--", linewidth=0.8, alpha=0.5,
-                label="Feasibility threshold (65°)")
+    return_rows = [r for r in valid_rows if r.get("return_vinf_kms") is not None]
+    ax2.scatter(
+        [r["t0_mjd"] for r in return_rows],
+        [float(r["return_vinf_kms"]) for r in return_rows],
+        c="slateblue", s=12, alpha=0.55, label="Valid return",
+    )
+    ax2.axhline(15.0, color="red", linestyle="--", linewidth=0.9, alpha=0.7,
+                label="Mission threshold")
     ax2.set_xlabel("Launch Date (MJD)")
-    ax2.set_ylabel("Moon Alignment Angle (deg)")
+    ax2.set_ylabel("Return vinf (km/s)")
     ax2.legend(fontsize=8)
     ax2.grid(True, alpha=0.3)
-
-    # 标注最佳窗口
-    if optimization_result.best_windows:
-        best = optimization_result.best_windows[0]
-        ax2.annotate(
-            f"Best: MJD {best.t0_mjd:.0f}\n({best.moon_angle_deg:.1f}°)",
-            xy=(best.t0_mjd, best.moon_angle_deg),
-            xytext=(best.t0_mjd + 20, best.moon_angle_deg + 10),
-            fontsize=8,
-            arrowprops=dict(arrowstyle="->", color="blue"),
-            bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.7),
-        )
+    ax2.annotate(
+        f"Best: MJD {best['t0_mjd']:.1f}\nreturn dist={best['distance_to_earth_km']:.0f} km",
+        xy=(best["t0_mjd"], best["return_vinf_kms"]),
+        xytext=(best["t0_mjd"] - 55, best["return_vinf_kms"] + 1.1),
+        fontsize=8,
+        arrowprops=dict(arrowstyle="->", color="blue"),
+        bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.7),
+    )
 
     fig.tight_layout()
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
-    print(f"[Plot] Saved Δv-launch-date plot to {path}")
+    print(f"[Plot] Saved dv-launch-date plot to {path}")
     return str(path)
 
 
@@ -678,71 +778,46 @@ def plot_t0_rp_contour(
     filename: str = "m8_t0_rp_contour.png",
     dpi: int = 150,
 ) -> str:
-    """绘制 t0-r_p 参数扫描的 Δv 等值线图。
-
-    对 3 个发射日期 × 3 个近日距运行 M5，插值绘制等值线。
-    """
+    """绘制 legal-window 搜索中 t0-r_m 的 achieved-perihelion 热图。"""
     plt = _ensure_matplotlib()
+    search = _load_result_json("m5_legal_window_search.json")
+    rows = [r for r in search.get("search_rows", []) if r.get("side") == "trailing"]
+    if not rows:
+        print("[Plot] No legal-window rows for contour plot")
+        return ""
 
-    body_data = fetch_sem_vectors(use_cache=True)
+    t0_scan = sorted({float(r["t0_mjd"]) for r in rows})
+    rm_scan = sorted({float(r["r_m_km"]) for r in rows})
+    grid = np.full((len(rm_scan), len(t0_scan)), np.nan)
 
-    # 扫描网格：5 t0 × 5 r_p
-    t0_scan = np.linspace(61066.0, 61154.0, 5)
-    rp_scan = np.linspace(0.25, 0.35, 5)
-    gm_rp_ach = np.zeros((len(t0_scan), len(rp_scan)))
+    t0_index = {v: i for i, v in enumerate(t0_scan)}
+    rm_index = {v: i for i, v in enumerate(rm_scan)}
+    for row in rows:
+        grid[rm_index[float(row["r_m_km"])], t0_index[float(row["t0_mjd"])]] = float(row["perihelion_AU"])
 
-    print(f"[Plot] Scanning t0 × r_p grid ({len(t0_scan)}×{len(rp_scan)})...")
-    for i, t0 in enumerate(t0_scan):
-        for j, rp in enumerate(rp_scan):
-            try:
-                params = DesignParams(
-                    t0_mjd=t0, r_m=R_MOON + 500.0,
-                    side="trailing", r_p=rp * AU_KM,
-                )
-                res = solve_trajectory(params, body_data, verbose=False)
-                gm_rp_ach[i, j] = km_to_au(res.r_p_achieved_km) if res.success else 0.0
-            except Exception:
-                gm_rp_ach[i, j] = 0.0
-
+    best = search.get("best_lunar_candidate")
     fig, ax = plt.subplots(figsize=(8, 6))
-
-    # 网格插值
-    from scipy.interpolate import RectBivariateSpline
-    try:
-        # 细网格
-        t0_fine = np.linspace(min(t0_scan), max(t0_scan), 30)
-        rp_fine = np.linspace(min(rp_scan), max(rp_scan), 30)
-        interp = RectBivariateSpline(t0_scan, rp_scan, gm_rp_ach)
-        z_fine = interp(t0_fine, rp_fine)
-
-        extent = [min(rp_scan), max(rp_scan), min(t0_scan), max(t0_scan)]
-        im = ax.imshow(z_fine, origin="lower", aspect="auto", extent=extent,
-                       cmap="viridis", interpolation="bilinear")
-        fig.colorbar(im, ax=ax, label="Achieved r_p (AU)")
-
-        # 等值线
-        cs = ax.contour(rp_fine, t0_fine, z_fine, levels=6, colors="white",
-                        linewidths=0.8, alpha=0.6)
-        ax.clabel(cs, inline=True, fontsize=8, fmt="%.3f")
-    except Exception as e:
-        print(f"  Contour interpolation failed: {e}")
-        # 降级：散点
-        for i, t0 in enumerate(t0_scan):
-            for j, rp in enumerate(rp_scan):
-                ax.scatter(rp, t0, c=gm_rp_ach[i, j], s=100,
-                           cmap="viridis", vmin=0, vmax=0.4)
-        ax.set_title("t0 × r_p Grid (raw, no interpolation)")
-
-    ax.set_xlabel("Design r_p (AU)")
-    ax.set_ylabel("Launch Date (MJD)")
-    ax.set_title("t0 — r_p Parameter Scan: Achieved Perihelion")
+    extent = [min(t0_scan), max(t0_scan), min(rm_scan), max(rm_scan)]
+    im = ax.imshow(grid, origin="lower", aspect="auto", extent=extent,
+                   cmap="viridis", interpolation="nearest")
+    fig.colorbar(im, ax=ax, label="Achieved perihelion (AU)")
+    ax.set_xlabel("Launch Date (MJD)")
+    ax.set_ylabel("r_m (km)")
+    ax.set_title("Legal-Window t0-r_m Heatmap (trailing side)")
+    if best:
+        ax.scatter(best["t0_mjd"], best["r_m_km"], c="white", edgecolors="black", s=60, marker="*")
+        ax.annotate(
+            "Best legal candidate",
+            xy=(best["t0_mjd"], best["r_m_km"]),
+            xytext=(best["t0_mjd"] - 45, best["r_m_km"] + 1200),
+            fontsize=8,
+            arrowprops=dict(arrowstyle="->", color="white"),
+            bbox=dict(boxstyle="round", facecolor="black", alpha=0.45),
+            color="white",
+        )
 
     fig.tight_layout()
-    repo_root = Path(__file__).resolve().parents[1]
-    out_dir = repo_root / "data" / "results"
-    os.makedirs(out_dir, exist_ok=True)
-    path = out_dir / filename
-    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    path = _save_figure(fig, filename, dpi)
     plt.close(fig)
     print(f"[Plot] Saved t0-rp contour plot to {path}")
     return str(path)
@@ -781,34 +856,38 @@ def generate_report_plots(
 
     generated = []
 
-    # 如果未提供 M5 结果，运行一次 M5
-    if m5_result is None:
-        print("[Plot] Running M5 trajectory to generate plot data...")
+    legal_window = _load_result_json("m5_legal_window_search.json")
+    m6_independent = _load_result_json("m6_independent_window_search.json")
+    m7_summary = _load_result_json("m7_extended_monte_carlo.json")
+    m7_payload = {"summary": m7_summary, "results": _load_m7_sample_rows()}
+    formal_candidate = m6_independent.get("best_valid_candidate") or legal_window.get("best_lunar_candidate")
+
+    # 如果未提供 M5 结果，则用当前 legal-window formal 候选重建几何
+    if m5_result is None and formal_candidate:
+        print("[Plot] Reconstructing current legal-window trajectory geometry...")
         params = DesignParams(
-            t0_mjd=61066.0,
-            r_m=R_MOON + 500.0,
-            side="trailing",
+            t0_mjd=float(formal_candidate["t0_mjd"]),
+            r_m=float(formal_candidate["r_m_km"]),
+            side=str(formal_candidate["side"]),
             r_p=0.3 * AU_KM,
         )
         m5_result = solve_trajectory(params, body_data, verbose=False)
 
     # 1. 轨道图
-    p = plot_trajectory(m5_result, body_data, dpi=dpi)
+    p = plot_trajectory(m5_result, body_data, dpi=dpi, formal_result=formal_candidate)
     generated.append(p)
 
     # 2. 月球借力图
-    p = plot_lunar_swingby(m5_result, dpi=dpi)
+    p = plot_lunar_swingby(m5_result, dpi=dpi, formal_result=formal_candidate)
     generated.append(p)
 
     # 3. 发射窗口图
-    if m6_result is not None:
-        p = plot_launch_windows(m6_result, dpi=dpi)
-        generated.append(p)
+    p = plot_launch_windows(m6_result or legal_window, dpi=dpi)
+    generated.append(p)
 
     # 4. 灵敏度图
-    if m7_result is not None:
-        p = plot_sensitivity(m7_result, dpi=dpi)
-        generated.append(p)
+    p = plot_sensitivity(m7_result or m7_payload, dpi=dpi)
+    generated.append(p)
 
     # 5. Horizons 残差图（从现有残差文件加载）
     p = plot_horizons_residual(dpi=dpi)
@@ -819,10 +898,7 @@ def generate_report_plots(
     generated.append(p)
 
     # 7. Δv-发射日期曲线
-    if m6_result is not None:
-        p = plot_delta_v_launch_date(m6_result, dpi=dpi)
-    else:
-        p = plot_delta_v_launch_date(dpi=dpi)
+    p = plot_delta_v_launch_date(m6_result or legal_window, dpi=dpi)
     generated.append(p)
 
     return generated
@@ -857,70 +933,55 @@ def _run_m8_regression():
     body_data = fetch_sem_vectors(use_cache=True)
     dpi = 150
 
-    # 运行 M5 获取轨迹数据
-    print(f"\n--- Generating trajectory data (M5) ---")
+    legal_window = _load_result_json("m5_legal_window_search.json")
+    m6_independent = _load_result_json("m6_independent_window_search.json")
+    m7_summary = _load_result_json("m7_extended_monte_carlo.json")
+    m7_payload = {"summary": m7_summary, "results": _load_m7_sample_rows()}
+    formal_candidate = m6_independent.get("best_valid_candidate") or legal_window.get("best_lunar_candidate")
+
+    print(f"\n--- Generating trajectory data from current legal-window candidate ---")
     params = DesignParams(
-        t0_mjd=61066.0,
-        r_m=R_MOON + 500.0,
-        side="trailing",
+        t0_mjd=float(formal_candidate["t0_mjd"]),
+        r_m=float(formal_candidate["r_m_km"]),
+        side=str(formal_candidate["side"]),
         r_p=0.3 * AU_KM,
     )
     m5_result = solve_trajectory(params, body_data, verbose=False)
-    print(f"  r_p = {km_to_au(m5_result.r_p_achieved_km):.4f} AU")
+    print(f"  formal perihelion = {formal_candidate['perihelion_AU']:.4f} AU")
     print(f"  Moon dist = {m5_result.dist_moon_min:.0f} km")
 
     # Test 1: 轨迹图
     print(f"\n--- Test 1: Full trajectory plot ---")
-    p1 = plot_trajectory(m5_result, body_data, filename="m8_trajectory.png")
+    p1 = plot_trajectory(
+        m5_result, body_data, filename="m8_trajectory.png", formal_result=formal_candidate
+    )
     assert Path(p1).exists(), f"Trajectory plot not created: {p1}"
     print(f"  OK: {p1}")
 
     # Test 2: 月球借力图
     print(f"\n--- Test 2: Lunar swingby detail ---")
-    p2 = plot_lunar_swingby(m5_result, filename="m8_lunar_swingby.png")
+    p2 = plot_lunar_swingby(
+        m5_result, filename="m8_lunar_swingby.png", formal_result=formal_candidate
+    )
     assert Path(p2).exists(), f"Swingby plot not created: {p2}"
     print(f"  OK: {p2}")
 
-    # Test 3: 发射窗口图（运行快速扫描以获取数据）
-    print(f"\n--- Test 3: Launch window polar plot ---")
-    m6_result = scan_launch_window(
-        r_p_AU=0.3, r_m_km=R_MOON + 500.0,
-        side="trailing", mode="fast", verbose=False,
-        body_data=body_data,
-    )
-    p3 = plot_launch_windows(m6_result, filename="m8_launch_windows.png")
+    # Test 3: 发射窗口图（使用正式 legal-window 搜索结果）
+    print(f"\n--- Test 3: Legal-window candidate distribution ---")
+    p3 = plot_launch_windows(legal_window, filename="m8_launch_windows.png")
     assert Path(p3).exists(), f"Window plot not created: {p3}"
     print(f"  OK: {p3}")
 
-    # Test 4: 灵敏度图
-    print(f"\n--- Test 4: Sensitivity plot ---")
-    # 使用轻量级扰动替代完整 M7
-    from sensitivity import (
-        sweep_parameter, compute_sensitivity, SensitivityResult, SensitivityPoint
-    )
-    base_params = DesignParams(t0_mjd=61066.0, r_m=R_MOON+500, side="trailing", r_p=0.3*AU_KM)
-    t0_pts = sweep_parameter("t0_mjd", 61066.0, [-1, 0, 1], base_params, body_data, verbose=False)
-    rm_pts = sweep_parameter("r_m", R_MOON+500, [-500, 0, 500], base_params, body_data, verbose=False)
-    rp_pts = sweep_parameter("r_p", 0.3*AU_KM, [-0.005*AU_KM, 0, 0.005*AU_KM], base_params, body_data, verbose=False)
-    all_pts = t0_pts + rm_pts + rp_pts
-    sens = compute_sensitivity(all_pts)
-    m7_result = SensitivityResult(
-        nominal_r_p_AU=km_to_au(0.3*AU_KM),
-        nominal_t0_mjd=61066.0,
-        nominal_r_m_km=R_MOON+500,
-        nominal_side="trailing",
-        nominal_success=True,
-        nominal_v_launch=0, nominal_v_reentry=0, nominal_r_p_achieved=0.3,
-        points=all_pts, sensitivity=sens,
-    )
-    p4 = plot_sensitivity(m7_result, filename="m8_sensitivity.png")
+    # Test 4: M7 分布图
+    print(f"\n--- Test 4: Monte Carlo distribution plot ---")
+    p4 = plot_sensitivity(m7_payload, filename="m8_sensitivity.png")
     assert Path(p4).exists(), f"Sensitivity plot not created: {p4}"
     print(f"  OK: {p4}")
 
     # Test 5: Horizons 残差图
     print(f"\n--- Test 5: Horizons residual plot ---")
     p5 = plot_horizons_residual(filename="m8_horizons_residual.png", dpi=dpi)
-    assert Path(p5).exists(), f"Residual plot not created: {p5}"
+    assert p5 and Path(p5).exists(), f"Residual plot not created: {p5}"
     print(f"  OK: {p5}")
 
     # Test 6: 能量漂移图
@@ -929,14 +990,14 @@ def _run_m8_regression():
     assert Path(p6).exists(), f"Energy drift plot not created: {p6}"
     print(f"  OK: {p6}")
 
-    # Test 7: Δv-发射日期曲线
-    print(f"\n--- Test 7: Delta-v vs launch date ---")
-    p7 = plot_delta_v_launch_date(m6_result, filename="m8_delta_v_launch_date.png", dpi=dpi)
+    # Test 7: legal-window 预算与返回速度曲线
+    print(f"\n--- Test 7: Legal-window budget vs launch date ---")
+    p7 = plot_delta_v_launch_date(legal_window, filename="m8_delta_v_launch_date.png", dpi=dpi)
     assert Path(p7).exists(), f"Delta-v plot not created: {p7}"
     print(f"  OK: {p7}")
 
-    # Test 8: t0-r_p 等值线图
-    print(f"\n--- Test 8: t0-r_p contour ---")
+    # Test 8: t0-r_m 热图
+    print(f"\n--- Test 8: Legal-window t0-r_m heatmap ---")
     p8 = plot_t0_rp_contour(filename="m8_t0_rp_contour.png", dpi=dpi)
     assert Path(p8).exists(), f"Contour plot not created: {p8}"
     print(f"  OK: {p8}")

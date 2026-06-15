@@ -255,35 +255,35 @@ M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段
 \begin{itemize}
     \item \texttt{m8\_trajectory.png}：完整日心轨道；
     \item \texttt{m8\_lunar\_swingby.png}：月心局部借力几何；
-    \item \texttt{m8\_launch\_windows.png}：全年几何窗口分布；
-    \item \texttt{m8\_sensitivity.png}：灵敏度诊断；
+    \item \texttt{m8\_launch\_windows.png}：2026 legal-window 候选分布；
+    \item \texttt{m8\_sensitivity.png}：M7 Monte Carlo 分布诊断；
     \item \texttt{m8\_energy\_drift.png}：能量漂移；
-    \item \texttt{m8\_delta\_v\_launch\_date.png}：窗口扫描几何诊断；
-    \item \texttt{m8\_t0\_rp\_contour.png}：参数扫描等值线。
+    \item \texttt{m8\_delta\_v\_launch\_date.png}：legal-window 预算与返回速度诊断；
+    \item \texttt{m8\_t0\_rp\_contour.png}：trailing 侧 $t_0$--$r_m$ 参数热图。
 \end{itemize}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{m8_trajectory.png}
-\caption{日心系完整轨道示意。}
+\caption{当前最佳 legal-window 候选的日心系轨道几何图，返回标注使用 formal Earth-return 语义。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.72\textwidth]{m8_lunar_swingby.png}
-\caption{月球借力局部几何图。}
+\caption{月球借力局部图，同时区分设计近月距与采样最小月距，避免旧图中的语义混写。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{m8_launch_windows.png}
-\caption{2026 年窗口几何分布图。}
+\caption{2026 年 legal-window 搜索候选分布，上图为返回地球距离，下图为实现近日距。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{m8_sensitivity.png}
-\caption{灵敏度分析三面板。}
+\caption{围绕合法 fixed-date anchor 的 M7 Monte Carlo 三面板：valid-only 返回速度、valid-only 总预算、有效/无效样本的 Earth-return 距离分布。}
 \end{figure}
 
 \begin{figure}[H]
@@ -295,13 +295,13 @@ M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{m8_delta_v_launch_date.png}
-\caption{全年发射窗口扫描的几何诊断图。}
+\caption{legal-window 搜索中，valid/fair 候选的总预算与返回 $v_{\infty}$ 随发射日期变化。}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.65\textwidth]{m8_t0_rp_contour.png}
-\caption{发射日期与实现近日距的参数等值线。}
+\caption{trailing 侧 legal-window 搜索中的 $t_0$--$r_m$ 参数热图，颜色表示实现近日距。}
 \end{figure}
 
 此外，O5 动画优先输出到 \texttt{build/orbit\_animation.mp4}，在缺少 ffmpeg/H.264 时降级为 GIF。
@@ -310,7 +310,7 @@ M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段
 
 \section{选做项概述}
 \subsection{O3 / O3+ 微分修正器}
-项目实现了不依赖 \texttt{scipy.optimize} 的微分修正器。O3 在修复 target leakage 后只获得约 4 倍改善；O3+ 使用直接 $\Delta \bm{v}$ 参数化和 Levenberg--Marquardt 阻尼，最佳结果将 Moon-position miss 压缩到 66,210~km，低于 100,000~km 阈值。由于当前提交物未保留 O3+ 收敛图文件，报告只保留数值描述，不硬引用缺失图。
+项目实现了不依赖 \texttt{scipy.optimize} 的微分修正器。O3 在修复 target leakage 后只获得约 4 倍改善；O3+ 使用直接 $\Delta \bm{v}$ 参数化和 Levenberg--Marquardt 阻尼，最佳结果将 Moon-position miss 压缩到 66,210~km，低于 100,000~km 阈值。当前提交物保留了 O3+ 收敛图与结果文件，因此这一模块既有数值结论，也有对应图像证据链。
 
 \subsection{O4 / O4+ 多次借力探索}
 Earth--Moon--Venus--Earth 的 MGA-Lambert 链搜索和 powered-flyby 优化器均已实现，但在当前约束下未找到可行完整链。O4 保持 exploratory，O4+ 证明了“即使允许 powered residual，也仍难以满足约束”的结论。
@@ -361,7 +361,7 @@ M4 lunar swingby & 完成 & 解析偏折公式、leading/trailing 数值传播�
 M5 trajectory & 完成 & 已建立合法 2026 发射窗内的 formal 单点轨道，并完成同日 no-lunar 正式对比。 \\
 M6 launch window & 完成 & 全年合法窗口搜索已跑通，当前最佳候选为 2026-12-16，且被独立搜索链再次确认。 \\
 M7 sensitivity & 完成 & 已完成围绕合法 fixed-date anchor 的 $N=200$ Monte Carlo，当前结果为 101 valid / 99 invalid / 0 timeout。 \\
-M8 figures & 完成 & 静态图、图表清单与动画生成链路均已实现，可直接服务提交物生成。 \\
+M8 figures & 完成 & 静态图、图表清单与动画生成链路均已绑定到当前 legal/formal 结果源，并修正了旧候选与旧返回语义残留。 \\
 \hline
 O3 corrector & 完成 & 已实现自定义微分修正器并修复 target leakage，具备独立可运行的方法链。 \\
 O3+ vector & 完成 & 进一步实现更强的向量修正与阻尼策略，最佳 miss 压缩到 66,210~km。 \\

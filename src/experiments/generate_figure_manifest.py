@@ -30,13 +30,13 @@ FIGURES = [
         "file": "m8_launch_windows.png",
         "report_label": "fig:launch-windows",
         "section": "M8",
-        "description": "Polar alignment radar",
+        "description": "2026 legal-window candidate distribution",
     },
     {
         "file": "m8_sensitivity.png",
         "report_label": "fig:sensitivity",
         "section": "M8",
-        "description": "Three-panel sensitivity",
+        "description": "M7 Monte Carlo distribution three-panel",
     },
     {
         "file": "m8_horizons_residual.png",
@@ -54,13 +54,13 @@ FIGURES = [
         "file": "m8_delta_v_launch_date.png",
         "report_label": "fig:delta-v-date",
         "section": "M6/M8",
-        "description": "Window scan curves",
+        "description": "Legal-window budget and return-speed curves",
     },
     {
         "file": "m8_t0_rp_contour.png",
         "report_label": "fig:t0-rp-contour",
         "section": "M6/M8",
-        "description": "Parameter contour",
+        "description": "t0-r_m legal-window heatmap",
     },
     {
         "file": "o3plus_vector_convergence.png",
