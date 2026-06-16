@@ -80,6 +80,8 @@ class TrajectoryResult:
     t_transfer_days: float = 0.0
     r_at_moon: np.ndarray = field(default_factory=lambda: np.zeros(2), repr=False)
     v_at_moon: np.ndarray = field(default_factory=lambda: np.zeros(2), repr=False)
+    r_moon_at_encounter: np.ndarray = field(default_factory=lambda: np.zeros(2), repr=False)
+    v_moon_at_encounter: np.ndarray = field(default_factory=lambda: np.zeros(2), repr=False)
     dist_moon_min: float = 0.0
 
     # 月球借力
@@ -293,11 +295,14 @@ def estimate_moon_transfer(
     best_rocket_v_r = v4_refine[3].copy()
     best_moon_r_r = r4_refine[2].copy()
     best_moon_v_r = v4_refine[2].copy()
+    best_time2 = t_restart
+    t_refine = t_restart
     for _ in range(n_refine):
         r4_refine, v4_refine = propagate_nbody(
             r4_refine, v4_refine, DT_REFINE, gm4, n_bodies=4,
             dt_internal=DT_REFINE,
         )
+        t_refine += DT_REFINE
         dist = np.linalg.norm(r4_refine[3] - r4_refine[2])
         if dist < best_dist2:
             best_dist2 = dist
@@ -307,6 +312,7 @@ def estimate_moon_transfer(
             best_rocket_v_r = v4_refine[3].copy()
             best_moon_r_r = r4_refine[2].copy()
             best_moon_v_r = v4_refine[2].copy()
+            best_time2 = t_refine
     # 如果精化扫描找到更近的距离，则采纳精化结果
     if best_dist2 < best_dist:
         best_r4 = best_r4_r
@@ -316,6 +322,7 @@ def estimate_moon_transfer(
         best_moon_r = best_moon_r_r
         best_moon_v = best_moon_v_r
         best_dist = best_dist2
+        best_time = best_time2
 
     return (best_time if best_dist < np.inf else t_accum, best_r4, best_v4,
             best_rocket_r, best_rocket_v, best_moon_r, best_moon_v)
@@ -513,6 +520,8 @@ def solve_trajectory(
         t_transfer_days=t_transfer_days,
         r_at_moon=r_rocket_arrival,
         v_at_moon=v_rocket_arrival,
+        r_moon_at_encounter=r_moon_arrival,
+        v_moon_at_encounter=v_moon_arrival,
         dist_moon_min=dist_moon_min,
         swingby=swingby_result,
         v_post_swingby=v_post_swingby,

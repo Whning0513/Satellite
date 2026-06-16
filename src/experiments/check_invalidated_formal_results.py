@@ -221,6 +221,25 @@ def check(fp):
         if "heliocentric_residual_km" in d or "ssb_absolute_residual_km" in d:
             ERRORS.append(f"[FAIL] {n}: top-level unlabeled residual fields must not be present")
 
+    if n == "main_task_result.json":
+        hist = d.get("historical_invalidated_anchor", {})
+        if hist.get("t0_mjd") != 61037.0:
+            ERRORS.append(f"[FAIL] {n}: historical_invalidated_anchor.t0_mjd must be 61037.0")
+        if hist.get("status") != "invalidated_outside_2026_launch_window":
+            ERRORS.append(f"[FAIL] {n}: historical_invalidated_anchor.status invalid")
+        for key in ("fixed_date_formal_anchor", "best_legal_window_candidate"):
+            block = d.get(key, {})
+            if not _in_launch_window(block.get("t0_mjd")):
+                ERRORS.append(f"[FAIL] {n}: {key}.t0_mjd outside formal launch window")
+            if block.get("valid_return_event") is not True:
+                ERRORS.append(f"[FAIL] {n}: {key}.valid_return_event must be true")
+            if _near(block.get("return_vinf_kms"), 77.88, 0.2) or float(block.get("return_vinf_kms", 0.0) or 0.0) >= 80.0:
+                ERRORS.append(f"[FAIL] {n}: {key}.return_vinf_kms leaked old invalid high value")
+        fixed_compare = d.get("fixed_date_formal_anchor", {}).get("same_date_no_lunar_compare", {})
+        ratio = fixed_compare.get("formal_ratio_vinf_basis")
+        if ratio is None or ratio <= 0:
+            ERRORS.append(f"[FAIL] {n}: fixed-date formal ratio must be present and positive")
+
 resolved = RESULTS / "m5_saving_ratio_resolved.json"
 compare = RESULTS / "m5_t61037_lunar_vs_no_lunar_deep_compare.json"
 if compare.exists() and resolved.exists():

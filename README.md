@@ -22,48 +22,12 @@
 
 ```
 FinalProject/
-├── .gitignore             # 排除 config/、build/、大文件
-├── Makefile               # 编译、验证、清理、审计
-├── README.md              # 项目说明（本文件）
-├── AI-Agent.md            # AI 辅助开发报告
-├── FINAL_AUDIT.md         # 交付审计文件
-├── config/
-│   └── proxy.ini          # JPL 代理凭据（已 gitignored）
-├── data/
-│   ├── README.md
-│   ├── sem_horizons_2026-2027.json  # JPL 历表缓存
-│   └── results/                      # 所有结果输出（gitignored）
+├── report.tex
+├── Makefile
+├── README.md
+├── AI-Agent.md
 ├── src/
-│   ├── constants.py       # 物理常数与设计参数范围
-│   ├── units.py           # 单位换算工具
-│   ├── frames.py          # 参考系转换模块（日心/SSB/2D）
-│   ├── dynamics.py        # 动力学引擎（SSB + 日心相对积分）
-│   ├── nbody.py           # M2: N 体 Velocity-Verlet 积分器
-│   ├── horizons.py        # M3: JPL Horizons 历表接口
-│   ├── patched_conic.py   # M1: 拼接圆锥曲线
-│   ├── lunar_swingby.py   # M4: 月球借力分析
-│   ├── trajectory.py      # M5: 单点轨道求解器
-│   ├── optimize_window.py # M6: 发射窗口优化
-│   ├── sensitivity.py     # M7: 灵敏度分析
-│   ├── plotting.py        # M8: 可视化
-│   ├── animation.py       # O5: 轨道动画
-│   ├── shooting_corrector.py # O3: 旧版打靶修正（legacy）
-│   ├── diagnostics.py     # 时间/单位诊断
-│   ├── validation.py      # 回归测试入口
-│   └── experiments/       # 消融实验和辅助分析
-│       ├── m3_residual_ablation.py
-│       ├── m4_swingby_scan.py
-│       ├── m7_stepsize_convergence.py
-│       ├── aux_results.py
-│       ├── o4_ephemeris_extend.py    # O4: Venus ephemeris extension
-│       ├── o4_multi_gravity_assist.py # O4: Moon-Venus chain search
-│       ├── o7_worker.py          # O7: ProcessPool worker
-│       ├── o7_parallel_scan.py   # O7: ProcessPool parallel scan
-│       ├── o7_surrogate_prefilter.py # O7: Ridge surrogate (no sklearn)
-│       ├── m5_global_no_lunar_baseline.py # M5 global no-lunar baseline diagnostic
-│       └── m6_pareto_window_diagnostic.py # M6 Pareto trade-off diagnostic
-├── delta_v_budget.py       # Δv budget unified module
-└── PROJECT_DETAIL_DUMP.md  # 项目细节快照（供审查者参考）
+└── data/
 ```
 
 ---
@@ -106,9 +70,9 @@ FinalProject/
 - 已完成 2026 全年合法窗口 coarse+local-refine 搜索
 - derived legal-window search：`900` 个候选，`95` 个 valid complete return，`71` 个 fair return
 - 当前最佳 legal-window candidate：MJD `61390.5`（2026-12-16），`trailing`，`r_m=2037.4 km`
-- 对应返回地球距离约 `7231 km`，`return_vinf=14.3987 km/s`，`total_vinf_basis=10.1213 km/s`
-- 独立 M6 参数搜索在 `1220` 个候选上回收了同一组 `t0/side/r_m`
-- 这给出当前最佳窗口候选，但仍应理解为有限分辨率搜索结果，而非连续参数空间上的严格数学全局最优证明
+- derived / independent 两条搜索链都回收到同一组 `t0/side/r_m`
+- 搜索摘要返回距离约 `7.2e3–7.7e3 km`，`return_vinf≈14.4–14.5 km/s`，`total_vinf_basis=10.1213 km/s`
+- 当前应将它理解为“最佳 legal-window 搜索候选”；单点 replay 仍有明显步长/事件搜索敏感性，因此不应写成强于 fixed-date formal anchor 的最终 formal 结果
 
 ### M7 — 灵敏度分析 + 步长收敛 [done]
 - 当前 full Monte Carlo 围绕合法 fixed-date anchor（MJD 61065.0）运行
@@ -119,7 +83,7 @@ FinalProject/
 - **4 级步长收敛**（3600/1800/900/450s），能量漂移均远低于阈值
 
 ### M8 — 可视化 [done-with-caveat]
-- 当前提交物可直接引用 7 张静态图（轨迹、借力、窗口、灵敏度、能量漂移、日期曲线、等值线）
+- 当前提交物可直接引用 8 张静态图（轨迹、借力、窗口、灵敏度、能量漂移、日期曲线、等值线、Horizons 残差）
 - 所有图片由 `make figures` 生成
 - 详见 `figure_manifest.json`
 
@@ -201,23 +165,20 @@ make compile      # 语法检查
 make validate     # 全部回归测试
 make figures      # 生成全部图表
 make pdf          # 编译 report.pdf
+make main-task-export  # 导出主任务 JSON/CSV 摘要
 make audit        # 安全审计 + 图表完整性检查
 make clean        # 清理生成物
 ```
 
-长时间重任务建议使用 watchdog 入口：
+主任务机器可读输出：
 
 ```bash
-make watch-m5-legal-window-search
-make watch-m6-independent-window-search
-make watch-m7-mc-full
+make main-task-export
 ```
 
-这些入口支持：
-- 终端进度条
-- ETA
-- 10 分钟 watchdog 心跳
-- JSONL checkpoint 断点续跑
+输出文件：
+- `data/results/main_task_result.json`
+- `data/results/main_task_trajectory.csv`
 
 ### 生成全部回归测试
 
@@ -312,8 +273,8 @@ SSB 惯性积分 → 日心系残差对比，消除因省略大行星摄动导�
 
 - M3 是 same-source propagation check，不是独立 JPL 预测精度证明
 - M4 数值验证为局部月心二体/局部任务参数对照，非完整任务级 high-fidelity swingby
-- M6 当前正式身份是 legal-window verified anchor；尚未把全年全局最优重新重建完毕
-- M7 full MC 存在大量 timeout，当前更像 event-search 能力瓶颈，不宜直接解释为物理上全部不返回
+- M6 当前已完成合法窗口 coarse+local-refine 搜索，并由独立搜索链支持当前最佳候选；但它仍是有限分辨率 search candidate，且单点 replay 具有明显敏感性
+- M7 full MC 当前结果为 `101 valid / 99 invalid / 0 timeout`，它支撑的是 `61065` fixed-date formal anchor 周边的鲁棒性，而不是 `61390.5` 年度最佳窗口周边的最终鲁棒性
 - 动画（O5）优先生成 MP4，若 ffmpeg/H.264 不可用会 fallback 到 GIF
 - O7 代理预筛选：Ridge 回归 R²=0.8956，几何特征仅能捕捉整体趋势，top-15 recall=33%
 - O4 多次借力链搜索：有限的多体链可行性（analytic Venus 近似 + Moon 高 v_inf 偏转角不足限制链可行性）

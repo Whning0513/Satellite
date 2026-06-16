@@ -6,6 +6,7 @@ Does NOT regenerate any result — only checks what exists.
 """
 
 import json, math, sys
+import csv
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
@@ -97,6 +98,15 @@ def _finite(obj, path=""):
             if not _finite(v, f"{path}[{i}]"):
                 return False
     return True
+
+
+def _load_csv_rows(path_rel):
+    path = RESULTS / path_rel
+    if not path.exists():
+        ERRORS.append(f"[FAIL] {path_rel}: required file not found")
+        return []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
 
 
 def check_delta_v_budget():
@@ -224,6 +234,99 @@ def check_m7_outputs():
     timeout_replay = _load("m7_timeout_replay.json")
     if timeout_replay is None:
         _warn_missing("m7_timeout_replay")
+
+
+def check_main_task_export():
+    d = _load("main_task_result.json")
+    if d is None:
+        ERRORS.append("[FAIL] main_task_result.json: required unified main-task export missing")
+        return
+
+    _check(
+        "main_task_result.json",
+        d.get("classification") == "MAIN_TASK_FORMAL_EXPORT",
+        f"expected MAIN_TASK_FORMAL_EXPORT, got {d.get('classification')!r}",
+    )
+    _check(
+        "main_task_result.json",
+        d.get("launch_window") == ["2026-01-01", "2026-12-31"],
+        f"unexpected launch_window {d.get('launch_window')!r}",
+    )
+    invalid = d.get("historical_invalidated_anchor", {})
+    _check(
+        "main_task_result.json",
+        invalid.get("t0_mjd") == 61037.0 and invalid.get("status") == "invalidated_outside_2026_launch_window",
+        "historical invalidated anchor block missing or malformed",
+    )
+
+    for key in ["fixed_date_formal_anchor", "best_legal_window_candidate", "machine_readable_outputs"]:
+        _check("main_task_result.json", key in d, f"missing required key {key}")
+
+    fixed = d.get("fixed_date_formal_anchor", {})
+    legal = d.get("best_legal_window_candidate", {})
+    for label, block in [("fixed_date_formal_anchor", fixed), ("best_legal_window_candidate", legal)]:
+        t0 = block.get("t0_mjd")
+        _check("main_task_result.json", t0 is not None, f"{label}.t0_mjd missing")
+        if t0 is not None:
+            _check(
+                "main_task_result.json",
+                MISSION_LAUNCH_START_MJD <= float(t0) <= MISSION_LAUNCH_END_MJD,
+                f"{label}.t0_mjd={t0} outside formal 2026 launch window",
+            )
+        _check("main_task_result.json", block.get("valid_return_event") is True, f"{label}.valid_return_event must be true")
+        _check("main_task_result.json", block.get("duration_constraint_valid") is True, f"{label}.duration_constraint_valid must be true")
+        _check("main_task_result.json", block.get("distance_to_earth_km") is not None, f"{label}.distance_to_earth_km missing")
+        _check("main_task_result.json", block.get("return_event_mjd") is not None, f"{label}.return_event_mjd missing")
+        _check("main_task_result.json", block.get("return_vinf_kms") is not None, f"{label}.return_vinf_kms missing")
+        _check("main_task_result.json", block.get("perihelion_achieved_AU") is not None, f"{label}.perihelion_achieved_AU missing")
+        three = block.get("three_segment_budget_proxy", {})
+        vinf = block.get("vinf_basis_budget", {})
+        for dv_key in ["dv_launch_kms", "dv_lunar_residual_kms", "dv_reentry_kms", "dv_total_kms"]:
+            _check("main_task_result.json", dv_key in three, f"{label}.three_segment_budget_proxy missing {dv_key}")
+        _check("main_task_result.json", "departure_vinf_kms" in vinf, f"{label}.vinf_basis_budget missing departure_vinf_kms")
+        _check("main_task_result.json", "total_vinf_basis_kms" in vinf, f"{label}.vinf_basis_budget missing total_vinf_basis_kms")
+
+    fixed_compare = fixed.get("same_date_no_lunar_compare", {})
+    _check("main_task_result.json", fixed_compare.get("same_budget_basis") is True, "fixed compare same_budget_basis must be true")
+    _check("main_task_result.json", fixed_compare.get("budget_basis") == "vinf_basis", "fixed compare budget_basis must be vinf_basis")
+    _check(
+        "main_task_result.json",
+        fixed_compare.get("formal_ratio_vinf_basis") is not None and float(fixed_compare.get("formal_ratio_vinf_basis")) > 0.0,
+        "fixed compare formal_ratio_vinf_basis must be present and positive",
+    )
+
+    legal_prov = legal.get("provenance", {})
+    _check("main_task_result.json", legal_prov.get("independent_m6_search") is True, "best legal candidate must preserve M6 independent provenance")
+
+    csv_rows = _load_csv_rows("main_task_trajectory.csv")
+    _check("main_task_trajectory.csv", len(csv_rows) >= 10, "trajectory CSV too short")
+    if csv_rows:
+        required_cols = [
+            "candidate_label",
+            "mjd",
+            "date",
+            "time_since_launch_days",
+            "event_flags",
+            "spacecraft_x_km",
+            "spacecraft_y_km",
+            "spacecraft_vx_kms",
+            "spacecraft_vy_kms",
+            "earth_ref_x_km",
+            "earth_ref_y_km",
+            "moon_ref_x_km",
+            "moon_ref_y_km",
+            "distance_to_earth_ref_km",
+            "distance_to_moon_ref_km",
+            "distance_to_sun_ref_km",
+        ]
+        for col in required_cols:
+            _check("main_task_trajectory.csv", col in csv_rows[0], f"missing CSV column {col}")
+        labels = {row.get("candidate_label") for row in csv_rows}
+        _check(
+            "main_task_trajectory.csv",
+            {"fixed_date_formal_anchor", "best_legal_window_candidate"}.issubset(labels),
+            f"trajectory CSV missing expected candidate labels: {labels}",
+        )
 
 
 def check_m3_outputs():
@@ -538,6 +641,7 @@ def main():
     check_m3_outputs()
     check_m6_outputs()
     check_m7_outputs()
+    check_main_task_export()
 
     print(f"\n  Errors:   {len(ERRORS)}")
     print(f"  Warnings: {len(WARNINGS) + len(OPTIONAL_MISSING)}")

@@ -28,6 +28,7 @@ REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 .PHONY: m1 m2 m3 m4 m5 m6 m7 m8 o3 o1-3d m5-fair m5-lambert
 .PHONY: pdf figures scan-fast animation audit audit-posix-legacy clean
 .PHONY: o2-gr o4-mga o6-interactive o7-parallel o7-surrogate bonus-all
+.PHONY: main-task-export
 
 # ---- Default: compile + generate figures + build PDF ----
 all: compile m3 figures animation m5-fair m5-lambert pdf
@@ -152,7 +153,7 @@ figure-manifest:
 
 test:
 	@echo "=== Unit tests ==="
-	$(PYTHON) -m unittest discover -s tests
+	$(PYTHON) -m unittest discover -s src/tests
 
 numerical-audit:
 	@echo "=== Numerical correctness audit ==="
@@ -177,6 +178,10 @@ mission-window-audit:
 result-sanity-dashboard:
 	@echo "=== Result sanity dashboard ==="
 	cd src && $(PYTHON) experiments/result_sanity_dashboard.py
+
+main-task-export:
+	@echo "=== Main task formal export ==="
+	cd src && $(PYTHON) experiments/export_main_task_result.py
 
 m7-distribution-audit:
 	@echo "=== M7 distribution audit (summary/sample-row based unless --replay used manually) ==="

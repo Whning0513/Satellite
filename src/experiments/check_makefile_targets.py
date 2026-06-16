@@ -33,6 +33,7 @@ REQUIRED_TARGETS = {
     "return-semantics-test": True,
     "check-m7-return-semantics": True,
     "figure-manifest": True,
+    "main-task-export": True,
     "audit": True,
 }
 

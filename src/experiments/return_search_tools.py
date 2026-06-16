@@ -112,6 +112,37 @@ def search_best_return_event(
     refine_step_s: float = 3600.0,
     max_extra_days: float = 500.0,
 ) -> dict[str, Any]:
+    result = search_best_return_event_detailed(
+        traj=traj,
+        body_data=body_data,
+        launch_mjd=launch_mjd,
+        nominal_return_mjd=nominal_return_mjd,
+        threshold_km=threshold_km,
+        nominal_window_half_width_days=nominal_window_half_width_days,
+        fallback_window_half_width_days=fallback_window_half_width_days,
+        coarse_step_days=coarse_step_days,
+        coarse_dt_internal_s=coarse_dt_internal_s,
+        refine_step_s=refine_step_s,
+        max_extra_days=max_extra_days,
+    )
+    result.pop("best_snapshot", None)
+    result.pop("coarse_best_snapshot", None)
+    return result
+
+
+def search_best_return_event_detailed(
+    traj,
+    body_data: dict,
+    launch_mjd: float,
+    nominal_return_mjd: float,
+    threshold_km: float,
+    nominal_window_half_width_days: float = 60.0,
+    fallback_window_half_width_days: float = 180.0,
+    coarse_step_days: float = 2.0,
+    coarse_dt_internal_s: float = 10800.0,
+    refine_step_s: float = 3600.0,
+    max_extra_days: float = 500.0,
+) -> dict[str, Any]:
     t_end = float(launch_mjd) + float(traj.t_total_days)
     r_sun_end, v_sun_end = interpolate_state_at_mjd(body_data, "Sun", t_end)
     r_moon_end, v_moon_end = interpolate_state_at_mjd(body_data, "Moon", t_end)
@@ -217,4 +248,20 @@ def search_best_return_event(
         "used_nominal_window": used_nominal_window,
         "fallback_full_window_used": fallback_full_window_used,
         "event_reason": event["reason"],
+        "best_snapshot": {
+            "mjd": float(best["mjd"]),
+            "r_sc_km": [float(x) for x in best["r_sc"]],
+            "v_sc_kms": [float(x) for x in best["v_sc"]],
+            "r_earth_km": [float(x) for x in best["r_earth"]],
+            "v_earth_kms": [float(x) for x in best["v_earth"]],
+            "r_moon_km": [float(x) for x in best["r_moon"]],
+        },
+        "coarse_best_snapshot": {
+            "mjd": float(coarse_best["mjd"]),
+            "r_sc_km": [float(x) for x in coarse_best["r_sc"]],
+            "v_sc_kms": [float(x) for x in coarse_best["v_sc"]],
+            "r_earth_km": [float(x) for x in coarse_best["r_earth"]],
+            "v_earth_kms": [float(x) for x in coarse_best["v_earth"]],
+            "r_moon_km": [float(x) for x in coarse_best["r_moon"]],
+        },
     }

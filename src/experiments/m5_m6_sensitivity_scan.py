@@ -3,9 +3,9 @@ m5_m6_sensitivity_scan.py
 =========================
 Sensitivity scan around the current legal-window lunar Earth-return anchor.
 
-This file used to be tied to the historical 61037 anchor. It now loads the
-formal legal anchor from current result JSON so the scan stays aligned with the
-active M5/M6/M7 storyline.
+This file used to be tied to the historical 61037 anchor. It now prefers the
+current best legal-window candidate, so the scan aligns with the strongest
+available M6 result rather than an invalidated historical anchor.
 """
 
 from __future__ import annotations
@@ -74,6 +74,32 @@ def _classification(fair_fraction: float) -> str:
 
 
 def _load_reference_candidate() -> dict[str, Any]:
+    m6 = _load_json("m6_independent_window_search.json")
+    if m6 and m6.get("best_valid_candidate"):
+        candidate = m6["best_valid_candidate"]
+        t0_mjd = float(candidate["t0_mjd"])
+        if not is_launch_mjd_in_window(t0_mjd):
+            raise ValueError(f"M6 sensitivity reference t0={t0_mjd} is outside the formal 2026 launch window")
+        return {
+            "source": "m6_independent_window_search.json",
+            "t0_mjd": t0_mjd,
+            "side": str(candidate["side"]),
+            "r_m_km": float(candidate["r_m_km"]),
+            "return_event_mjd": float(candidate["return_event_mjd"]),
+        }
+    legal = _load_json("m5_legal_window_search.json")
+    if legal and legal.get("best_lunar_candidate"):
+        candidate = legal["best_lunar_candidate"]
+        t0_mjd = float(candidate["t0_mjd"])
+        if not is_launch_mjd_in_window(t0_mjd):
+            raise ValueError(f"M5 legal-window sensitivity reference t0={t0_mjd} is outside the formal 2026 launch window")
+        return {
+            "source": "m5_legal_window_search.json",
+            "t0_mjd": t0_mjd,
+            "side": str(candidate["side"]),
+            "r_m_km": float(candidate["r_m_km"]),
+            "return_event_mjd": float(candidate["return_event_mjd"]),
+        }
     verify = _load_json("m5_best_lunar_candidate_verify.json")
     compare = _load_json("m5_fixed_date_current_compare.json")
     if verify is not None:

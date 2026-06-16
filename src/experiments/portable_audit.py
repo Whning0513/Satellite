@@ -44,6 +44,7 @@ REQUIRED_SOURCE_FILES = [
     "src/experiments/m6_independent_spotcheck.py",
     "src/experiments/m6_numerical_deep_audit.py",
     "src/experiments/m7_extended_monte_carlo.py",
+    "src/experiments/export_main_task_result.py",
 ]
 
 REQUIRED_RESULT_FILES = [
@@ -53,6 +54,8 @@ REQUIRED_RESULT_FILES = [
     "data/results/m6_independent_spotcheck.json",
     "data/results/m6_numerical_deep_audit.json",
     "data/results/m7_extended_monte_carlo.json",
+    "data/results/main_task_result.json",
+    "data/results/main_task_trajectory.csv",
 ]
 
 REQUIRED_TARGETS = [
@@ -75,6 +78,7 @@ REQUIRED_TARGETS = [
     "return-semantics-test",
     "figure-manifest",
     "check-m7-return-semantics",
+    "main-task-export",
     "audit",
 ]
 

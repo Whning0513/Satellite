@@ -2,7 +2,7 @@
 
 import unittest, json, os, sys, math, pathlib
 
-REPO = pathlib.Path(__file__).resolve().parents[1]
+REPO = pathlib.Path(__file__).resolve().parents[2]
 RESULTS = REPO / "data" / "results"
 
 
@@ -10,6 +10,7 @@ class TestImports(unittest.TestCase):
     """All core modules import without error."""
 
     def test_delta_v_budget_import(self):
+        sys.path.insert(0, str(REPO))
         sys.path.insert(0, str(REPO / "src"))
         import delta_v_budget
         self.assertTrue(hasattr(delta_v_budget, "qian_style_symmetric_budget"))
@@ -77,18 +78,21 @@ class TestDeltaVBudgetSelfTest(unittest.TestCase):
     """delta_v_budget.py --self-test produces expected numbers."""
 
     def test_qian_33_67(self):
+        sys.path.insert(0, str(REPO))
         sys.path.insert(0, str(REPO / "src"))
         from delta_v_budget import qian_style_symmetric_budget
         r = qian_style_symmetric_budget(16.8363)
         self.assertAlmostEqual(r["total_kms"], 33.6726, delta=0.01)
 
     def test_m1_29_41(self):
+        sys.path.insert(0, str(REPO))
         sys.path.insert(0, str(REPO / "src"))
         from delta_v_budget import qian_style_symmetric_budget
         r = qian_style_symmetric_budget(14.7036)
         self.assertAlmostEqual(r["total_kms"], 29.4072, delta=0.01)
 
     def test_o4plus_43_56(self):
+        sys.path.insert(0, str(REPO))
         sys.path.insert(0, str(REPO / "src"))
         from delta_v_budget import simplified_full_proxy_budget
         r = simplified_full_proxy_budget(
