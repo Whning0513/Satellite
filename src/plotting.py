@@ -31,6 +31,7 @@ from nbody import propagate_nbody
 from horizons import fetch_sem_vectors
 from optimize_window import scan_launch_window
 from budget_tools import ensure_lunar_row_formal_fields
+from experiments.final_annual_candidate import load_final_annual_candidate
 
 
 def _ensure_matplotlib():
@@ -63,6 +64,18 @@ def _load_result_json(filename: str) -> dict:
         raise FileNotFoundError(f"required result file missing: {path}")
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _load_best_legal_window_search() -> dict:
+    for name in ["m5_legal_window_daily_scan.json", "m5_legal_window_search.json"]:
+        path = _results_dir() / name
+        if path.exists():
+            return _load_result_json(name)
+    raise FileNotFoundError("no legal-window search JSON available")
+
+
+def _load_best_annual_candidate() -> dict:
+    return load_final_annual_candidate().get("candidate", {})
 
 
 def _load_m7_sample_rows() -> List[dict]:
@@ -730,7 +743,7 @@ def plot_delta_v_launch_date(
     plt = _ensure_matplotlib()
 
     if optimization_result is None:
-        optimization_result = _load_result_json("m5_legal_window_search.json")
+        optimization_result = _load_best_legal_window_search()
 
     rows = [ensure_lunar_row_formal_fields(r) for r in _extract_search_rows(optimization_result)]
     if not rows:
@@ -795,7 +808,7 @@ def plot_t0_rp_contour(
 ) -> str:
     """绘制 legal-window 搜索中 t0-r_m 的 achieved-perihelion 热图。"""
     plt = _ensure_matplotlib()
-    search = _load_result_json("m5_legal_window_search.json")
+    search = _load_best_legal_window_search()
     rows = [r for r in search.get("search_rows", []) if r.get("side") == "trailing"]
     if not rows:
         print("[Plot] No legal-window rows for contour plot")
@@ -871,11 +884,11 @@ def generate_report_plots(
 
     generated = []
 
-    legal_window = _load_result_json("m5_legal_window_search.json")
+    legal_window = _load_best_legal_window_search()
     m6_independent = _load_result_json("m6_independent_window_search.json")
     m7_summary = _load_result_json("m7_extended_monte_carlo.json")
     m7_payload = {"summary": m7_summary, "results": _load_m7_sample_rows()}
-    formal_candidate = m6_independent.get("best_valid_candidate") or legal_window.get("best_lunar_candidate")
+    formal_candidate = _load_best_annual_candidate() or m6_independent.get("best_valid_candidate") or legal_window.get("best_lunar_candidate")
 
     # 如果未提供 M5 结果，则用当前 legal-window formal 候选重建几何
     if m5_result is None and formal_candidate:
@@ -948,11 +961,11 @@ def _run_m8_regression():
     body_data = fetch_sem_vectors(use_cache=True)
     dpi = 150
 
-    legal_window = _load_result_json("m5_legal_window_search.json")
+    legal_window = _load_best_legal_window_search()
     m6_independent = _load_result_json("m6_independent_window_search.json")
     m7_summary = _load_result_json("m7_extended_monte_carlo.json")
     m7_payload = {"summary": m7_summary, "results": _load_m7_sample_rows()}
-    formal_candidate = m6_independent.get("best_valid_candidate") or legal_window.get("best_lunar_candidate")
+    formal_candidate = _load_best_annual_candidate() or m6_independent.get("best_valid_candidate") or legal_window.get("best_lunar_candidate")
 
     print(f"\n--- Generating trajectory data from current legal-window candidate ---")
     params = DesignParams(

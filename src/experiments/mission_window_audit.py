@@ -57,6 +57,7 @@ def main() -> int:
     for name, key in [
         ("m5_best_lunar_candidate_verify.json", ("candidate", "t0_mjd")),
         ("m5_t61037_lunar_vs_no_lunar_deep_compare.json", ("same_t0",)),
+        ("m6_legal_window_daily_verify.json", ("best_verified_candidate", "t0_mjd")),
         ("m6_legal_window_search.json", ("best_valid_candidate", "t0_mjd")),
         ("m6_complete_return_window_search.json", ("best_valid_candidate", "t0_mjd")),
         ("m7_extended_monte_carlo.json", ("reference_candidate", "t0_mjd")),

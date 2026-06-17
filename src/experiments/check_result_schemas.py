@@ -45,6 +45,8 @@ OPTIONAL_LABELS = {
 
 
 def _active_m6_search_file() -> str:
+    if (RESULTS / "m6_legal_window_daily_verify.json").exists():
+        return "m6_legal_window_daily_verify.json"
     if (RESULTS / "m6_legal_window_search.json").exists():
         return "m6_legal_window_search.json"
     return "m6_complete_return_window_search.json"
@@ -494,9 +496,48 @@ def check_m6_outputs():
         _check("m6_independent_spotcheck.json", spot.get("status") in ("PASS", "WARN"), f"unexpected status {spot.get('status')!r}")
     _check(
         search_name,
-        search.get("status") in ("valid_complete_return_found", "finite_search_negative"),
+        search.get("status") in ("valid_complete_return_found", "valid_verified_candidate_found", "finite_search_negative"),
         f"unexpected status {search.get('status')!r}",
     )
+
+
+def check_daily_window_outputs():
+    daily_path = RESULTS / "m5_legal_window_daily_scan.json"
+    if daily_path.exists():
+        daily = _load("m5_legal_window_daily_scan.json")
+        _check(
+            "m5_legal_window_daily_scan.json",
+            daily.get("classification") == "LEGAL_WINDOW_DAILY_SCAN",
+            f"unexpected classification {daily.get('classification')!r}",
+        )
+        _check(
+            "m5_legal_window_daily_scan.json",
+            daily.get("full_year_daily_t0_coverage") is True,
+            "full_year_daily_t0_coverage must be true",
+        )
+        _check(
+            "m5_legal_window_daily_scan.json",
+            isinstance(daily.get("daily_best_rows"), list),
+            "daily_best_rows missing",
+        )
+    verify_path = RESULTS / "m6_legal_window_daily_verify.json"
+    if verify_path.exists():
+        verify = _load("m6_legal_window_daily_verify.json")
+        _check(
+            "m6_legal_window_daily_verify.json",
+            verify.get("independent_m6_search") is True and verify.get("seeded_from_m5_daily_scan") is True,
+            "daily verify provenance mismatch",
+        )
+        _check(
+            "m6_legal_window_daily_verify.json",
+            isinstance(verify.get("verified_candidates"), list),
+            "verified_candidates missing",
+        )
+        _check(
+            "m6_legal_window_daily_verify.json",
+            verify.get("classification") in ("ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW", "FINITE_SEARCH_NEG"),
+            f"unexpected classification {verify.get('classification')!r}",
+        )
 
 
 def check_m5_outputs():
@@ -641,6 +682,7 @@ def main():
     check_m5_outputs()
     check_m3_outputs()
     check_m6_outputs()
+    check_daily_window_outputs()
     check_m7_outputs()
     check_main_task_export()
 

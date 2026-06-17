@@ -29,6 +29,9 @@ RESULTS = _REPO / "data" / "results"
 
 
 def _select_m6_json() -> Path:
+    daily = RESULTS / "m6_legal_window_daily_verify.json"
+    if daily.exists():
+        return daily
     legal = RESULTS / "m6_legal_window_search.json"
     if legal.exists():
         return legal
@@ -90,11 +93,13 @@ def _propagate_candidate(candidate: dict, body_data: dict) -> dict:
 
 
 def _select_candidates(data: dict) -> list[dict]:
-    best_valid = data.get("best_valid_candidate")
+    candidate_rows = data.get("verified_candidates", []) or data.get("candidates", [])
+    best_valid = data.get("best_verified_candidate") or data.get("best_valid_candidate")
     near_miss = data.get("best_near_miss")
     valid_neighbors = [
-        row for row in data.get("candidates", [])
+        row for row in candidate_rows
         if row.get("classification") == "ACTUAL_RESULT"
+        and best_valid is not None
         and row.get("candidate_id") != best_valid.get("candidate_id")
         and abs(float(row.get("t0_mjd", 0)) - float(best_valid.get("t0_mjd", 0))) <= 3.0
     ] if best_valid else []
@@ -114,7 +119,7 @@ def _select_candidates(data: dict) -> list[dict]:
 def main() -> None:
     m6_json = _select_m6_json()
     if not m6_json.exists():
-        raise FileNotFoundError("data/results/m6_legal_window_search.json and m6_complete_return_window_search.json both missing")
+        raise FileNotFoundError("no M6 legal-window result JSON found")
     data = json.loads(m6_json.read_text(encoding="utf-8"))
     body_data = fetch_sem_vectors(use_cache=True)
 

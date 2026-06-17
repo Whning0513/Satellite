@@ -59,6 +59,27 @@ def _refresh_m5() -> None:
     print(f"[refresh] {path.name}: best_lunar_candidate -> {summary['best_lunar_candidate']['t0_mjd']} / {summary['best_lunar_candidate']['r_m_km']}")
 
 
+def _refresh_m5_daily() -> None:
+    path, data = _load("m5_legal_window_daily_scan.json")
+    rows = sorted(
+        [ensure_lunar_row_formal_fields(row) for row in data.get("search_rows", [])],
+        key=lunar_candidate_sort_key,
+    )
+    data["search_rows"] = rows
+    summary = summarize_legal_window_results(rows)
+    best_by_t0: dict[float, dict[str, Any]] = {}
+    for row in rows:
+        t0 = float(row["t0_mjd"])
+        prev = best_by_t0.get(t0)
+        if prev is None or lunar_candidate_sort_key(row) < lunar_candidate_sort_key(prev):
+            best_by_t0[t0] = row
+    data.update(summary)
+    data["daily_best_rows"] = [best_by_t0[t0] for t0 in sorted(best_by_t0)]
+    _write(path, data)
+    _write_csv(RESULTS / "m5_legal_window_daily_scan.csv", rows)
+    print(f"[refresh] {path.name}: best_lunar_candidate -> {summary['best_lunar_candidate']['t0_mjd']} / {summary['best_lunar_candidate']['r_m_km']}")
+
+
 def _refresh_m6_file(name: str) -> None:
     path, data = _load(name)
     rows = sorted(
@@ -78,6 +99,9 @@ def _refresh_m6_file(name: str) -> None:
     data["valid_fair_return_count"] = len(fair_rows)
     data["best_valid_candidate"] = best_valid
     data["best_near_miss"] = best_near_miss
+    if "verified_candidates" in data:
+        data["verified_candidates"] = rows
+        data["best_verified_candidate"] = best_valid
     _write(path, data)
     _write_csv(RESULTS / path.with_suffix(".csv").name, rows)
     if best_valid is not None:
@@ -91,7 +115,10 @@ def _refresh_m6_file(name: str) -> None:
 
 def main() -> int:
     _refresh_m5()
+    if (RESULTS / "m5_legal_window_daily_scan.json").exists():
+        _refresh_m5_daily()
     for name in [
+        "m6_legal_window_daily_verify.json",
         "m6_independent_window_search.json",
         "m6_legal_window_search.json",
         "m6_complete_return_window_search.json",

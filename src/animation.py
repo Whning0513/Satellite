@@ -18,6 +18,7 @@ from units import km_to_au
 from nbody import GM_SEMR, vv_step_nbody
 from trajectory import DesignParams, solve_trajectory
 from horizons import fetch_sem_vectors, state_at_index
+from experiments.final_annual_candidate import load_final_annual_candidate
 
 
 def smoothstep(t):
@@ -35,6 +36,9 @@ def _load_json(name: str) -> dict:
 
 
 def _load_animation_candidate() -> dict:
+    annual = load_final_annual_candidate().get("candidate", {})
+    if annual:
+        return annual
     for name, key in [
         ("m6_independent_window_search.json", "best_valid_candidate"),
         ("m6_complete_return_window_search.json", "best_valid_candidate"),

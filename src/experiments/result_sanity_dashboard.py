@@ -37,7 +37,13 @@ def _load_json(name: str) -> dict[str, Any] | None:
 
 
 def _load_active_m6() -> tuple[dict[str, Any] | None, str | None]:
-    for name in ["m6_legal_window_search.json", "m6_numerical_deep_audit.json", "m6_complete_return_window_search.json"]:
+    for name in [
+        "m6_legal_window_daily_verify.json",
+        "m6_independent_window_search.json",
+        "m6_legal_window_search.json",
+        "m6_numerical_deep_audit.json",
+        "m6_complete_return_window_search.json",
+    ]:
         data = _load_json(name)
         if data is not None:
             return data, name
@@ -266,7 +272,10 @@ def main() -> int:
 
     m6, m6_source = _load_active_m6()
     if m6:
-        best_valid = best_lunar_candidate(m6.get("candidates", []), fair_only=True)
+        best_valid = best_lunar_candidate(
+            m6.get("verified_candidates", []) or m6.get("candidates", []),
+            fair_only=True,
+        )
         if best_valid is None:
             best_valid = ensure_lunar_row_formal_fields(m6.get("best_valid_candidate") or {})
         classification = m6.get("classification", "UNRESOLVED")

@@ -26,11 +26,12 @@ RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
 from constants import AU_KM, DT_MAIN, R_MOON
-from budget_tools import best_lunar_candidate, lunar_three_segment_budget
+from budget_tools import lunar_three_segment_budget
 from horizons import fetch_sem_vectors
 from mission_constraints import is_launch_mjd_in_window
 from trajectory import DesignParams, solve_trajectory
 
+from experiments.final_annual_candidate import load_final_annual_candidate
 from experiments.return_search_tools import search_best_return_event
 
 
@@ -75,37 +76,18 @@ def _classification(fair_fraction: float) -> str:
 
 
 def _load_reference_candidate() -> dict[str, Any]:
-    m6 = _load_json("m6_independent_window_search.json")
-    if m6:
-        candidate = best_lunar_candidate(m6.get("candidates", []), fair_only=True) or m6.get("best_valid_candidate")
-    else:
-        candidate = None
+    annual = load_final_annual_candidate()
+    candidate = annual.get("candidate")
     if candidate:
         t0_mjd = float(candidate["t0_mjd"])
         if not is_launch_mjd_in_window(t0_mjd):
-            raise ValueError(f"M6 sensitivity reference t0={t0_mjd} is outside the formal 2026 launch window")
+            raise ValueError(f"annual sensitivity reference t0={t0_mjd} is outside the formal 2026 launch window")
         return {
-            "source": "m6_independent_window_search.json",
+            "source": annual.get("source_file") or annual.get("selection_label"),
             "t0_mjd": t0_mjd,
             "side": str(candidate["side"]),
             "r_m_km": float(candidate["r_m_km"]),
-            "return_event_mjd": float(candidate["return_event_mjd"]),
-        }
-    legal = _load_json("m5_legal_window_search.json")
-    if legal:
-        candidate = best_lunar_candidate(legal.get("search_rows", []), fair_only=True) or legal.get("best_lunar_candidate")
-    else:
-        candidate = None
-    if candidate:
-        t0_mjd = float(candidate["t0_mjd"])
-        if not is_launch_mjd_in_window(t0_mjd):
-            raise ValueError(f"M5 legal-window sensitivity reference t0={t0_mjd} is outside the formal 2026 launch window")
-        return {
-            "source": "m5_legal_window_search.json",
-            "t0_mjd": t0_mjd,
-            "side": str(candidate["side"]),
-            "r_m_km": float(candidate["r_m_km"]),
-            "return_event_mjd": float(candidate["return_event_mjd"]),
+            "return_event_mjd": float(candidate.get("return_event_mjd", t0_mjd + 365.0)),
         }
     verify = _load_json("m5_best_lunar_candidate_verify.json")
     compare = _load_json("m5_fixed_date_current_compare.json")

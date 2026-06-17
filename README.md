@@ -169,6 +169,8 @@ make validate     # 全部回归测试
 make figures      # 生成全部图表
 make pdf          # 编译 report.pdf
 make main-task-export  # 导出主任务 JSON/CSV 摘要
+make m5-legal-window-daily-scan   # 2026 全年逐日合法发射窗扫描
+make m6-legal-window-daily-verify # 对逐日扫描前列候选做高精度独立复核
 make audit        # 安全审计 + 图表完整性检查
 make clean        # 清理生成物
 ```
@@ -182,6 +184,21 @@ make main-task-export
 输出文件：
 - `data/results/main_task_result.json`
 - `data/results/main_task_trajectory.csv`
+
+年度窗口强化输出：
+
+```bash
+make m5-legal-window-daily-scan
+make m6-legal-window-daily-verify
+```
+
+输出文件：
+- `data/results/m5_legal_window_daily_scan.json`
+- `data/results/m5_legal_window_daily_scan.csv`
+- `data/results/m6_legal_window_daily_verify.json`
+- `data/results/m6_legal_window_daily_verify.csv`
+
+这两步是 Rule 19/20/21/22 的强化工作流。第一步做 2026 年 365 天显式覆盖；第二步不直接复用存档行，而是从参数重新传播并验证前列年度候选。两步都支持 JSONL 断点续跑和终端进度条。
 
 ### 生成全部回归测试
 

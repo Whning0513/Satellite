@@ -12,6 +12,8 @@ ERRORS: list[str] = []
 
 
 def _active_search_name() -> str:
+    if (RESULTS / "m6_legal_window_daily_verify.json").exists():
+        return "m6_legal_window_daily_verify.json"
     if (RESULTS / "m6_legal_window_search.json").exists():
         return "m6_legal_window_search.json"
     return "m6_complete_return_window_search.json"
@@ -26,7 +28,7 @@ def _load(name: str) -> dict:
 
 
 def check_search(search: dict) -> None:
-    name = "m6_complete_return_window_search.json"
+    name = _active_search_name()
     threshold = float(search.get("search_space", {}).get("earth_return_threshold_km", 1.5e6))
     classification = search.get("classification")
     if search.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is not True:
@@ -56,12 +58,12 @@ def check_search(search: dict) -> None:
                 f"[FAIL] {name}: reused source grid must classify as ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW or ACTUAL_RESULT_M5_DERIVED_WINDOW, got {classification!r}"
             )
     else:
-        if classification not in ("ACTUAL_RESULT_LEGAL_WINDOW", "FINITE_SEARCH_NEG"):
+        if classification not in ("ACTUAL_RESULT_LEGAL_WINDOW", "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW", "FINITE_SEARCH_NEG"):
             ERRORS.append(
-                f"[FAIL] {name}: independent legal-window search must classify as ACTUAL_RESULT_LEGAL_WINDOW or FINITE_SEARCH_NEG, got {classification!r}"
+                f"[FAIL] {name}: independent legal-window search must classify as ACTUAL_RESULT_LEGAL_WINDOW, ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW, or FINITE_SEARCH_NEG, got {classification!r}"
             )
 
-    for row in search.get("candidates", []):
+    for row in search.get("verified_candidates", []) or search.get("candidates", []):
         valid = bool(row.get("valid_return_event"))
         ret = row.get("return_vinf_kms")
         total = row.get("total_vinf_basis_kms")
@@ -101,7 +103,7 @@ def check_deep_audit(audit: dict) -> None:
             ERRORS.append(f"[FAIL] {name}: FINITE_SEARCH_NEG missing search_space")
         if audit.get("best_near_miss") is None:
             ERRORS.append(f"[FAIL] {name}: FINITE_SEARCH_NEG missing best_near_miss")
-    if classification in ("ACTUAL_RESULT", "ACTUAL_RESULT_LEGAL_WINDOW"):
+    if classification in ("ACTUAL_RESULT", "ACTUAL_RESULT_LEGAL_WINDOW", "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW"):
         best = audit.get("best_valid_candidate")
         if not best:
             ERRORS.append(f"[FAIL] {name}: ACTUAL_RESULT missing best_valid_candidate")
@@ -112,9 +114,9 @@ def check_deep_audit(audit: dict) -> None:
             ERRORS.append(f"[FAIL] {name}: M5-derived window classification requires source_grid_reused=true")
         if audit.get("independent_m6_search") is not False:
             ERRORS.append(f"[FAIL] {name}: M5-derived window classification requires independent_m6_search=false")
-    if classification == "ACTUAL_RESULT_LEGAL_WINDOW":
+    if classification in ("ACTUAL_RESULT_LEGAL_WINDOW", "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW"):
         if audit.get("independent_m6_search") is not True:
-            ERRORS.append(f"[FAIL] {name}: ACTUAL_RESULT_LEGAL_WINDOW requires independent_m6_search=true")
+            ERRORS.append(f"[FAIL] {name}: independent legal-window classification requires independent_m6_search=true")
 
     spot = audit.get("independent_spotcheck")
     if not isinstance(spot, dict):

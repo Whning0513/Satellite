@@ -18,6 +18,9 @@ def _in_launch_window(value):
 
 
 def _active_m6_search_name():
+    daily = RESULTS / "m6_legal_window_daily_verify.json"
+    if daily.exists():
+        return "m6_legal_window_daily_verify.json"
     legal = RESULTS / "m6_legal_window_search.json"
     if legal.exists():
         return "m6_legal_window_search.json"
@@ -165,7 +168,7 @@ def check(fp):
         if d.get("num_pure_returns", -1) != 0:
             ERRORS.append(f"[FAIL] {n}: num_pure_returns should be 0")
 
-    if n in ("m6_complete_return_window_search.json", "m6_legal_window_search.json"):
+    if n in ("m6_complete_return_window_search.json", "m6_legal_window_search.json", "m6_legal_window_daily_verify.json"):
         if d.get("event_semantics", {}).get("return_vinf_defined_only_at_earth_return") is not True:
             ERRORS.append(f"[FAIL] {n}: missing event semantics guard")
         if d.get("source_grid_reused") is True and d.get("classification") not in (
@@ -176,7 +179,7 @@ def check(fp):
                 f"[FAIL] {n}: reused source grid must classify as ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW "
                 "or ACTUAL_RESULT_M5_DERIVED_WINDOW"
             )
-        for c in d.get("candidates", []):
+        for c in d.get("verified_candidates", []) or d.get("candidates", []):
             valid = c.get("valid_return_event")
             ret = c.get("return_vinf_kms")
             total = c.get("total_vinf_basis_kms")

@@ -20,40 +20,26 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
-from budget_tools import best_lunar_candidate
 from constants import GM_SUN, GM_EARTH, GM_MOON, R_MOON, AU_KM, DT_MAIN, DT_REFINE
 from nbody import propagate_nbody, compute_conserved_quantities, GM_SEM
 from trajectory import DesignParams, solve_trajectory
 from horizons import fetch_sem_vectors, initial_state_from_horizons, state_at_index
+from experiments.final_annual_candidate import load_final_annual_candidate
 from experiments.return_search_tools import search_best_return_event
 
 DT_VALUES = [3600.0, 1800.0, 900.0, 450.0]
 
 def _load_reference_candidate(repo_root: Path) -> dict:
-    results = repo_root / "data" / "results"
-    for name, key in [
-        ("m6_independent_window_search.json", "best_valid_candidate"),
-        ("m5_legal_window_search.json", "best_lunar_candidate"),
-        ("m5_best_lunar_candidate_verify.json", "candidate"),
-    ]:
-        path = results / name
-        if not path.exists():
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        if name == "m6_independent_window_search.json":
-            candidate = best_lunar_candidate(data.get("candidates", []), fair_only=True) or data.get(key)
-        elif name == "m5_legal_window_search.json":
-            candidate = best_lunar_candidate(data.get("search_rows", []), fair_only=True) or data.get(key)
-        else:
-            candidate = data.get(key)
-        if candidate:
-            return {
-                "source_file": name,
-                "t0_mjd": float(candidate["t0_mjd"]),
-                "r_m_km": float(candidate["r_m_km"]),
-                "side": str(candidate["side"]),
-                "nominal_return_mjd": float(candidate.get("return_event_mjd", candidate.get("return_epoch_mjd", candidate["t0_mjd"] + 365.0))),
-            }
+    annual = load_final_annual_candidate()
+    candidate = annual.get("candidate")
+    if candidate:
+        return {
+            "source_file": annual.get("source_file") or annual.get("selection_label"),
+            "t0_mjd": float(candidate["t0_mjd"]),
+            "r_m_km": float(candidate["r_m_km"]),
+            "side": str(candidate["side"]),
+            "nominal_return_mjd": float(candidate.get("return_event_mjd", candidate.get("return_epoch_mjd", candidate["t0_mjd"] + 365.0))),
+        }
     return {
         "source_file": "built_in_fallback",
         "t0_mjd": 61065.0,

@@ -44,6 +44,7 @@ from mission_constraints import (
 from horizons import fetch_sem_vectors
 from nbody import propagate_nbody
 from trajectory import DesignParams, interpolate_state_at_mjd, solve_trajectory
+from experiments.final_annual_candidate import load_final_annual_candidate
 from experiments.return_search_tools import search_best_return_event_detailed
 
 
@@ -445,16 +446,20 @@ def _fixed_date_formal_block(
 
 def _best_legal_window_block(
     legal_m5: dict[str, Any],
-    legal_m6: dict[str, Any],
+    annual_payload: dict[str, Any],
+    annual_source_file: str | None,
     body_data: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    candidate = _best_from_rows(legal_m6, "candidates", "best_valid_candidate")
+    annual_rows = annual_payload.get("verified_candidates", []) or annual_payload.get("candidates", [])
+    candidate = best_lunar_candidate(annual_rows, fair_only=True) if annual_rows else None
     if candidate is None:
-        raise ValueError("m6_independent_window_search.json does not contain a valid fair candidate")
+        candidate = annual_payload.get("best_verified_candidate") or annual_payload.get("best_valid_candidate")
+    if candidate is None:
+        raise ValueError("no valid annual legal-window candidate available")
     m5_best = _best_from_rows(legal_m5, "search_rows", "best_lunar_candidate")
     if m5_best is None:
         raise ValueError("m5_legal_window_search.json does not contain a valid fair candidate")
-    search_space = legal_m6.get("search_space", {})
+    search_space = annual_payload.get("search_space", {})
     rows, traj_summary, traj = _propagate_candidate_trajectory(
         candidate_label="best_legal_window_candidate",
         t0_mjd=float(candidate["t0_mjd"]),
@@ -481,9 +486,9 @@ def _best_legal_window_block(
     })
     block = {
         "candidate_label": "best_legal_window_candidate",
-        "classification": legal_m6.get("classification"),
+        "classification": annual_payload.get("classification"),
         "launch_window_valid": is_launch_mjd_in_window(float(candidate["t0_mjd"])),
-        "launch_window": legal_m6.get("launch_window", [MISSION_LAUNCH_START_DATE, MISSION_LAUNCH_END_DATE]),
+        "launch_window": annual_payload.get("launch_window", [MISSION_LAUNCH_START_DATE, MISSION_LAUNCH_END_DATE]),
         "t0_mjd": _round(candidate["t0_mjd"], 6),
         "t0_date": candidate["t0_date"],
         "side": candidate["side"],
@@ -520,10 +525,11 @@ def _best_legal_window_block(
         "three_segment_budget": three_segment,
         "three_segment_budget_proxy": three_segment,
         "provenance": {
-            "candidate_source": legal_m6.get("candidate_source"),
-            "independent_m6_search": bool(legal_m6.get("independent_m6_search")),
-            "source_grid_reused": bool(legal_m6.get("source_grid_reused")),
-            "m6_interpretation": legal_m6.get("m6_interpretation"),
+            "candidate_source": annual_payload.get("candidate_source"),
+            "independent_m6_search": bool(annual_payload.get("independent_m6_search")),
+            "source_grid_reused": bool(annual_payload.get("source_grid_reused")),
+            "m6_interpretation": annual_payload.get("m6_interpretation"),
+            "annual_source_file": annual_source_file,
             "m5_legal_window_best_crosscheck": {
                 "t0_mjd": _round(m5_best["t0_mjd"], 6),
                 "r_m_km": _round(m5_best["r_m_km"], 1),
@@ -552,7 +558,7 @@ def _best_legal_window_block(
         },
         "source_files": [
             "data/results/m5_legal_window_search.json",
-            "data/results/m6_independent_window_search.json",
+            annual_source_file or "data/results/m6_independent_window_search.json",
         ],
         "trajectory_rows_file": "data/results/main_task_trajectory.csv",
     }
@@ -577,11 +583,17 @@ def main() -> int:
     compare = _load_json("m5_fixed_date_current_compare.json")
     no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json")
     legal_m5 = _load_json("m5_legal_window_search.json")
-    legal_m6 = _load_json("m6_independent_window_search.json")
+    annual = load_final_annual_candidate()
+    annual_payload = annual.get("payload") or _load_json("m6_independent_window_search.json")
+    annual_source_file = (
+        f"data/results/{annual.get('source_file')}"
+        if annual.get("source_file")
+        else "data/results/m6_independent_window_search.json"
+    )
     invalidated = _load_json("m5_saving_ratio_resolved.json")
 
     fixed_block, fixed_rows = _fixed_date_formal_block(verify, compare, no_lunar, body_data)
-    legal_block, legal_rows = _best_legal_window_block(legal_m5, legal_m6, body_data)
+    legal_block, legal_rows = _best_legal_window_block(legal_m5, annual_payload, annual_source_file, body_data)
     m7 = _load_json("m7_extended_monte_carlo.json")
 
     payload = {
@@ -607,11 +619,14 @@ def main() -> int:
                 "full_year_fine_search_pending": legal_m5.get("full_year_fine_search_pending"),
             },
             "m6_independent_window_search": {
-                "classification": legal_m6.get("classification"),
-                "total_candidates_evaluated": legal_m6.get("total_candidates_evaluated"),
-                "valid_complete_return_count": legal_m6.get("valid_complete_return_count"),
-                "valid_fair_return_count": legal_m6.get("valid_fair_return_count"),
-                "best_valid_candidate_t0_mjd": _best_t0_from_rows(legal_m6, "candidates", "best_valid_candidate"),
+                "classification": annual_payload.get("classification"),
+                "total_candidates_evaluated": annual_payload.get("total_candidates_evaluated"),
+                "valid_complete_return_count": annual_payload.get("valid_complete_return_count"),
+                "valid_fair_return_count": annual_payload.get("valid_fair_return_count"),
+                "best_valid_candidate_t0_mjd": (
+                    _best_t0_from_rows(annual_payload, "verified_candidates", "best_verified_candidate")
+                    or _best_t0_from_rows(annual_payload, "candidates", "best_valid_candidate")
+                ),
             },
         },
         "m7_context": {

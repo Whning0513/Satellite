@@ -48,6 +48,8 @@ def _load_json(name: str) -> dict | list | None:
 
 
 def _active_m6_search_name() -> str:
+    if (RESULTS / "m6_legal_window_daily_verify.json").exists():
+        return "m6_legal_window_daily_verify.json"
     if (RESULTS / "m6_legal_window_search.json").exists():
         return "m6_legal_window_search.json"
     return "m6_complete_return_window_search.json"
@@ -527,7 +529,11 @@ def audit_m6() -> list[AuditRecord]:
     active_formal_classification = (
         "PASS_M5_DERIVED_WINDOW_CONFIRMED"
         if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW"
-        else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" else "LEGAL_WINDOW_PENDING")
+        else (
+            "PASS_LEGAL_WINDOW"
+            if classification in ("ACTUAL_RESULT_LEGAL_WINDOW", "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW")
+            else "LEGAL_WINDOW_PENDING"
+        )
     )
     entries.append(
         _entry(
@@ -591,7 +597,11 @@ def audit_m6() -> list[AuditRecord]:
             classification=(
                 "PASS_WITH_PROVENANCE"
                 if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW" and legal_window_ok
-                else ("PASS_LEGAL_WINDOW" if classification == "ACTUAL_RESULT_LEGAL_WINDOW" and legal_window_ok else "LEGAL_WINDOW_PENDING")
+                else (
+                    "PASS_LEGAL_WINDOW"
+                    if classification in ("ACTUAL_RESULT_LEGAL_WINDOW", "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW") and legal_window_ok
+                    else "LEGAL_WINDOW_PENDING"
+                )
             ),
             action="keep" if legal_window_ok else "recompute",
             notes=(
@@ -602,7 +612,7 @@ def audit_m6() -> list[AuditRecord]:
                     if classification == "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW" and legal_window_ok
                     else (
                         "Independent legal-window actual result retained because at least one valid complete-return candidate exists."
-                        if classification == "ACTUAL_RESULT_LEGAL_WINDOW" and legal_window_ok
+                        if classification in ("ACTUAL_RESULT_LEGAL_WINDOW", "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW") and legal_window_ok
                         else "Current on-disk M6 result is still pre-legal-window or historical; legal-window regeneration is pending."
                     )
                 )

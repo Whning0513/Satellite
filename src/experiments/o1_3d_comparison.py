@@ -12,12 +12,12 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
-from budget_tools import best_lunar_candidate
 from constants import GM_SUN, GM_EARTH, GM_MOON, AU_KM, R_MOON, DT_REFINE
 from nbody import propagate_nbody, GM_SEM
 from frames import to_heliocentric
 from horizons import fetch_sem_vectors
 from trajectory import interpolate_state_at_mjd
+from experiments.final_annual_candidate import load_final_annual_candidate
 
 
 def _load_windows() -> list[dict]:
@@ -34,17 +34,15 @@ def _load_windows() -> list[dict]:
                     "t0_mjd": float(cand["t0_mjd"]),
                 }
             )
-    legal = results_dir / "m6_independent_window_search.json"
-    if legal.exists():
-        data = json.loads(legal.read_text(encoding="utf-8"))
-        cand = best_lunar_candidate(data.get("candidates", []), fair_only=True) or data.get("best_valid_candidate", {})
-        if cand:
-            windows.append(
-                {
-                    "label": "best_legal_window_candidate",
-                    "t0_mjd": float(cand["t0_mjd"]),
-                }
-            )
+    annual = load_final_annual_candidate()
+    cand = annual.get("candidate", {})
+    if cand:
+        windows.append(
+            {
+                "label": annual.get("selection_label", "best_legal_window_candidate"),
+                "t0_mjd": float(cand["t0_mjd"]),
+            }
+        )
     if not windows:
         windows = [
             {"label": "fixed_date_formal_anchor", "t0_mjd": 61065.0},

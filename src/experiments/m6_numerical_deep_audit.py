@@ -29,6 +29,9 @@ RESULTS = _REPO / "data" / "results"
 
 
 def _active_m6_search_file() -> str:
+    daily = RESULTS / "m6_legal_window_daily_verify.json"
+    if daily.exists():
+        return "m6_legal_window_daily_verify.json"
     legal = RESULTS / "m6_legal_window_search.json"
     if legal.exists():
         return "m6_legal_window_search.json"
@@ -66,7 +69,8 @@ def _legacy_rows(event_json: dict) -> list[dict]:
 
 def _search_rows(search_json: dict) -> list[dict]:
     rows = []
-    for row in search_json.get("candidates", []):
+    source_rows = search_json.get("verified_candidates", []) or search_json.get("candidates", [])
+    for row in source_rows:
         row = ensure_lunar_row_formal_fields(row)
         rows.append(
             {
@@ -136,7 +140,8 @@ def main() -> None:
         if search.get("best_near_miss") is None:
             red_flags.append("FINITE_SEARCH_NEG missing best_near_miss")
 
-    best_valid = best_lunar_candidate(search.get("candidates", []), fair_only=True) if search else None
+    search_candidates = (search.get("verified_candidates", []) or search.get("candidates", [])) if search else []
+    best_valid = best_lunar_candidate(search_candidates, fair_only=True) if search else None
     if best_valid is None and search is not None:
         best_valid = search.get("best_valid_candidate")
     best_near_miss = search.get("best_near_miss") if search else None
@@ -162,7 +167,7 @@ def main() -> None:
         "side_values": search.get("side_values") if search else None,
         "candidate_count": len(rows),
         "legacy_candidate_count": len(legacy_rows),
-        "complete_search_candidate_count": len(search.get("candidates", [])) if search else 0,
+        "complete_search_candidate_count": len(search_candidates) if search else 0,
         "valid_complete_return_count": search.get("valid_complete_return_count") if search else 0,
         "valid_fair_return_count": search.get("valid_fair_return_count") if search else 0,
         "best_valid_candidate": best_valid,

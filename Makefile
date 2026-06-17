@@ -29,6 +29,8 @@ REPORT_IMAGES := $(wildcard data/results/m8_*.png)
 .PHONY: pdf figures scan-fast animation audit audit-posix-legacy clean
 .PHONY: o2-gr o4-mga o6-interactive o7-parallel o7-surrogate bonus-all
 .PHONY: main-task-export
+.PHONY: m5-legal-window-daily-scan m6-legal-window-daily-verify
+.PHONY: watch-m5-legal-window-daily-scan watch-m6-legal-window-daily-verify
 
 # ---- Default: compile + generate figures + build PDF ----
 all: compile m3 figures animation m5-fair m5-lambert pdf
@@ -326,13 +328,29 @@ m5-legal-window-search:
 	@echo "=== M5 legal-window search (resume enabled) ==="
 	cd src && $(PYTHON) experiments/m5_legal_window_search.py
 
+m5-legal-window-daily-scan:
+	@echo "=== M5 legal-window daily scan (365-day coverage) ==="
+	cd src && $(PYTHON) experiments/m5_legal_window_daily_scan.py
+
 watch-m5-legal-window-search:
 	@echo "=== Watchdog + M5 legal-window search ==="
 	$(PYTHON) src/experiments/run_with_watchdog.py --name m5-legal-window --interval-min 10 -- $(PYTHON) src/experiments/m5_legal_window_search.py
 
+watch-m5-legal-window-daily-scan:
+	@echo "=== Watchdog + M5 legal-window daily scan ==="
+	$(PYTHON) src/experiments/run_with_watchdog.py --name m5-legal-window-daily --interval-min 10 -- $(PYTHON) src/experiments/m5_legal_window_daily_scan.py
+
 watch-m6-independent-window-search:
 	@echo "=== Watchdog + M6 independent legal-window search ==="
 	$(PYTHON) src/experiments/run_with_watchdog.py --name m6-independent-window --interval-min 10 -- $(PYTHON) src/experiments/m6_independent_window_search.py
+
+m6-legal-window-daily-verify:
+	@echo "=== M6 legal-window daily verify ==="
+	cd src && $(PYTHON) experiments/m6_legal_window_daily_verify.py
+
+watch-m6-legal-window-daily-verify:
+	@echo "=== Watchdog + M6 legal-window daily verify ==="
+	$(PYTHON) src/experiments/run_with_watchdog.py --name m6-daily-verify --interval-min 10 -- $(PYTHON) src/experiments/m6_legal_window_daily_verify.py
 
 watch-m7-mc-full:
 	@echo "=== Watchdog + M7 MC full ==="

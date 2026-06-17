@@ -10,11 +10,11 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
-from budget_tools import best_lunar_candidate
 from constants import GM_SUN, AU_KM
 from units import km_to_au
 from nbody import propagate_nbody
 from horizons import fetch_sem_vectors
+from experiments.final_annual_candidate import load_final_annual_candidate
 
 C_KMS = 299792.458  # speed of light km/s
 
@@ -87,11 +87,9 @@ def main():
     from trajectory import DesignParams, solve_trajectory
     from trajectory import interpolate_state_at_mjd
 
-    results_dir = _REPO / "data" / "results"
-    legal = results_dir / "m6_independent_window_search.json"
-    if legal.exists():
-        legal_data = json.loads(legal.read_text(encoding="utf-8"))
-        best = best_lunar_candidate(legal_data.get("candidates", []), fair_only=True) or legal_data.get("best_valid_candidate", {})
+    annual = load_final_annual_candidate()
+    best = annual.get("candidate", {})
+    if best:
         t0_mjd = float(best.get("t0_mjd", 61389.0))
         r_m_km = float(best.get("r_m_km", 9737.4))
         side = str(best.get("side", "trailing"))
