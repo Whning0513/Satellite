@@ -162,7 +162,7 @@ def check_m5_positive_ratio() -> None:
     no_lunar_ok = resolved.get("no_lunar_valid_return_event")
     classification = resolved.get("classification")
     same_budget_basis = resolved.get("same_budget_basis")
-    compare_ratio = compare.get("formal_ratio_vinf_basis")
+    compare_ratio = compare.get("formal_ratio")
     compare_same_t0 = compare.get("same_t0")
     compare_same_budget = compare.get("same_budget_basis")
     compare_budget_basis = compare.get("budget_basis")
@@ -172,7 +172,7 @@ def check_m5_positive_ratio() -> None:
 
     print(f"  status = {status}")
     print(f"  formal_fixed_date_ratio = {ratio}")
-    print(f"  compare formal_ratio_vinf_basis = {compare_ratio}")
+    print(f"  compare formal_ratio = {compare_ratio}")
     print(f"  same_t0_mjd = {same_t0_mjd}")
     print(f"  same_budget_basis = {same_budget_basis}")
     print(f"  ratio_basis = {ratio_basis}")
@@ -212,9 +212,9 @@ def check_m5_positive_ratio() -> None:
         FAILURES.append("same_budget_basis must be true in current compare JSON")
     if status == "formal_fixed_date_positive_ratio" and same_budget_basis is not True:
         FAILURES.append("same_budget_basis must be true in resolved JSON when it exposes a formal ratio")
-    if compare_budget_basis != "vinf_basis":
+    if compare_budget_basis != "three_segment_formal":
         FAILURES.append(f"unexpected compare budget basis: {compare_budget_basis}")
-    if status == "formal_fixed_date_positive_ratio" and ratio_basis != "vinf_basis":
+    if status == "formal_fixed_date_positive_ratio" and ratio_basis != "three_segment_formal":
         FAILURES.append(f"unexpected ratio basis: {ratio_basis}")
     if compare.get("lunar_valid") is not True or compare.get("no_lunar_valid") is not True:
         FAILURES.append("current M5 compare JSON does not confirm both valid return events")

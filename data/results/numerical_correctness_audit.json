@@ -236,16 +236,16 @@
     {
       "module": "M5",
       "quantity": "formal_fixed_date_ratio",
-      "project_value": 0.508527,
-      "independent_check_value": 0.508527,
-      "relative_error": 3.182239195353795e-07,
+      "project_value": 0.391088,
+      "independent_check_value": 0.391088,
+      "relative_error": 6.266047253884622e-07,
       "unit": "ratio",
-      "frame": "vinf_basis",
+      "frame": "three_segment_formal",
       "event": "same_t0_61065.0",
       "status": "PASS",
       "classification": "ACTUAL_RESULT",
       "action": "keep",
-      "notes": "lunar_total=10.1213, no_lunar_total=20.5938, same_t0=61065.0 (2026-01-25), same_budget_basis=True, launch_window_valid=True"
+      "notes": "lunar_total=15.5845, no_lunar_total=25.594, same_t0=61065.0 (2026-01-25), same_budget_basis=True, launch_window_valid=True, supplementary_vinf_ratio=0.508527"
     },
     {
       "module": "M5",
@@ -273,7 +273,7 @@
       "status": "PASS",
       "classification": "PASS_M5_DERIVED_WINDOW_CONFIRMED",
       "action": "keep",
-      "notes": "valid_complete_return_count=95, valid_fair_return_count=71, candidate_source=m5_legal_window_search_grid, source_grid_reused=True, independent_m6_search=False, source_file=m6_legal_window_search.json, best_t0=61390.5 (2026-12-16)"
+      "notes": "valid_complete_return_count=95, valid_fair_return_count=71, candidate_source=m5_legal_window_search_grid, source_grid_reused=True, independent_m6_search=False, source_file=m6_legal_window_search.json, best_t0=61389.0 (2026-12-15)"
     },
     {
       "module": "M6",
@@ -301,15 +301,15 @@
       "status": "PASS",
       "classification": "PASS_WITH_PROVENANCE",
       "action": "keep",
-      "notes": "M5-derived launch-window extraction confirmed by independent spotcheck status=PASS"
+      "notes": "M5-derived launch-window extraction confirmed by independent spotcheck status=WARN"
     },
     {
       "module": "M7",
       "quantity": "energy_drift_dt_monotonicity",
       "project_value": [
         4.0,
-        4.0,
-        4.004
+        3.999,
+        4.003
       ],
       "independent_check_value": "monotonic decrease",
       "relative_error": null,

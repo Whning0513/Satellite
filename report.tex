@@ -60,11 +60,15 @@
 \section{摘要}
 本项目围绕题干规定的 2026-01-01 至 2026-12-31 合法发射窗，构建并实现了一个含月球借力、日心转移、地球返回事件判定和数值验证的轨道设计系统。主线方法包括：拼接圆锥曲线解析设计、Velocity-Verlet N 体积分、JPL~Horizons 初值与残差对照、月球 swing-by 解析/数值交叉验证、固定日期轨道求解、窗口搜索、灵敏度与可视化。
 
-在数值审计后，旧的 61037、61066、61154 等候选不再作为正式结果主线。当前保留的合法固定日期 formal 结果为 MJD~61065.0（2026-01-25）：trailing 月借力、$r_m=1837.4$~km、实现近日距 $0.274959$~AU、返回地球距离 $4.46\times10^5$~km、返回 $v_{\infty}=10.5173$~km/s。按统一的 $v_{\infty}$ budget basis，与同日 no-lunar DSM baseline 的 $20.5938$~km/s 相比，月借力方案总预算为 $10.1213$~km/s，对应固定日期节能比例 $50.85\%$。
+在数值审计后，旧的 61037、61066、61154 等候选不再作为正式结果主线。当前保留的合法固定日期 formal 结果为 MJD~61065.0（2026-01-25）：trailing 月借力、$r_m=1837.4$~km、实现近日距 $0.274959$~AU、返回地球距离 $4.46\times10^5$~km、返回 $v_{\infty}=10.5173$~km/s。按题干定义的三段正式预算
+\[
+\Delta v_{\mathrm{total}}=\Delta v_{\mathrm{launch}}+\Delta v_{\mathrm{lunar\ residual}}+\Delta v_{\mathrm{reentry}},
+\]
+同日 lunar / no-lunar DSM 的总预算分别为 $15.5845$~km/s 与 $25.5940$~km/s，对应固定日期 formal 节能比例 $39.11\%$。旧的 $50.85\%$ 仍保留为 supplementary 的 $v_{\infty}$ basis 诊断，不再作为正式预算口径。
 
-随后补跑的 2026 全年合法窗口搜索给出了当前最优的窗口候选簇：MJD~61390.5（2026-12-16），trailing，$r_m=2037.4$~km，搜索摘要返回地球距离约 7231.3--7698.8~km，返回 $v_{\infty}\approx 14.4$--14.5~km/s，$v_{\infty}$ budget basis 仍为 10.1213~km/s。derived M5 legal-window search 与独立 M6 参数搜索都回收到同一组 $(t_0,\mathrm{side},r_m)$，说明这个 12 月窗口不是简单的数据换名；但单点重放仍表现出明显的步长与事件搜索敏感性，因此它在本报告中的身份是“当前最佳 legal-window 搜索候选”，而不是强于 fixed-date formal anchor 的最终正式结果。
+随后补跑的 2026 全年合法窗口搜索在统一为题干 three-segment formal 预算后，给出了当前最优的窗口候选簇：MJD~61389.0（2026-12-15），trailing，$r_m=9737.4$~km。derived M5 legal-window search 与独立 M6 参数搜索都把这一组 $(t_0,\mathrm{side},r_m)$ 排到候选池首位；两条链分别给出返回地球距离约 50,467.6~km 与 50,435.6~km、返回 $v_{\infty}\approx 11.226$~km/s，对应 search-summary formal 总预算约 $15.1801$~km/s（supplementary $v_{\infty}$ basis 约 10.1213~km/s）。但单点重放与步长收敛检查表明，这个 12 月窗口比 fixed-date anchor 脆弱得多，因此它在本报告中的身份仍是“当前最佳 legal-window 搜索候选”，而不是强于 fixed-date formal anchor 的最终正式结果。
 
-M1--M6 的核心数值链已闭环；M3 被明确限定为 same-source propagation check，而非独立 JPL 预测；M7 已升级为围绕合法锚点的 $N=200$ Monte Carlo，formal 返回速度只在真实 Earth-return 事件上定义。当前 full Monte Carlo 对象仍是合法固定日期锚点 61065，而不是后续窗口搜索得到的 61390.5 年度最优候选；因此本报告把 61065 作为正式 fixed-date compare，把 61390.5 作为当前最佳 legal-window candidate，而不把现有有限分辨率搜索写成严格的连续全局最优证明。
+M1--M6 的核心数值链已闭环；M3 被明确限定为 same-source propagation check，而非独立 JPL 预测；M7 已升级为围绕合法锚点的 $N=200$ Monte Carlo，formal 返回速度只在真实 Earth-return 事件上定义。当前 full Monte Carlo 对象仍是合法固定日期锚点 61065，而不是后续窗口搜索得到的 61389.0 年度最优候选；因此本报告把 61065 作为正式 fixed-date compare，把 61389.0 作为当前最佳 legal-window candidate，而不把现有有限分辨率搜索写成严格的连续全局最优证明。
 
 \newpage
 
@@ -180,19 +184,21 @@ M5 的主线流程包括：读取初态、构造拼接圆锥曲线目标、搜�
 \midrule
 发射日期 $t_0$ & 2026-01-25（MJD 61065.0） \\
 发射超速 $v_{\infty,\text{dep}}$ & 10.1213~km/s \\
-表面发射等效速度 $v_{\text{launch}}$ & 15.0809~km/s \\
+formal 表面发射项 $\Delta v_{\text{launch}}$ & 15.0854~km/s \\
 近月距 $r_m$ & 1837.4~km \\
-月借残差脉冲 & 0.4991~km/s \\
+formal 月借残差项 $\Delta v_{\text{lunar residual}}$ & 0.4991~km/s \\
 总飞行时间 & 96.12~天 \\
 实现近日距 $r_p$ & 0.274959~AU \\
 返回地球距离 & 446150.8~km \\
 返回相对速度 $v_{\infty,\text{return}}$ & 10.5173~km/s \\
+formal 再入项 $\Delta v_{\text{reentry}}$ & 0.0000~km/s \\
+formal 总预算 $\Delta v_{\text{total}}$ & 15.5845~km/s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{同日 no-lunar baseline}
-正式比较使用同一发射日期、同一 budget basis、同一 Earth-return 语义。
+正式比较使用同一发射日期、同一 three-segment formal budget basis、同一 Earth-return 语义。
 \begin{table}[H]
 \centering
 \caption{M5 同日 lunar / no-lunar 正式对比（MJD 61065.0）}
@@ -201,38 +207,39 @@ M5 的主线流程包括：读取初态、构造拼接圆锥曲线目标、搜�
 量 & Lunar & No-lunar DSM \\
 \midrule
 同日发射 & \multicolumn{2}{c}{是} \\
-预算口径 & \multicolumn{2}{c}{$v_{\infty}$ basis} \\
-总预算（km/s） & 10.1213 & 20.5938 \\
+预算口径 & \multicolumn{2}{c}{three-segment formal} \\
+总预算（km/s） & 15.5845 & 25.5940 \\
 返回 $v_{\infty}$（km/s） & 10.5173 & 13.7632 \\
-DSM / 中途修正（km/s） & 0 & 10.5815 \\
-formal saving ratio & \multicolumn{2}{c}{0.508527 = 50.85\%} \\
+中间修正项（km/s） & 0.4991（月借残差） & 10.5815（DSM） \\
+formal saving ratio & \multicolumn{2}{c}{0.391088 = 39.11\%} \\
+supplementary $v_{\infty}$ basis ratio & \multicolumn{2}{c}{0.508527 = 50.85\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-这一结果是当前项目中唯一保留的正式节能结论。它说明：在相同日期和统一预算定义下，月球借力方案相对 no-lunar DSM baseline 节省约一半的 $v_{\infty}$ 预算。
+这一结果是当前项目中唯一保留的正式节能结论。它说明：在相同日期、相同 Earth-return 语义、相同三段正式预算定义下，月球借力方案相对 no-lunar DSM baseline 节省约 $39\%$ 的总 $\Delta v$；旧的 $50.85\%$ 只对应 supplementary 的 $v_{\infty}$ basis，对物理预算更接近“诊断量”而不是题干定义的正式预算。
 
 \section{发射窗口优化（M6）}
 \subsection{当前正式身份}
 M6 原始实现包含全年几何粗筛与候选验证，但在数值语义硬化后，旧的 61154/61066 候选不再能直接作为 formal 最优窗口。补跑 2026 合法窗口全搜索后，本项目当前保留如下更稳妥的正式结论：
 \begin{itemize}
     \item derived legal-window search 共评估 900 个候选，得到 95 个 valid complete return、71 个 fair return；
-    \item 当前最佳 legal-window candidate 为 MJD~61390.5（2026-12-16），trailing，$r_m=2037.4$~km；derived legal-window search 给出的返回地球距离为 7231.3~km、返回 $v_{\infty}=14.3987$~km/s；
-    \item 独立 M6 参数搜索共评估 1220 个候选，并回收了同一组 $t_0$ / side / $r_m$，对应返回地球距离 7698.8~km、返回 $v_{\infty}=14.5249$~km/s；
-    \item 单点高精度重放表明，这一 12 月窗口对步长和事件搜索参数仍然敏感，因此当前更稳妥的口径应是“最佳 legal-window 搜索候选已被两条搜索链共同支持”，而不是“该点已像 61065 一样完成最强 formal 重建”。
+    \item 当前最佳 legal-window candidate 为 MJD~61389.0（2026-12-15），trailing，$r_m=9737.4$~km；derived legal-window search 给出的返回地球距离为 50,467.6~km、返回 $v_{\infty}=11.2257$~km/s、search-summary formal 总预算约 15.1801~km/s；
+    \item 独立 M6 参数搜索共评估 1220 个候选，并回收到同一组 $t_0$ / side / $r_m$，对应返回地球距离 50,435.6~km、返回 $v_{\infty}=11.2267$~km/s，说明这一窗口不是简单的 derived JSON 换名；
+    \item 但围绕同一候选的单点高精度重放与步长收敛检查表明：3600~s 与 450~s 下 Earth-return 直接失效，1800~s 与 900~s 虽能回到地球附近，但返回距离与 $v_{\infty}$ 漂移很大；因此当前更稳妥的口径应是“最佳 legal-window 搜索候选已被两条搜索链共同支持”，而不是“该点已像 61065 一样完成最强 formal 重建”。
 \end{itemize}
 
 \subsection{解释}
-因此，M6 当前已经从“legal-window verified anchor 已建立”推进到“当前最佳 legal-window candidate 已由 derived search 与 independent search 双重支持”。不过，这个 12 月窗口仍带有明显的 replay sensitivity：搜索摘要本身成立，但单点重放会随积分步长和事件搜索分辨率而出现可观偏移。因此更准确的表述是“当前最佳候选已找到并被双链支持”，而不是“连续参数空间中的严格数学全局最优或最强 formal 重建已被证明”。
+因此，M6 当前已经从“legal-window verified anchor 已建立”推进到“当前最佳 legal-window candidate 已由 derived search 与 independent search 双重支持”。不过，这个 12 月窗口仍带有非常明显的 replay sensitivity：搜索摘要本身成立，但单点重放会随积分步长和事件搜索分辨率而出现可观偏移，甚至改变任务约束是否满足。因此更准确的表述是“当前最佳候选已找到并被双链支持”，而不是“连续参数空间中的严格数学全局最优或最强 formal 重建已被证明”。
 
 \section{灵敏度与误差分析（M7）}
 \subsection{围绕当前 best legal-window candidate 的参数灵敏度}
-除了围绕 fixed-date formal anchor 的 Monte Carlo 以外，项目还单独对当前 best legal-window candidate（MJD~61390.5，trailing，$r_m=2037.4$~km）做了发射日期、近月距、返回阈值和步长的联合扫描。扫描范围为 $t_0\pm1$~day、$r_m\pm\{50,100,200\}$~km，并组合 $h=1800/3600/7200$~s、Earth-return threshold $=\{1.0,1.5,2.0\}\times10^6$~km、近日距容差 $\pm\{0.02,0.03,0.04\}$~AU。
+除了围绕 fixed-date formal anchor 的 Monte Carlo 以外，项目还单独对当前 best legal-window candidate（MJD~61389.0，trailing，$r_m=9737.4$~km）做了发射日期、近月距、返回阈值和步长的联合扫描。扫描范围为 $t_0\pm1$~day、$r_m+\{-50,0,50,100,200\}$~km，并组合 $h=1800/3600/7200$~s、Earth-return threshold $=\{1.0,1.5,2.0\}\times10^6$~km、近日距容差 $\pm\{0.02,0.03,0.04\}$~AU。
 
-当前结果文件 \texttt{data/results/m5\_m6\_sensitivity\_scan.json} 给出：物理传播 75 组、评价组合 675 组，其中 valid return 300 组、fair 150 组；在默认设定（baseline、$1.5\times10^6$~km、$0.03$~AU）下 fair fraction 约为 0.20，因此结论应写为 \texttt{sensitive}，而不是“大片稳定窗口”。这说明 61390.5 作为当前最佳 legal-window candidate 是真实存在的搜索窗口，但附近的高质量窗口并不宽，而且单点重放对步长与事件搜索分辨率也明显敏感。
+当前结果文件 \texttt{data/results/m5\_m6\_sensitivity\_scan.json} 给出：物理传播 75 组、评价组合 675 组，其中 valid return 165 组、fair 100 组；默认设定（baseline、$1.5\times10^6$~km、$0.03$~AU）下 fair fraction 为 0，因此结论应写为 \texttt{fragile}，而不是“大片稳定窗口”或“弱敏感”。尽管所有 valid 样本的 formal 总预算都紧密集中在 15.18~km/s 左右，但 Earth-return 事件是否成立、以及是否同时满足 $v_{\infty}\le 15$~km/s，会随着步长和参数微扰迅速翻转。这说明 61389.0 作为当前最佳 legal-window candidate 是真实存在的搜索窗口，但附近的高质量窗口非常窄。
 
 \subsection{Monte Carlo 设置}
-当前 full Monte Carlo 围绕合法固定日期锚点 MJD~61065.0、trailing、$r_m=1837.4$~km 进行多参数扰动。full Monte Carlo 使用固定随机种子 202606，总样本数 $N=200$。需要强调的是：这批 Monte Carlo 样本生成于窗口搜索确认 61390.5 年度最佳候选之前，因此它验证的是合法 fixed-date anchor 的鲁棒性，而不是 61390.5 周边的全年最佳窗口鲁棒性。
+当前 full Monte Carlo 围绕合法固定日期锚点 MJD~61065.0、trailing、$r_m=1837.4$~km 进行多参数扰动。full Monte Carlo 使用固定随机种子 202606，总样本数 $N=200$。需要强调的是：这批 Monte Carlo 样本生成于窗口搜索确认 61389.0 年度最佳候选之前，因此它验证的是合法 fixed-date anchor 的鲁棒性，而不是 61389.0 周边的全年最佳窗口鲁棒性。
 
 \begin{table}[H]
 \centering
@@ -244,16 +251,16 @@ M6 原始实现包含全年几何粗筛与候选验证，但在数值语义硬�
 valid return / total & 101 / 200 \\
 invalid / timeout & 99 / 0 \\
 valid-only $v_{\infty,\text{return}}$ mean / p50 / p95 & 10.8047 / 10.7706 / 11.3542~km/s \\
-valid-only total $v_{\infty}$ basis mean / p50 / p95 & 10.2299 / 10.1479 / 10.3455~km/s \\
+supplementary valid-only total $v_{\infty}$ basis mean / p50 / p95 & 10.2299 / 10.1479 / 10.3455~km/s \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{解释}
-M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段的语义被纠正：旧的伪 79~km/s 返回速度已被 guard 阻断，不再进入 summary。当前 valid rate 为 0.505，且 timeout 已下降到 0；因此这批结果已经不再是“timeout-heavy 的半成品”，而是一组可直接解释的 sample-level Monte Carlo 统计。与此同时，它的适用范围仍应被正确限定：这批统计对应的是 61065 固定日期 anchor 周边扰动，不是 61390.5 年度最佳窗口周边的最终鲁棒性结论。
+M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段的语义被纠正：旧的伪 79~km/s 返回速度已被 guard 阻断，不再进入 summary。当前 valid rate 为 0.505，且 timeout 已下降到 0；因此这批结果已经不再是“timeout-heavy 的半成品”，而是一组可直接解释的 sample-level Monte Carlo 统计。与此同时，它的适用范围仍应被正确限定：这批统计对应的是 61065 固定日期 anchor 周边扰动，不是 61389.0 年度最佳窗口周边的最终鲁棒性结论。
 
 \subsection{步长收敛}
-项目补充了围绕当前 legal candidate（61390.5）的步长收敛检查，结果见 \texttt{data/results/m7\_stepsize\_convergence.json}。在 $h=3600,1800,900,450$~s 下，3-body 能量漂移分别约为 $8.72\times10^{-10}$、$2.18\times10^{-10}$、$5.45\times10^{-11}$、$1.36\times10^{-11}$，估计收敛阶接近 2，符合 Velocity-Verlet 的二阶行为。与此同时，任务级观测量（实现近日距与返回距离）在不同步长下仍存在明显漂移，因此更稳妥的结论不是“3600~s 已完全收敛”，而是“能量守恒足够好，但最终轨道判定和 legal-window 候选验证应优先使用 900~s 或更细步长，并显式保留 replay crosscheck”。这也是当前 legal-window 候选只被写成 search candidate、而不直接上升为最强 formal 结果的原因。
+项目补充了围绕当前 legal candidate（61389.0）的步长收敛检查，结果见 \texttt{data/results/m7\_stepsize\_convergence.json}。在 $h=3600,1800,900,450$~s 下，3-body 能量漂移分别约为 $8.72\times10^{-10}$、$2.18\times10^{-10}$、$5.45\times10^{-11}$、$1.36\times10^{-11}$，估计收敛阶接近 2，符合 Velocity-Verlet 的二阶行为。但任务级观测量并未稳定：3600~s 与 450~s 下不形成有效 Earth-return；1800~s 下虽能回到 115 万 km 内，900~s 下则出现 3308~km 的近地交会但返回 $v_{\infty}=18.42$~km/s，已超出任务约束。更稳妥的结论因此不是“3600~s 已完全收敛”，而是“能量守恒足够好，但 legal-window 候选本身的事件判定非常脆弱，必须显式保留 replay crosscheck”。这也是当前 legal-window 候选只被写成 search candidate、而不直接上升为最强 formal 结果的原因。
 
 \section{可视化结果（M8）}
 当前提交物中可直接引用的静态图包括：
@@ -288,7 +295,7 @@ M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{m8_sensitivity.png}
-\caption{围绕合法 fixed-date anchor 的 M7 Monte Carlo 三面板：valid-only 返回速度、valid-only 总预算、有效/无效样本的 Earth-return 距离分布。}
+\caption{围绕合法 fixed-date anchor 的 M7 Monte Carlo 三面板：valid-only 返回速度、valid-only 总预算分布（当前图中仍以 supplementary budget 显示）、有效/无效样本的 Earth-return 距离分布。}
 \end{figure}
 
 \begin{figure}[H]
@@ -300,7 +307,7 @@ M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.82\textwidth]{m8_delta_v_launch_date.png}
-\caption{legal-window 搜索中，valid/fair 候选的总预算与返回 $v_{\infty}$ 随发射日期变化。}
+\caption{legal-window 搜索中，valid/fair 候选的正式总预算与返回 $v_{\infty}$ 随发射日期变化。}
 \end{figure}
 
 \begin{figure}[H]
@@ -315,10 +322,10 @@ M7 的关键改进不是“样本数更大”本身，而是 formal 返回字段
 
 \section{选做项概述}
 \subsection{O1 三维扩展对照}
-项目实现了二维黄道投影与三维 J2000 传播的轻量对照，并选取两个当前正式窗口作代表：fixed-date formal anchor（61065.0）和 best legal-window candidate（61390.5）。在 30 天传播后，固定日期窗口的 Earth 2D-vs-3D heliocentric 差异约为 3439.5~km，best legal-window candidate 对应差异约为 8446.6~km；月球的 $z$ 向位移分别约为 48681.8~km 和 36228.9~km。可见三维倾角对地球日心主轨道影响较小，但对月球局部几何的影响达到数万公里量级，因此 3D 扩展更主要地影响 swing-by 几何细节，而不是把现有 2D 主结论整体推翻。
+项目实现了二维黄道投影与三维 J2000 传播的轻量对照，并选取两个当前正式窗口作代表：fixed-date formal anchor（61065.0）和 best legal-window candidate（61389.0）。在 30 天传播后，固定日期窗口的 Earth 2D-vs-3D heliocentric 差异约为 15,175.5~km，best legal-window candidate 对应差异约为 3726.1~km；月球的 $z$ 向位移分别约为 48,681.8~km 和 27,130.2~km。可见三维倾角对地球日心主轨道影响较小，但对月球局部几何的影响仍达到数万公里量级，因此 3D 扩展更主要地影响 swing-by 几何细节，而不是把现有 2D 主结论整体推翻。
 
 \subsection{O2 相对论修正}
-项目实现了近日点附近的一阶 Schwarzschild 修正，并在当前 legal candidate 上做了 60 天传播对照。结果见 \texttt{data/results/o2\_relativity.json}：Newtonian 与 GR 的近日距差仅约 3.63~km，相对变化约 $3.69\times10^{-8}$，GR 加速度与 Newtonian 加速度之比约为 $6.82\times10^{-8}$。因此，在本项目的 0.3~AU 近日前后，相对论修正可以视为“理论上已实现、数值上极小”，不改变主线窗口与预算结论。
+项目实现了近日点附近的一阶 Schwarzschild 修正，并在当前 legal candidate 上做了 60 天传播对照。结果见 \texttt{data/results/o2\_relativity.json}：Newtonian 与 GR 的最小日心距离差仅约 3.35~km，相对变化约 $3.48\times10^{-8}$，GR 加速度与 Newtonian 加速度之比约为 $6.10\times10^{-8}$。因此，在本项目当前候选的这一局部传播弧段上，相对论修正可以视为“理论上已实现、数值上极小”，不改变主线窗口与预算结论。
 
 \subsection{O3 / O3+ 微分修正器}
 项目实现了不依赖 \texttt{scipy.optimize} 的微分修正器。O3 在修复 target leakage 后只获得约 4 倍改善；O3+ 使用直接 $\Delta \bm{v}$ 参数化和 Levenberg--Marquardt 阻尼，最佳结果将 Moon-position miss 压缩到 66,210~km，低于 100,000~km 阈值。当前提交物保留了 O3+ 收敛图与结果文件，因此这一模块既有数值结论，也有对应图像证据链。
@@ -337,14 +344,14 @@ O7 使用 ProcessPool 替代 ThreadPool 后，在 55 个日期的重复基准中
     \item 主模型仍为二维黄道平面近似，未纳入完整三维轨道倾角；
     \item 当前主线动力学仍以 Sun--Earth--Moon 为主，未将全部行星摄动纳入正式 M5/M6/M7 主解；
     \item M6 当前最佳窗口来自 coarse+local-refine 搜索与独立搜索的双重支持，但仍不是连续参数空间上的严格数学最优性证明；
-    \item M7 的 full Monte Carlo 目前围绕 61065 fixed-date anchor，而不是围绕后续窗口搜索得到的 61390.5 最优候选；
+    \item M7 的 full Monte Carlo 目前围绕 61065 fixed-date anchor，而不是围绕后续窗口搜索得到的 61389.0 最优候选；
     \item M4 的数值对照仍是局部模型，而不是完整任务级高保真借力仿真。
 \end{enumerate}
 
 \subsection{后续改进}
 \begin{itemize}
-    \item 进一步细化 61390.5 附近的连续参数搜索，把当前最佳 legal-window candidate 推进到更强的最优性结论；
-    \item 在 61390.5 年度最佳窗口附近重跑 full Monte Carlo，形成和 M6 对齐的鲁棒性分析；
+    \item 进一步细化 61389.0 附近的连续参数搜索，把当前最佳 legal-window candidate 推进到更强的最优性结论；
+    \item 在 61389.0 年度最佳窗口附近重跑 full Monte Carlo，形成和 M6 对齐的鲁棒性分析；
     \item 扩展到三维和更完整的多体摄动模型；
     \item 对近日点附近加入更高精度的自适应步长策略；
     \item 将 O3+ 的微分修正思想接入主线窗口精化。
@@ -353,9 +360,9 @@ O7 使用 ProcessPool 替代 ThreadPool 后，在 55 个日期的重复基准中
 \newpage
 
 \section{结论}
-本项目已经完成题干主线所需的核心数值链路，并在后期通过数值正确性审计纠正了旧的非法锚点、伪返回速度和不一致预算口径。当前最可信的 fixed-date formal 结果仍是合法发射窗内的 MJD~61065.0：在同日、同口径、同 Earth-return 事件定义下，月借力方案相对 no-lunar DSM baseline 的 formal 节能比例为 50.85\%。
+本项目已经完成题干主线所需的核心数值链路，并在后期通过数值正确性审计纠正了旧的非法锚点、伪返回速度和不一致预算口径。当前最可信的 fixed-date formal 结果仍是合法发射窗内的 MJD~61065.0：在同日、同 three-segment formal 预算口径、同 Earth-return 事件定义下，月借力方案相对 no-lunar DSM baseline 的 formal 节能比例为 39.11\%。
 
-在此基础上，补跑的 2026 全年 legal-window search 给出了当前最佳窗口候选 MJD~61390.5（2026-12-16），其 derived search 与 independent search 都收敛到 trailing、$r_m=2037.4$~km、$v_{\infty}$ budget basis 为 10.1213~km/s 的同一组参数。M3 已被正确限定为 same-source propagation check，M4 是局部解析/数值一致性验证，M6 已从“只有合法锚点”推进到“全年最佳候选被两条搜索链共同支持”，M7 则在合法 fixed-date anchor 上完成了 $N=200$ Monte Carlo、101 个 valid return、0 timeout 的样本级统计。换言之，项目已经具备一条可信的正式数值主线；仍然需要谨慎限定的，不是“结果是否存在”，而是“61065 的 fixed-date compare”和“61390.5 的年度最佳窗口”属于不同层次的正式结论，后者仍保留 replay sensitivity，M7 目前也只直接支撑前者周边的鲁棒性解释。
+在此基础上，补跑的 2026 全年 legal-window search 给出了当前最佳窗口候选 MJD~61389.0（2026-12-15），其 derived search 与 independent search 都把 trailing、$r_m=9737.4$~km、formal 总预算约 15.1801~km/s 的同一组参数排在候选池首位。M3 已被正确限定为 same-source propagation check，M4 是局部解析/数值一致性验证，M6 已从“只有合法锚点”推进到“全年最佳候选被两条搜索链共同支持”，M7 则在合法 fixed-date anchor 上完成了 $N=200$ Monte Carlo、101 个 valid return、0 timeout 的样本级统计。换言之，项目已经具备一条可信的正式数值主线；仍然需要谨慎限定的，不是“结果是否存在”，而是“61065 的 fixed-date compare”和“61389.0 的年度最佳窗口”属于不同层次的正式结论，后者在步长与事件搜索上表现出更强的 replay fragility，M7 目前也只直接支撑前者周边的鲁棒性解释。
 
 \begin{table}[H]
 \centering
@@ -370,8 +377,8 @@ M2 VV integrator & 完成 & 二体基准、能量漂移与步长收敛均已验�
 M3 Horizons & 完成 & 已完成 same-source 残差对照，并进一步做了 3-body/5-body/full planetary 的模型层级验证。 \\
 M4 lunar swingby & 完成 & 解析偏折公式、leading/trailing 数值传播与局部一致性扫描均已实现。 \\
 M5 trajectory & 完成 & 已建立合法 2026 发射窗内的 formal 单点轨道，并完成同日 no-lunar 正式对比。 \\
-M6 launch window & 完成 & 全年合法窗口搜索已跑通，当前最佳候选为 2026-12-16；其搜索摘要被独立搜索链再次确认，但单点重放仍有明显敏感性。 \\
-M7 sensitivity & 完成 & 已完成围绕合法 fixed-date anchor 的 $N=200$ Monte Carlo，当前结果为 101 valid / 99 invalid / 0 timeout。 \\
+M6 launch window & 完成 & 全年合法窗口搜索已跑通，当前最佳候选为 2026-12-15；其搜索摘要被独立搜索链再次确认，但单点重放仍有明显敏感性。 \\
+M7 sensitivity & 完成 & 已完成围绕合法 fixed-date anchor 的 $N=200$ Monte Carlo，并对 61389 候选完成局部灵敏度/步长重算；结论是该年度候选明显脆弱。 \\
 M8 figures & 完成 & 静态图、图表清单与动画生成链路均已绑定到当前 legal/formal 结果源，并修正了旧候选与旧返回语义残留。 \\
 \hline
 O3 corrector & 完成 & 已实现自定义微分修正器并修复 target leakage，具备独立可运行的方法链。 \\

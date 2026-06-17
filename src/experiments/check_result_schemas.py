@@ -279,7 +279,8 @@ def check_main_task_export():
         _check("main_task_result.json", block.get("return_event_mjd") is not None, f"{label}.return_event_mjd missing")
         _check("main_task_result.json", block.get("return_vinf_kms") is not None, f"{label}.return_vinf_kms missing")
         _check("main_task_result.json", block.get("perihelion_achieved_AU") is not None, f"{label}.perihelion_achieved_AU missing")
-        three = block.get("three_segment_budget_proxy", {})
+        _check("main_task_result.json", "three_segment_budget" in block, f"{label}.three_segment_budget missing")
+        three = block.get("three_segment_budget", block.get("three_segment_budget_proxy", {}))
         vinf = block.get("vinf_basis_budget", {})
         for dv_key in ["dv_launch_kms", "dv_lunar_residual_kms", "dv_reentry_kms", "dv_total_kms"]:
             _check("main_task_result.json", dv_key in three, f"{label}.three_segment_budget_proxy missing {dv_key}")
@@ -288,11 +289,11 @@ def check_main_task_export():
 
     fixed_compare = fixed.get("same_date_no_lunar_compare", {})
     _check("main_task_result.json", fixed_compare.get("same_budget_basis") is True, "fixed compare same_budget_basis must be true")
-    _check("main_task_result.json", fixed_compare.get("budget_basis") == "vinf_basis", "fixed compare budget_basis must be vinf_basis")
+    _check("main_task_result.json", fixed_compare.get("budget_basis") == "three_segment_formal", "fixed compare budget_basis must be three_segment_formal")
     _check(
         "main_task_result.json",
-        fixed_compare.get("formal_ratio_vinf_basis") is not None and float(fixed_compare.get("formal_ratio_vinf_basis")) > 0.0,
-        "fixed compare formal_ratio_vinf_basis must be present and positive",
+        fixed_compare.get("formal_ratio") is not None and float(fixed_compare.get("formal_ratio")) > 0.0,
+        "fixed compare formal_ratio must be present and positive",
     )
 
     legal_prov = legal.get("provenance", {})
@@ -541,12 +542,12 @@ def check_m5_outputs():
     )
     _check(
         "m5_fixed_date_current_compare.json",
-        compare.get("formal_ratio_vinf_basis") is not None and float(compare.get("formal_ratio_vinf_basis")) > 0.0,
-        "formal_ratio_vinf_basis must be present and positive",
+        compare.get("formal_ratio") is not None and float(compare.get("formal_ratio")) > 0.0,
+        "formal_ratio must be present and positive",
     )
     _check(
         "m5_fixed_date_current_compare.json",
-        compare.get("same_budget_basis") is True and compare.get("budget_basis") == "vinf_basis",
+        compare.get("same_budget_basis") is True and compare.get("budget_basis") == "three_segment_formal",
         "same_budget_basis/budget_basis mismatch",
     )
 

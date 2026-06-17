@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import csv
 import json
-import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -27,6 +26,14 @@ RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
 from constants import AU_KM, GM_EARTH, GM_MOON, GM_SUN, R_EARTH
+from budget_tools import (
+    best_lunar_candidate,
+    ensure_lunar_row_formal_fields,
+    ensure_no_lunar_row_formal_fields,
+    lunar_three_segment_budget,
+    no_lunar_three_segment_budget,
+    saving_ratio,
+)
 from mission_constraints import (
     MISSION_LAUNCH_END_DATE,
     MISSION_LAUNCH_START_DATE,
@@ -45,6 +52,24 @@ def _load_json(name: str) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"required result file missing: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _best_from_rows(container: dict[str, Any], rows_key: str, summary_key: str) -> dict[str, Any] | None:
+    rows = container.get(rows_key, [])
+    best = best_lunar_candidate(rows, fair_only=True) if rows else None
+    if best is not None:
+        return best
+    summary = container.get(summary_key)
+    if isinstance(summary, dict):
+        return ensure_lunar_row_formal_fields(summary)
+    return None
+
+
+def _best_t0_from_rows(container: dict[str, Any], rows_key: str, summary_key: str) -> float | None:
+    best = _best_from_rows(container, rows_key, summary_key)
+    if best is None:
+        return None
+    return float(best["t0_mjd"])
 
 
 def _norm(vec: Any) -> float:
@@ -280,33 +305,70 @@ def _propagate_candidate_trajectory(
 
 def _three_segment_budget_from_lunar_verify(verify: dict[str, Any]) -> dict[str, Any]:
     budget = verify["budget"]
-    launch = float(budget["launch_equivalent_kms"])
-    lunar_residual = float(budget["lunar_swingby_residual_kms"])
-    reentry = float(budget.get("return_braking_proxy_kms", 0.0) or 0.0)
-    return {
-        "dv_launch_kms": _round(launch, 4),
-        "dv_lunar_residual_kms": _round(lunar_residual, 4),
-        "dv_reentry_kms": _round(reentry, 4),
-        "dv_total_kms": _round(launch + lunar_residual + reentry, 4),
-        "budget_definition": "three_segment_proxy",
-        "note": (
-            "Matches the problem-statement three-term layout as a proxy. "
-            "Formal savings comparisons elsewhere in this repo use vinf_basis and are exported separately."
-        ),
-    }
+    block = lunar_three_segment_budget(
+        departure_vinf_kms=float(budget["departure_vinf_kms"]),
+        lunar_residual_kms=float(budget["lunar_swingby_residual_kms"]),
+        return_vinf_kms=float(budget["return_vinf_kms"]),
+    )
+    block["budget_definition"] = "three_segment_formal"
+    block["note"] = "Matches the problem-statement three-term delta-v budget."
+    return block
 
 
 def _three_segment_budget_from_no_lunar(no_lunar_best: dict[str, Any]) -> dict[str, Any]:
-    launch = float(no_lunar_best["departure_vinf_kms"])
-    residual = float(no_lunar_best["dsm_delta_v_kms"])
-    reentry = float(no_lunar_best.get("return_braking_proxy_kms", 0.0) or 0.0)
+    block = no_lunar_three_segment_budget(
+        departure_vinf_kms=float(no_lunar_best["departure_vinf_kms"]),
+        dsm_delta_v_kms=float(no_lunar_best["dsm_delta_v_kms"]),
+        return_vinf_kms=float(no_lunar_best["return_vinf_kms"]),
+    )
+    block["dv_lunar_residual_kms"] = block.pop("dv_midcourse_kms")
+    block["budget_definition"] = "three_segment_formal_no_lunar"
+    block["note"] = "Here the middle term is DSM correction rather than lunar swingby residual."
+    return block
+
+
+def _canonical_three_segment_budget(block: dict[str, Any]) -> dict[str, Any]:
     return {
-        "dv_launch_kms": _round(launch, 4),
-        "dv_lunar_residual_kms": _round(residual, 4),
-        "dv_reentry_kms": _round(reentry, 4),
-        "dv_total_kms": _round(launch + residual + reentry, 4),
-        "budget_definition": "three_segment_proxy_no_lunar",
-        "note": "Here the middle term is DSM correction rather than lunar swingby residual.",
+        "budget_basis": block["budget_basis"],
+        "dv_launch_kms": _round(block["dv_launch_kms"], 4),
+        "dv_lunar_residual_kms": _round(block["dv_lunar_residual_kms"], 4),
+        "dv_reentry_kms": _round(block["dv_reentry_kms"], 4),
+        "dv_total_kms": _round(block["dv_total_kms"], 4),
+        "budget_definition": block.get("budget_definition", "three_segment_formal"),
+        "note": block.get("note"),
+    }
+
+
+def _canonical_compare_block(compare: dict[str, Any], no_lunar_best: dict[str, Any]) -> dict[str, Any]:
+    compare = dict(compare)
+    no_lunar_best = ensure_no_lunar_row_formal_fields(no_lunar_best)
+    if compare.get("formal_ratio") is None:
+        lunar_total = compare.get("lunar_total_dv_kms")
+        no_lunar_total = compare.get("no_lunar_total_dv_kms")
+        if lunar_total is not None and no_lunar_total is not None:
+            compare["formal_ratio"] = round(saving_ratio(float(lunar_total), float(no_lunar_total)), 6)
+    return {
+        "same_t0_mjd": _round(compare["same_t0"], 6),
+        "same_t0_date": compare["same_t0_date"],
+        "same_budget_basis": bool(compare["same_budget_basis"]),
+        "budget_basis": compare["budget_basis"],
+        "formal_ratio": _round(compare["formal_ratio"], 6),
+        "lunar_total_dv_kms": _round(compare["lunar_total_dv_kms"], 4),
+        "no_lunar_total_dv_kms": _round(compare["no_lunar_total_dv_kms"], 4),
+        "supplementary_vinf_basis_ratio": _round(compare.get("formal_ratio_vinf_basis"), 6),
+        "no_lunar_best_valid": {
+            "perihelion_AU": _round(no_lunar_best["perihelion_AU"], 6),
+            "departure_vinf_kms": _round(no_lunar_best["departure_vinf_kms"], 4),
+            "dsm_delta_v_kms": _round(no_lunar_best["dsm_delta_v_kms"], 4),
+            "return_vinf_kms": _round(no_lunar_best["return_vinf_kms"], 4),
+            "total_vinf_basis_kms": _round(no_lunar_best.get("total_dv_proxy_kms"), 4),
+            "three_segment_budget": _canonical_three_segment_budget(
+                _three_segment_budget_from_no_lunar(no_lunar_best)
+            ),
+            "three_segment_budget_proxy": _canonical_three_segment_budget(
+                _three_segment_budget_from_no_lunar(no_lunar_best)
+            ),
+        },
     }
 
 
@@ -362,30 +424,15 @@ def _fixed_date_formal_block(
         "return_vinf_kms": _round(state["return_vinf_kms"], 4),
         "valid_return_event": bool(event_check["valid_return_event"]),
         "event_type": event_check["event_type"],
-        "three_segment_budget_proxy": _three_segment_budget_from_lunar_verify(verify),
+        "three_segment_budget": _canonical_three_segment_budget(_three_segment_budget_from_lunar_verify(verify)),
+        "three_segment_budget_proxy": _canonical_three_segment_budget(_three_segment_budget_from_lunar_verify(verify)),
         "vinf_basis_budget": {
             "departure_vinf_kms": _round(budget["departure_vinf_kms"], 4),
             "return_vinf_kms": _round(budget["return_vinf_kms"], 4),
             "total_vinf_basis_kms": _round(budget["total_dv_proxy_vinf_basis"], 4),
             "note": budget["note"],
         },
-        "same_date_no_lunar_compare": {
-            "same_t0_mjd": _round(compare["same_t0"], 6),
-            "same_t0_date": compare["same_t0_date"],
-            "same_budget_basis": bool(compare["same_budget_basis"]),
-            "budget_basis": compare["budget_basis"],
-            "formal_ratio_vinf_basis": _round(compare["formal_ratio_vinf_basis"], 6),
-            "lunar_total_vinf_basis": _round(compare["lunar_total_vinf_basis"], 4),
-            "no_lunar_total_vinf_basis": _round(compare["no_lunar_dsm_total_vinf_basis"], 4),
-            "no_lunar_best_valid": {
-                "perihelion_AU": _round(no_lunar["best_valid"]["perihelion_AU"], 6),
-                "departure_vinf_kms": _round(no_lunar["best_valid"]["departure_vinf_kms"], 4),
-                "dsm_delta_v_kms": _round(no_lunar["best_valid"]["dsm_delta_v_kms"], 4),
-                "return_vinf_kms": _round(no_lunar["best_valid"]["return_vinf_kms"], 4),
-                "total_vinf_basis_kms": _round(no_lunar["best_valid"]["total_dv_proxy_kms"], 4),
-                "three_segment_budget_proxy": _three_segment_budget_from_no_lunar(no_lunar["best_valid"]),
-            },
-        },
+        "same_date_no_lunar_compare": _canonical_compare_block(compare, no_lunar["best_valid"]),
         "source_files": [
             "data/results/m5_best_lunar_candidate_verify.json",
             "data/results/m5_fixed_date_current_compare.json",
@@ -401,7 +448,12 @@ def _best_legal_window_block(
     legal_m6: dict[str, Any],
     body_data: dict[str, Any],
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    candidate = legal_m6["best_valid_candidate"]
+    candidate = _best_from_rows(legal_m6, "candidates", "best_valid_candidate")
+    if candidate is None:
+        raise ValueError("m6_independent_window_search.json does not contain a valid fair candidate")
+    m5_best = _best_from_rows(legal_m5, "search_rows", "best_lunar_candidate")
+    if m5_best is None:
+        raise ValueError("m5_legal_window_search.json does not contain a valid fair candidate")
     search_space = legal_m6.get("search_space", {})
     rows, traj_summary, traj = _propagate_candidate_trajectory(
         candidate_label="best_legal_window_candidate",
@@ -418,19 +470,15 @@ def _best_legal_window_block(
         refine_step_s=float(search_space.get("refine_event_refine_step_s", 300.0)),
         max_extra_days=float(search_space.get("max_extra_days", 500.0)),
     )
-    three_segment = {
-        "dv_launch_kms": _round(math.sqrt(10.1213 ** 2 + 2.0 * GM_EARTH / (R_EARTH * 1.1)), 4),
-        "dv_lunar_residual_kms": _round(candidate["swingby_dv_kms"], 6),
-        "dv_reentry_kms": _round(max(0.0, float(candidate["return_vinf_kms"]) - 15.0), 4),
-        "dv_total_kms": _round(
-            math.sqrt(10.1213 ** 2 + 2.0 * GM_EARTH / (R_EARTH * 1.1))
-            + float(candidate["swingby_dv_kms"])
-            + max(0.0, float(candidate["return_vinf_kms"]) - 15.0),
-            4,
+    three_segment = _canonical_three_segment_budget({
+        **lunar_three_segment_budget(
+            departure_vinf_kms=float(candidate["departure_vinf_kms"]),
+            lunar_residual_kms=float(candidate["swingby_dv_kms"]),
+            return_vinf_kms=float(candidate["return_vinf_kms"]),
         ),
-        "budget_definition": "three_segment_proxy",
-        "note": "Reconstructed from legal-window candidate fields; compare formal savings on vinf_basis separately.",
-    }
+        "budget_definition": "three_segment_formal",
+        "note": "Reconstructed from candidate fields with the formal three-segment budget.",
+    })
     block = {
         "candidate_label": "best_legal_window_candidate",
         "classification": legal_m6.get("classification"),
@@ -469,6 +517,7 @@ def _best_legal_window_block(
             "return_braking_proxy_kms": _round(max(0.0, float(candidate["return_vinf_kms"]) - 15.0), 4),
             "total_vinf_basis_kms": _round(candidate["total_vinf_basis_kms"], 4),
         },
+        "three_segment_budget": three_segment,
         "three_segment_budget_proxy": three_segment,
         "provenance": {
             "candidate_source": legal_m6.get("candidate_source"),
@@ -476,10 +525,10 @@ def _best_legal_window_block(
             "source_grid_reused": bool(legal_m6.get("source_grid_reused")),
             "m6_interpretation": legal_m6.get("m6_interpretation"),
             "m5_legal_window_best_crosscheck": {
-                "t0_mjd": _round(legal_m5["best_lunar_candidate"]["t0_mjd"], 6),
-                "r_m_km": _round(legal_m5["best_lunar_candidate"]["r_m_km"], 1),
-                "distance_to_earth_km": _round(legal_m5["best_lunar_candidate"]["distance_to_earth_km"], 3),
-                "return_vinf_kms": _round(legal_m5["best_lunar_candidate"]["return_vinf_kms"], 4),
+                "t0_mjd": _round(m5_best["t0_mjd"], 6),
+                "r_m_km": _round(m5_best["r_m_km"], 1),
+                "distance_to_earth_km": _round(m5_best["distance_to_earth_km"], 3),
+                "return_vinf_kms": _round(m5_best["return_vinf_kms"], 4),
             },
             "single_candidate_replay_crosscheck": {
                 "trajectory_dt_integrate_s": float(search_space.get("refine_trajectory_dt_integrate_s", 900.0)),
@@ -554,7 +603,7 @@ def main() -> int:
                 "candidates_evaluated": legal_m5.get("candidates_evaluated"),
                 "valid_lunar_returns": legal_m5.get("valid_lunar_returns"),
                 "valid_fair_returns": legal_m5.get("valid_fair_returns"),
-                "best_lunar_candidate_t0_mjd": legal_m5.get("best_lunar_candidate", {}).get("t0_mjd"),
+                "best_lunar_candidate_t0_mjd": _best_t0_from_rows(legal_m5, "search_rows", "best_lunar_candidate"),
                 "full_year_fine_search_pending": legal_m5.get("full_year_fine_search_pending"),
             },
             "m6_independent_window_search": {
@@ -562,7 +611,7 @@ def main() -> int:
                 "total_candidates_evaluated": legal_m6.get("total_candidates_evaluated"),
                 "valid_complete_return_count": legal_m6.get("valid_complete_return_count"),
                 "valid_fair_return_count": legal_m6.get("valid_fair_return_count"),
-                "best_valid_candidate_t0_mjd": legal_m6.get("best_valid_candidate", {}).get("t0_mjd"),
+                "best_valid_candidate_t0_mjd": _best_t0_from_rows(legal_m6, "candidates", "best_valid_candidate"),
             },
         },
         "m7_context": {
@@ -585,10 +634,11 @@ def main() -> int:
         },
         "notes": [
             "This export does not rerun heavy annual searches; it assembles already validated legal/formal outputs and regenerates only two single-candidate trajectory sequences.",
-            "Both vinf_basis and three-segment proxy budgets are exported explicitly to avoid silent budget-definition mixing.",
+            "The formal budget in this export is the problem-statement three-segment delta-v definition; vinf_basis is retained only as a supplementary diagnostic.",
             "Earth-return validity uses explicit event semantics: return_vinf is only defined at a real Earth-return event.",
             "The fixed-date formal anchor (61065.0) is the strongest fully reconstructed formal result in this export.",
-            "The best legal-window candidate (61390.5) is retained as the current annual-search best candidate, but its single-candidate replay remains sensitivity-limited and is exported with an explicit replay crosscheck block.",
+            "The best legal-window candidate is recomputed from the stored candidate pool under the formal three-segment budget, rather than trusting stale summary fields from earlier vinf-basis ranking passes.",
+            "The current best legal-window candidate remains a search-summary result with explicit replay crosscheck metadata; it is not overstated as a stronger fully reconstructed formal result than the fixed-date anchor.",
         ],
     }
 

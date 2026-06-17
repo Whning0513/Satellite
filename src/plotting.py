@@ -30,6 +30,7 @@ from trajectory import DesignParams, solve_trajectory, interpolate_state_at_mjd
 from nbody import propagate_nbody
 from horizons import fetch_sem_vectors
 from optimize_window import scan_launch_window
+from budget_tools import ensure_lunar_row_formal_fields
 
 
 def _ensure_matplotlib():
@@ -189,7 +190,9 @@ def plot_trajectory(
     # 标注信息
     formal_return_vinf = formal_result.get("return_vinf_kms")
     formal_return_dist = formal_result.get("distance_to_earth_km")
-    formal_budget = formal_result.get("total_vinf_basis_kms")
+    formal_result = ensure_lunar_row_formal_fields(formal_result or {})
+    formal_budget = formal_result.get("dv_total_kms")
+    supplementary_vinf_basis = formal_result.get("total_vinf_basis_kms")
     formal_t0 = formal_result.get("t0_mjd", result.t0_mjd)
     info_lines = [
         f"t0 = MJD {formal_t0:.1f}",
@@ -197,7 +200,9 @@ def plot_trajectory(
         f"r_p = {r_p_achieved:.4f} AU",
     ]
     if formal_budget is not None:
-        info_lines.append(f"total vinf basis = {formal_budget:.4f} km/s")
+        info_lines.append(f"formal total dv = {formal_budget:.4f} km/s")
+    if supplementary_vinf_basis is not None:
+        info_lines.append(f"supplementary vinf basis = {supplementary_vinf_basis:.4f} km/s")
     if formal_return_vinf is not None:
         info_lines.append(f"return vinf = {formal_return_vinf:.4f} km/s")
     if formal_return_dist is not None:
@@ -459,7 +464,7 @@ def plot_sensitivity(
         return ""
 
     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    valid_rows = [r for r in sample_rows if r.get("valid_return_event") and r.get("return_vinf_kms") is not None]
+    valid_rows = [ensure_lunar_row_formal_fields(r) for r in sample_rows if r.get("valid_return_event") and r.get("return_vinf_kms") is not None]
     invalid_rows = [r for r in sample_rows if not r.get("valid_return_event")]
 
     ax = axes[0]
@@ -479,17 +484,27 @@ def plot_sensitivity(
     ax.grid(True, alpha=0.3)
 
     ax = axes[1]
+    total_dv = [float(r["dv_total_kms"]) for r in valid_rows if r.get("dv_total_kms") is not None]
     total_vinf = [float(r["total_vinf_basis_kms"]) for r in valid_rows if r.get("total_vinf_basis_kms") is not None]
-    if total_vinf:
-        ax.hist(total_vinf, bins=14, color="seagreen", alpha=0.8, edgecolor="black")
-        p50 = summary.get("total_vinf_basis_valid_only", {}).get("p50")
-        p95 = summary.get("total_vinf_basis_valid_only", {}).get("p95")
+    if total_dv or total_vinf:
+        display_values = total_dv if total_dv else total_vinf
+        ax.hist(display_values, bins=14, color="seagreen", alpha=0.8, edgecolor="black")
+        p50 = summary.get("total_dv_valid_only", {}).get("p50")
+        p95 = summary.get("total_dv_valid_only", {}).get("p95")
+        if p50 is None:
+            p50 = summary.get("total_vinf_basis_valid_only", {}).get("p50")
+        if p95 is None:
+            p95 = summary.get("total_vinf_basis_valid_only", {}).get("p95")
         if p50 is not None:
             ax.axvline(p50, color="darkgreen", linestyle="--", linewidth=1.0, label=f"p50={p50:.2f}")
         if p95 is not None:
             ax.axvline(p95, color="crimson", linestyle=":", linewidth=1.0, label=f"p95={p95:.2f}")
         ax.legend(fontsize=8)
-    ax.set_xlabel("Valid-only total vinf basis (km/s)")
+    ax.set_xlabel(
+        "Valid-only formal total dv (km/s)"
+        if total_dv
+        else "Valid-only supplementary total vinf basis (km/s)"
+    )
     ax.set_title("M7 Total Budget Distribution")
     ax.grid(True, alpha=0.3)
 
@@ -717,12 +732,12 @@ def plot_delta_v_launch_date(
     if optimization_result is None:
         optimization_result = _load_result_json("m5_legal_window_search.json")
 
-    rows = _extract_search_rows(optimization_result)
-    if not rows or "total_vinf_basis_kms" not in rows[0]:
+    rows = [ensure_lunar_row_formal_fields(r) for r in _extract_search_rows(optimization_result)]
+    if not rows:
         print("[Plot] No window data to plot")
         return ""
 
-    valid_rows = [r for r in rows if r.get("valid_return_event") and r.get("total_vinf_basis_kms") is not None]
+    valid_rows = [r for r in rows if r.get("valid_return_event") and r.get("dv_total_kms") is not None]
     fair_rows = [r for r in valid_rows if r.get("fair")]
     best = min(fair_rows or valid_rows, key=lambda r: float(r.get("distance_to_earth_km", np.inf)))
 
@@ -730,18 +745,18 @@ def plot_delta_v_launch_date(
 
     ax1.scatter(
         [r["t0_mjd"] for r in valid_rows],
-        [float(r["total_vinf_basis_kms"]) for r in valid_rows],
+        [float(r["dv_total_kms"]) for r in valid_rows],
         c="darkorange", s=12, alpha=0.55, label="Valid return",
     )
     if fair_rows:
         ax1.scatter(
             [r["t0_mjd"] for r in fair_rows],
-            [float(r["total_vinf_basis_kms"]) for r in fair_rows],
+            [float(r["dv_total_kms"]) for r in fair_rows],
             c="forestgreen", s=16, alpha=0.8, label="Fair candidate",
         )
-    ax1.scatter([best["t0_mjd"]], [best["total_vinf_basis_kms"]], c="blue", s=40, marker="*",
+    ax1.scatter([best["t0_mjd"]], [best["dv_total_kms"]], c="blue", s=40, marker="*",
                 zorder=5, label="Best legal candidate")
-    ax1.set_ylabel("Total vinf basis (km/s)")
+    ax1.set_ylabel("Formal total dv (km/s)")
     ax1.set_title("Legal-Window Budget and Return-Speed Diagnostics")
     ax1.legend(fontsize=8)
     ax1.grid(True, alpha=0.3)

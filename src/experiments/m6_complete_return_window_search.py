@@ -24,6 +24,7 @@ import sys
 sys.path.insert(0, str(_REPO / "src"))
 
 from mission_constraints import MISSION_LAUNCH_END_DATE, MISSION_LAUNCH_START_DATE
+from budget_tools import ensure_lunar_row_formal_fields
 
 from experiments.legal_window_search_tools import (
     SearchConfig,
@@ -61,7 +62,7 @@ def _sort_key(row: dict[str, Any]) -> tuple[Any, ...]:
     return (
         0 if row.get("fair") else 1,
         0 if row.get("valid_return_event") else 1,
-        float(row.get("total_vinf_basis_kms")) if row.get("total_vinf_basis_kms") is not None else float("inf"),
+        float(row.get("dv_total_kms")) if row.get("dv_total_kms") is not None else float("inf"),
         float(row.get("distance_to_earth_km")) if row.get("distance_to_earth_km") is not None else float("inf"),
         float(row.get("perihelion_error_AU")) if row.get("perihelion_error_AU") is not None else float("inf"),
     )
@@ -107,7 +108,8 @@ def _search_output(
         "task": "M6 complete-return window search",
         "classification": classification,
         "status": status,
-        "budget_basis": "vinf_basis",
+        "budget_basis": "three_segment_formal",
+        "supplementary_budget_basis": "vinf_basis",
         "candidate_source": mode,
         "source_file": source_file,
         "source_grid_reused": source_grid_reused,
@@ -144,10 +146,13 @@ def _search_output(
 
 
 def _legal_candidate_from_m5_row(row: dict[str, Any], idx: int) -> dict[str, Any]:
+    row = ensure_lunar_row_formal_fields(row)
     valid = bool(row.get("valid_return_event"))
     fair = bool(row.get("fair"))
     total = row.get("total_vinf_basis_kms")
     total = round(float(total), 4) if total is not None else None
+    dv_total = row.get("dv_total_kms")
+    dv_total = round(float(dv_total), 4) if dv_total is not None else None
     ret = row.get("return_vinf_kms")
     ret = round(float(ret), 4) if ret is not None else None
     return {
@@ -158,6 +163,7 @@ def _legal_candidate_from_m5_row(row: dict[str, Any], idx: int) -> dict[str, Any
         "r_m_km": round(float(row["r_m_km"]), 1),
         "source_file": "data/results/m5_legal_window_search.json",
         "departure_vinf_kms": round(float(row["departure_vinf_kms"]), 4),
+        "launch_equivalent_kms": round(float(row.get("launch_equivalent_kms", 0.0)), 4),
         "perihelion_AU": round(float(row["perihelion_AU"]), 6),
         "perihelion_error_AU": round(float(row["perihelion_error_AU"]), 6),
         "legacy_return_vinf_kms": None,
@@ -166,6 +172,12 @@ def _legal_candidate_from_m5_row(row: dict[str, Any], idx: int) -> dict[str, Any
         "distance_to_moon_km": row.get("distance_to_moon_km"),
         "return_event_mjd": row.get("return_event_mjd"),
         "return_vinf_kms": ret,
+        "return_braking_kms": round(float(row.get("return_braking_kms", 0.0)), 4),
+        "dv_launch_kms": round(float(row.get("dv_launch_kms", 0.0)), 4),
+        "dv_lunar_residual_kms": round(float(row.get("dv_lunar_residual_kms", 0.0)), 4),
+        "dv_reentry_kms": round(float(row.get("dv_reentry_kms", 0.0)), 4),
+        "dv_total_kms": dv_total,
+        "budget_basis": str(row.get("budget_basis", "three_segment_formal")),
         "total_vinf_basis_kms": total,
         "fair": fair,
         "classification": _candidate_classification(valid, fair),
@@ -422,7 +434,8 @@ def main() -> int:
         best = payload["best_valid_candidate"]
         print(
             f"best valid: t0={best['t0_mjd']} side={best['side']} "
-            f"r_m={best['r_m_km']} total={best['total_vinf_basis_kms']}"
+            f"r_m={best['r_m_km']} dv_total={best.get('dv_total_kms')} "
+            f"(supplementary vinf_basis={best.get('total_vinf_basis_kms')})"
         )
     return 0
 

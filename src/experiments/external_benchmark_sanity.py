@@ -73,11 +73,11 @@ def main() -> int:
             _row(
                 "M5",
                 "legal fixed-date saving ratio",
-                m5_compare["formal_ratio_vinf_basis"],
+                m5_compare["formal_ratio"],
                 None,
                 "ratio",
                 "Classical gravity-assist design literature",
-                "A positive ~0.51 saving ratio is numerically plausible for a same-date lunar-assist versus deep-space-manuever proxy comparison, but it is still a project-internal benchmark rather than an external mission number.",
+                "A positive same-date saving ratio under the formal three-segment budget is numerically plausible for a lunar-assist versus DSM baseline comparison, but it is still a project-internal benchmark rather than an external mission number.",
             )
         )
 

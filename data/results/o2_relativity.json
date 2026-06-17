@@ -1,0 +1,18 @@
+{
+  "reference_candidate": {
+    "t0_mjd": 61389.0,
+    "r_m_km": 9737.4,
+    "side": "trailing"
+  },
+  "propagation_days": 60.0,
+  "rp_newtonian_AU": 0.695273,
+  "rp_gr_AU": 0.695273,
+  "delta_rp_km": 3.3481,
+  "relative_rp_change": 3.22e-08,
+  "max_a_gr_kms2": 7.48e-13,
+  "max_a_newton_kms2": 1.22673e-05,
+  "relative_accel_ratio": 6.0954e-08,
+  "runtime_newtonian_s": 0.249,
+  "runtime_gr_s": 0.297,
+  "note": "GR effect for Sun-Earth-Moon system at ~0.3 AU is extremely small (~1e-8 of Newtonian). For Mercury (0.4 AU) the effect is ~1e-7. Not measurable in this project's scope."
+}

@@ -19,6 +19,11 @@ import json
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
+import sys
+
+sys.path.insert(0, str(_REPO / "src"))
+
+from budget_tools import best_lunar_candidate, ensure_lunar_row_formal_fields
 
 RESULTS = _REPO / "data" / "results"
 
@@ -62,6 +67,7 @@ def _legacy_rows(event_json: dict) -> list[dict]:
 def _search_rows(search_json: dict) -> list[dict]:
     rows = []
     for row in search_json.get("candidates", []):
+        row = ensure_lunar_row_formal_fields(row)
         rows.append(
             {
                 "candidate_id": row.get("candidate_id"),
@@ -73,6 +79,7 @@ def _search_rows(search_json: dict) -> list[dict]:
                 "return_event_mjd": row.get("return_event_mjd"),
                 "return_vinf_kms": row.get("return_vinf_kms"),
                 "perihelion_AU": row.get("perihelion_AU"),
+                "dv_total_kms": row.get("dv_total_kms"),
                 "total_vinf_basis_kms": row.get("total_vinf_basis_kms"),
                 "classification": row.get("classification"),
                 "reason": row.get("reason"),
@@ -129,7 +136,9 @@ def main() -> None:
         if search.get("best_near_miss") is None:
             red_flags.append("FINITE_SEARCH_NEG missing best_near_miss")
 
-    best_valid = search.get("best_valid_candidate") if search else None
+    best_valid = best_lunar_candidate(search.get("candidates", []), fair_only=True) if search else None
+    if best_valid is None and search is not None:
+        best_valid = search.get("best_valid_candidate")
     best_near_miss = search.get("best_near_miss") if search else None
     status = "RED" if red_flags else "PASS"
 
@@ -181,7 +190,8 @@ def main() -> None:
     json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
     with csv_path.open("w", encoding="utf-8", newline="") as handle:
         if rows:
-            writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+            fieldnames = list(dict.fromkeys(key for row in rows for key in row.keys()))
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
 
@@ -195,7 +205,7 @@ def main() -> None:
     if best_valid:
         print(
             f"best valid: t0={best_valid['t0_mjd']:.0f}, "
-            f"return_vinf={best_valid['return_vinf_kms']}, total={best_valid['total_vinf_basis_kms']}"
+            f"return_vinf={best_valid['return_vinf_kms']}, dv_total={best_valid.get('dv_total_kms')}, supplementary_total={best_valid['total_vinf_basis_kms']}"
         )
     if best_near_miss:
         print(

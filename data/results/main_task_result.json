@@ -1,0 +1,248 @@
+{
+  "task": "Unified machine-readable main-task export",
+  "classification": "MAIN_TASK_FORMAL_EXPORT",
+  "launch_window": [
+    "2026-01-01",
+    "2026-12-31"
+  ],
+  "historical_invalidated_anchor": {
+    "t0_mjd": 61037.0,
+    "t0_date": "2025-12-28",
+    "status": "invalidated_outside_2026_launch_window",
+    "invalidated_formal_ratio": 0.557881,
+    "source_file": "data/results/m5_saving_ratio_resolved.json"
+  },
+  "fixed_date_formal_anchor": {
+    "candidate_label": "fixed_date_formal_anchor",
+    "classification": "ACTUAL_RESULT",
+    "formal_result_eligible": true,
+    "launch_window_valid": true,
+    "launch_window": [
+      "2026-01-01",
+      "2026-12-31"
+    ],
+    "t0_mjd": 61065.0,
+    "t0_date": "2026-01-25",
+    "side": "trailing",
+    "r_m_design_km": 1837.4,
+    "mission_duration_days_to_return": 366.12,
+    "duration_constraint_valid": true,
+    "moon_encounter_mjd": 61065.403472,
+    "moon_encounter_details": {
+      "spacecraft_to_moon_distance_km": 3722.804,
+      "spacecraft_x_km": -84702872.666,
+      "spacecraft_y_km": 119879108.137,
+      "moon_x_km": -84703826.322,
+      "moon_y_km": 119882706.721,
+      "spacecraft_rel_moon_speed_kms_pre_swingby": 10.436835,
+      "spacecraft_rel_moon_speed_kms_post_swingby": 10.436835
+    },
+    "perihelion_mjd_estimate": 61154.0,
+    "return_event_mjd": 61431.12,
+    "nearest_moon_distance_model_km": 3722.804,
+    "nearest_moon_distance_ref_sampled_km": 3722.804,
+    "perihelion_achieved_AU": 0.274959,
+    "perihelion_sampled_AU": 0.297253,
+    "distance_to_earth_km": 446150.8,
+    "return_distance_ref_sampled_km": 449915.9,
+    "return_vinf_kms": 10.5173,
+    "valid_return_event": true,
+    "event_type": "earth_return",
+    "three_segment_budget": {
+      "budget_basis": "three_segment_formal",
+      "dv_launch_kms": 15.0854,
+      "dv_lunar_residual_kms": 0.4991,
+      "dv_reentry_kms": 0.0,
+      "dv_total_kms": 15.5845,
+      "budget_definition": "three_segment_formal",
+      "note": "Matches the problem-statement three-term delta-v budget."
+    },
+    "three_segment_budget_proxy": {
+      "budget_basis": "three_segment_formal",
+      "dv_launch_kms": 15.0854,
+      "dv_lunar_residual_kms": 0.4991,
+      "dv_reentry_kms": 0.0,
+      "dv_total_kms": 15.5845,
+      "budget_definition": "three_segment_formal",
+      "note": "Matches the problem-statement three-term delta-v budget."
+    },
+    "vinf_basis_budget": {
+      "departure_vinf_kms": 10.1213,
+      "return_vinf_kms": 10.5173,
+      "total_vinf_basis_kms": 10.1213,
+      "note": "vinf_basis uses hyperbolic excess speed (comparable to DSM no-lunar). launch_equivalent includes surface-to-orbit ascent cost = sqrt(V_esc^2 + vinf^2) = 15.0809 km/s"
+    },
+    "same_date_no_lunar_compare": {
+      "same_t0_mjd": 61065.0,
+      "same_t0_date": "2026-01-25",
+      "same_budget_basis": true,
+      "budget_basis": "three_segment_formal",
+      "formal_ratio": 0.391088,
+      "lunar_total_dv_kms": 15.5845,
+      "no_lunar_total_dv_kms": 25.594,
+      "supplementary_vinf_basis_ratio": 0.508527,
+      "no_lunar_best_valid": {
+        "perihelion_AU": 0.3,
+        "departure_vinf_kms": 10.0123,
+        "dsm_delta_v_kms": 10.5815,
+        "return_vinf_kms": 13.7632,
+        "total_vinf_basis_kms": 20.5938,
+        "three_segment_budget": {
+          "budget_basis": "three_segment_formal",
+          "dv_launch_kms": 15.0125,
+          "dv_lunar_residual_kms": 10.5815,
+          "dv_reentry_kms": 0.0,
+          "dv_total_kms": 25.594,
+          "budget_definition": "three_segment_formal_no_lunar",
+          "note": "Here the middle term is DSM correction rather than lunar swingby residual."
+        },
+        "three_segment_budget_proxy": {
+          "budget_basis": "three_segment_formal",
+          "dv_launch_kms": 15.0125,
+          "dv_lunar_residual_kms": 10.5815,
+          "dv_reentry_kms": 0.0,
+          "dv_total_kms": 25.594,
+          "budget_definition": "three_segment_formal_no_lunar",
+          "note": "Here the middle term is DSM correction rather than lunar swingby residual."
+        }
+      }
+    },
+    "source_files": [
+      "data/results/m5_best_lunar_candidate_verify.json",
+      "data/results/m5_fixed_date_current_compare.json",
+      "data/results/m5_no_lunar_fixed_date_deep_search.json"
+    ],
+    "trajectory_rows_file": "data/results/main_task_trajectory.csv"
+  },
+  "best_legal_window_candidate": {
+    "candidate_label": "best_legal_window_candidate",
+    "classification": "ACTUAL_RESULT_LEGAL_WINDOW",
+    "launch_window_valid": true,
+    "launch_window": [
+      "2026-01-01",
+      "2026-12-31"
+    ],
+    "t0_mjd": 61389.0,
+    "t0_date": "2026-12-15",
+    "side": "trailing",
+    "r_m_design_km": 9737.4,
+    "mission_duration_days_to_return": 354.3,
+    "duration_constraint_valid": true,
+    "moon_encounter_mjd": 61389.432639,
+    "moon_encounter_details": {
+      "spacecraft_to_moon_distance_km": 1581.369,
+      "spacecraft_x_km": 17983428.873,
+      "spacecraft_y_km": 145253315.903,
+      "moon_x_km": 17984262.592,
+      "moon_y_km": 145254659.644,
+      "spacecraft_rel_moon_speed_kms_pre_swingby": 10.59173,
+      "spacecraft_rel_moon_speed_kms_post_swingby": 10.59173
+    },
+    "perihelion_mjd_estimate": 61471.0,
+    "return_event_mjd": 61743.3,
+    "nearest_moon_distance_model_km": 1581.369,
+    "nearest_moon_distance_ref_sampled_km": 1581.369,
+    "perihelion_achieved_AU": 0.282214,
+    "perihelion_sampled_AU": 0.297667,
+    "distance_to_earth_km": 50435.6,
+    "return_distance_ref_sampled_km": 3334.1,
+    "return_vinf_kms": 11.2267,
+    "valid_return_event": true,
+    "fair": true,
+    "vinf_basis_budget": {
+      "departure_vinf_kms": 10.1213,
+      "return_vinf_kms": 11.2267,
+      "return_braking_proxy_kms": 0.0,
+      "total_vinf_basis_kms": 10.1213
+    },
+    "three_segment_budget": {
+      "budget_basis": "three_segment_formal",
+      "dv_launch_kms": 15.0854,
+      "dv_lunar_residual_kms": 0.0946,
+      "dv_reentry_kms": 0.0,
+      "dv_total_kms": 15.1801,
+      "budget_definition": "three_segment_formal",
+      "note": "Reconstructed from candidate fields with the formal three-segment budget."
+    },
+    "three_segment_budget_proxy": {
+      "budget_basis": "three_segment_formal",
+      "dv_launch_kms": 15.0854,
+      "dv_lunar_residual_kms": 0.0946,
+      "dv_reentry_kms": 0.0,
+      "dv_total_kms": 15.1801,
+      "budget_definition": "three_segment_formal",
+      "note": "Reconstructed from candidate fields with the formal three-segment budget."
+    },
+    "provenance": {
+      "candidate_source": "direct_parameter_search_legal_window",
+      "independent_m6_search": true,
+      "source_grid_reused": false,
+      "m6_interpretation": "independent complete-return launch-window search over legal 2026 dates",
+      "m5_legal_window_best_crosscheck": {
+        "t0_mjd": 61389.0,
+        "r_m_km": 9737.4,
+        "distance_to_earth_km": 50467.6,
+        "return_vinf_kms": 11.2257
+      },
+      "single_candidate_replay_crosscheck": {
+        "trajectory_dt_integrate_s": 900.0,
+        "event_coarse_step_days": 0.25,
+        "event_refine_step_s": 300.0,
+        "search_summary_distance_to_earth_km": 50435.6,
+        "replayed_distance_to_earth_km": 3334.1,
+        "search_summary_return_vinf_kms": 11.2267,
+        "replayed_return_vinf_kms": 18.5262,
+        "status": "SENSITIVE_REPLAY_MISMATCH",
+        "note": "The legal-window best candidate is preserved as a search-summary result. Single-candidate replay is exported separately because this narrow window is step-size/event-search sensitive."
+      }
+    },
+    "source_files": [
+      "data/results/m5_legal_window_search.json",
+      "data/results/m6_independent_window_search.json"
+    ],
+    "trajectory_rows_file": "data/results/main_task_trajectory.csv"
+  },
+  "annual_scan_summary": {
+    "m5_legal_window_search": {
+      "classification": "LEGAL_WINDOW_COARSE_PLUS_LOCAL_REFINE",
+      "candidates_evaluated": 900,
+      "valid_lunar_returns": 95,
+      "valid_fair_returns": 71,
+      "best_lunar_candidate_t0_mjd": 61389.0,
+      "full_year_fine_search_pending": true
+    },
+    "m6_independent_window_search": {
+      "classification": "ACTUAL_RESULT_LEGAL_WINDOW",
+      "total_candidates_evaluated": 1220,
+      "valid_complete_return_count": 88,
+      "valid_fair_return_count": 71,
+      "best_valid_candidate_t0_mjd": 61389.0
+    }
+  },
+  "m7_context": {
+    "classification": "FULL_MC_ACTUAL_RESULT",
+    "reference_candidate_t0_mjd": 61065.0,
+    "valid_return_count": 101,
+    "valid_return_rate": 0.505
+  },
+  "invalidated_formal_results_guard": {
+    "resolver_status": "formal_fixed_date_positive_ratio",
+    "current_formal_fixed_date_ratio": 0.391088
+  },
+  "machine_readable_outputs": {
+    "summary_json": "data/results/main_task_result.json",
+    "trajectory_csv": "data/results/main_task_trajectory.csv",
+    "trajectory_candidates": [
+      "fixed_date_formal_anchor",
+      "best_legal_window_candidate"
+    ]
+  },
+  "notes": [
+    "This export does not rerun heavy annual searches; it assembles already validated legal/formal outputs and regenerates only two single-candidate trajectory sequences.",
+    "The formal budget in this export is the problem-statement three-segment delta-v definition; vinf_basis is retained only as a supplementary diagnostic.",
+    "Earth-return validity uses explicit event semantics: return_vinf is only defined at a real Earth-return event.",
+    "The fixed-date formal anchor (61065.0) is the strongest fully reconstructed formal result in this export.",
+    "The best legal-window candidate is recomputed from the stored candidate pool under the formal three-segment budget, rather than trusting stale summary fields from earlier vinf-basis ranking passes.",
+    "The current best legal-window candidate remains a search-summary result with explicit replay crosscheck metadata; it is not overstated as a stronger fully reconstructed formal result than the fixed-date anchor."
+  ]
+}

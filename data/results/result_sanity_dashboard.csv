@@ -10,14 +10,15 @@ M3,full planetary residual,126.47,km,heliocentric residual from same-source full
 M3,3-body SSB residual,92378.11,km,3-body SSB absolute residual,SAME_SOURCE_PROPAGATION_CHECK,SSB residual is now model-labeled and no longer mixed with heliocentric residual fields.
 M3,dt convergence ratios,"[0.9987, 0.9997]",ratio,3body_or_missing_perturbation_test,PASS_WITH_SCOPE,"Ratios near 1 indicate the 3-body residual is dominated by missing perturbations, not by the VV integrator step size, over dt=1800/900/450 s."
 M5,fixed-date t0,61065.0,MJD,same-date comparison,ACTUAL_RESULT,date=2026-01-25; inside formal 2026 launch window.
-M5,lunar total_vinf_basis,10.1213,km/s,vinf_basis / Earth-return event,ACTUAL_RESULT,Credible formal value only if launch date is within the assignment window and a true Earth-return event exists.
-M5,no-lunar DSM total_vinf_basis,20.5938,km/s,vinf_basis / same-date DSM search,ACTUAL_RESULT,Credible because the no-lunar side is a valid fair candidate at the same t0 and budget basis.
-M5,formal saving ratio,0.508527,ratio,vinf_basis / same_t0=61065.0 (2026-01-25),ACTUAL_RESULT,Formal only if both sides remain valid Earth-return events inside the assignment launch window.
+M5,lunar formal total_dv,15.5845,km/s,three_segment_formal / Earth-return event,ACTUAL_RESULT,Formal problem-statement budget: surface launch + lunar residual + reentry braking.
+M5,no-lunar formal total_dv,25.594,km/s,three_segment_formal / same-date DSM search,ACTUAL_RESULT,"Same formal three-term budget, with DSM replacing the lunar-residual middle term."
+M5,formal saving ratio,0.391088,ratio,three_segment_formal / same_t0=61065.0 (2026-01-25),ACTUAL_RESULT,Formal because both sides are valid Earth-return events at the same t0 and same three-segment budget basis.
+M5,supplementary vinf-basis ratio,0.508527,ratio,vinf_basis diagnostic / same_t0=61065.0 (2026-01-25),SUPPLEMENTARY_DIAGNOSTIC,Retained only for comparison with earlier internal audits; no longer the formal budget basis.
 M5,both valid Earth return,True,bool,Earth-return event semantics,ACTUAL_RESULT,This blocks the old perihelion/deep-space pseudo-return mistake.
 M6,candidate source,m5_legal_window_search_grid,enum,launch-window provenance,ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW,Loaded from m6_legal_window_search.json; provenance is explicit.
 M6,independent_m6_search,False,bool,launch-window provenance,ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW,False means this file is not overstating itself as an independent search.
 M6,valid complete returns,95,count,complete-return window set,ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW,High count argues the valid window is not a single-candidate fluke inside the reused grid.
-M6,best valid candidate,"{'t0_mjd': 61390.5, 'side': 'trailing', 'r_m_km': 2037.4, 'return_vinf_kms': 14.3987, 'total_vinf_basis_kms': 10.1213}",dict,Earth-return event / vinf_basis,ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW,Best candidate is inside the legal 2026 launch window.
+M6,best valid candidate,"{'t0_mjd': 61389.0, 'side': 'trailing', 'r_m_km': 9737.4, 'return_vinf_kms': 11.2257, 'dv_total_kms': 15.1801, 'total_vinf_basis_kms': 10.1213}",dict,Earth-return event / formal budget + supplementary vinf basis,ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW,Best candidate is inside the legal 2026 launch window.
 M7,N,200,count,full Monte Carlo,FULL_MC_ACTUAL_RESULT,"Formal because this is the N=200 full run, not the smoke run."
 M7,valid return count/rate,"{'count': 101, 'rate': 0.505}",count/rate,valid Earth-return event only,FULL_MC_ACTUAL_RESULT,Statistics are valid-only; invalid and timeout samples do not leak into return_vinf or total_vinf summaries.
 M7,return_vinf valid-only,"{'mean': 10.804728, 'std': 1.414351, 'p5': 10.3913, 'p50': 10.7706, 'p95': 11.3542}",km/s,valid Earth-return event only,FULL_MC_ACTUAL_RESULT,"mean=10.804728, p50=10.7706, p95=11.3542; no valid sample is anywhere near the old fake ~79 km/s scale."

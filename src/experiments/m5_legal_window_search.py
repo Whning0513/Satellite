@@ -51,6 +51,7 @@ def _candidate_rank(row: dict) -> tuple:
     return (
         0 if row["fair"] else 1,
         0 if row["valid_return_event"] else 1,
+        float(row["dv_total_kms"]) if row.get("dv_total_kms") is not None else float("inf"),
         float(row["distance_to_earth_km"]) if row["distance_to_earth_km"] is not None else float("inf"),
         float(row["perihelion_error_AU"]),
     )
@@ -283,7 +284,7 @@ def main() -> int:
         best = summary["best_lunar_candidate"]
         print(
             f"best legal lunar anchor: t0={best['t0_mjd']} ({best['t0_date']}), "
-            f"side={best['side']}, r_m={best['r_m_km']}, total={best['total_vinf_basis_kms']}"
+            f"side={best['side']}, r_m={best['r_m_km']}, dv_total={best['dv_total_kms']}"
         )
     return 0
 

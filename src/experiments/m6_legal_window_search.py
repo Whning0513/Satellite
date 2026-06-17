@@ -82,7 +82,8 @@ def main() -> int:
         best = payload["best_valid_candidate"]
         print(
             f"best valid: t0={best['t0_mjd']} side={best['side']} "
-            f"r_m={best['r_m_km']} total={best['total_vinf_basis_kms']}"
+            f"r_m={best['r_m_km']} dv_total={best.get('dv_total_kms')} "
+            f"(supplementary vinf_basis={best.get('total_vinf_basis_kms')})"
         )
     return 0
 

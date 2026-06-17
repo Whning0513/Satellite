@@ -1,0 +1,41 @@
+{
+  "method": "2D projected vs 3D full J2000 propagation (30 days, 3-body)",
+  "windows_tested": [
+    {
+      "label": "fixed_date_formal_anchor",
+      "t0_mjd": 61065.0
+    },
+    {
+      "label": "best_legal_window_candidate",
+      "t0_mjd": 61389.0
+    }
+  ],
+  "results": [
+    {
+      "Sun_pos_diff_km": 18591.5,
+      "Sun_z_pos_km": 18591.5,
+      "Earth_pos_diff_km": 15175.5,
+      "Earth_z_pos_km": 15171.1,
+      "Moon_pos_diff_km": 56899.3,
+      "Moon_z_pos_km": 48681.8,
+      "earth_2d_vs_3d_heliocentric_diff_km": 3439.5,
+      "window_label": "fixed_date_formal_anchor",
+      "t0_mjd": 61065.0,
+      "n_days": 30
+    },
+    {
+      "Sun_pos_diff_km": 12164.2,
+      "Sun_z_pos_km": 12164.2,
+      "Earth_pos_diff_km": 3726.1,
+      "Earth_z_pos_km": 3714.4,
+      "Moon_pos_diff_km": 36167.6,
+      "Moon_z_pos_km": 27130.2,
+      "earth_2d_vs_3d_heliocentric_diff_km": 8454.9,
+      "window_label": "best_legal_window_candidate",
+      "t0_mjd": 61389.0,
+      "n_days": 30
+    }
+  ],
+  "key_finding": "Moon z-component reaches ~40,000 km over 30 days, corresponding to its 5.1\u00b0 inclination. 2D projection suppresses this, causing systematic position differences of similar magnitude. The heliocentric Earth-track difference between 2D and 3D stays modest over 30 days, while the lunar z excursion remains tens of thousands of kilometers. Full 3D extension would enable more accurate lunar swingby geometry but does not change the qualitative mission design conclusions.",
+  "note": "This is a diagnostic comparison. The main project result uses the 2D ecliptic projection per course specification."
+}

@@ -13,6 +13,12 @@ from typing import Any, Iterable
 import numpy as np
 
 from constants import AU_KM, R_MOON
+from budget_tools import (
+    best_lunar_candidate,
+    ensure_lunar_row_formal_fields,
+    lunar_candidate_sort_key,
+    lunar_three_segment_budget,
+)
 from mission_constraints import (
     MISSION_LAUNCH_END_MJD,
     MISSION_LAUNCH_START_MJD,
@@ -115,12 +121,18 @@ def evaluate_lunar_candidate(
         and ret_vinf is not None
         and float(ret_vinf) <= config.return_brake_threshold_kms
     )
+    budget = lunar_three_segment_budget(
+        departure_vinf_kms=dep_vinf,
+        lunar_residual_kms=float(traj.swingby.dv_mag) if traj.swingby else 0.0,
+        return_vinf_kms=ret_vinf,
+    )
     return {
         "t0_mjd": float(t0_mjd),
         "t0_date": mjd_to_date_str(float(t0_mjd)),
         "side": side,
         "r_m_km": round(float(r_m_km), 1),
         "departure_vinf_kms": round(dep_vinf, 4),
+        "launch_equivalent_kms": budget["dv_launch_kms"],
         "perihelion_AU": round(peri_au, 6),
         "perihelion_error_AU": round(peri_err, 6),
         "swingby_dv_kms": round(float(traj.swingby.dv_mag), 6) if traj.swingby else None,
@@ -130,6 +142,12 @@ def evaluate_lunar_candidate(
         "distance_to_moon_km": event["distance_to_moon_km"],
         "return_event_mjd": event["return_event_mjd"],
         "return_vinf_kms": ret_vinf,
+        "return_braking_kms": budget["dv_reentry_kms"],
+        "dv_launch_kms": budget["dv_launch_kms"],
+        "dv_lunar_residual_kms": budget["dv_lunar_residual_kms"],
+        "dv_reentry_kms": budget["dv_reentry_kms"],
+        "dv_total_kms": budget["dv_total_kms"],
+        "budget_basis": budget["budget_basis"],
         "total_vinf_basis_kms": round(total_vinf_basis, 4) if total_vinf_basis is not None else None,
         "fair": fair,
         "used_nominal_window": event["used_nominal_window"],
@@ -141,9 +159,10 @@ def evaluate_lunar_candidate(
 
 
 def summarize_legal_window_results(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    valid = [row for row in rows if row["valid_return_event"]]
-    fair = [row for row in rows if row["fair"]]
-    best = min(fair, key=lambda row: (row["total_vinf_basis_kms"], row["distance_to_earth_km"])) if fair else None
+    normalized_rows = [ensure_lunar_row_formal_fields(row) for row in rows]
+    valid = [row for row in normalized_rows if row["valid_return_event"]]
+    fair = [row for row in normalized_rows if row["fair"]]
+    best = best_lunar_candidate(fair, fair_only=False)
 
     per_month_valid_counts: dict[str, int] = defaultdict(int)
     best_by_month: dict[str, dict[str, Any]] = {}
@@ -151,17 +170,11 @@ def summarize_legal_window_results(rows: list[dict[str, Any]]) -> dict[str, Any]
         month = row["t0_date"][:7]
         per_month_valid_counts[month] += 1
         prev = best_by_month.get(month)
-        if prev is None or (
-            row["total_vinf_basis_kms"],
-            row["distance_to_earth_km"],
-        ) < (
-            prev["total_vinf_basis_kms"],
-            prev["distance_to_earth_km"],
-        ):
+        if prev is None or lunar_candidate_sort_key(row) < lunar_candidate_sort_key(prev):
             best_by_month[month] = row
 
     return {
-        "candidates_evaluated": len(rows),
+        "candidates_evaluated": len(normalized_rows),
         "valid_lunar_returns": len(valid),
         "valid_fair_returns": len(fair),
         "best_lunar_candidate": best,

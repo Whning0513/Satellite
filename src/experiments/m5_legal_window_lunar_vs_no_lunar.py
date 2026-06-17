@@ -14,6 +14,13 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
 RESULTS = _REPO / "data" / "results"
+sys.path.insert(0, str(_REPO / "src"))
+
+from budget_tools import (
+    ensure_lunar_row_formal_fields,
+    no_lunar_three_segment_budget,
+    saving_ratio,
+)
 
 
 def _load(name: str) -> dict:
@@ -35,9 +42,9 @@ def _run_no_lunar(t0: float) -> dict:
 
 
 def _select_t0_values(search: dict) -> list[float]:
-    rows = search.get("search_rows", [])
+    rows = [ensure_lunar_row_formal_fields(row) for row in search.get("search_rows", [])]
     fair = [row for row in rows if row["fair"]]
-    fair_sorted = sorted(fair, key=lambda row: (row["total_vinf_basis_kms"], row["distance_to_earth_km"]))
+    fair_sorted = sorted(fair, key=lambda row: (row["dv_total_kms"], row["distance_to_earth_km"]))
     selected = []
     for row in fair_sorted[:10]:
         selected.append(float(row["t0_mjd"]))
@@ -52,14 +59,14 @@ def main() -> int:
     t0_values = _select_t0_values(search)
     rows = []
 
-    search_rows = search["search_rows"]
+    search_rows = [ensure_lunar_row_formal_fields(row) for row in search["search_rows"]]
     by_t0_best = {}
     for row in search_rows:
         if not row["fair"]:
             continue
         prev = by_t0_best.get(row["t0_mjd"])
-        if prev is None or (row["total_vinf_basis_kms"], row["distance_to_earth_km"]) < (
-            prev["total_vinf_basis_kms"],
+        if prev is None or (row["dv_total_kms"], row["distance_to_earth_km"]) < (
+            prev["dv_total_kms"],
             prev["distance_to_earth_km"],
         ):
             by_t0_best[row["t0_mjd"]] = row
@@ -70,18 +77,33 @@ def main() -> int:
         best_no_lunar = no_lunar.get("best_valid")
         formal_ratio = None
         no_lunar_total = None
+        no_lunar_budget = None
         if best_no_lunar is not None:
-            no_lunar_total = float(best_no_lunar["total_dv_proxy_kms"])
-            formal_ratio = round((no_lunar_total - float(lunar["total_vinf_basis_kms"])) / no_lunar_total, 6)
+            no_lunar_budget = no_lunar_three_segment_budget(
+                departure_vinf_kms=float(best_no_lunar["departure_vinf_kms"]),
+                dsm_delta_v_kms=float(best_no_lunar["dsm_delta_v_kms"]),
+                return_vinf_kms=float(best_no_lunar["return_vinf_kms"]),
+            )
+            no_lunar_total = float(no_lunar_budget["dv_total_kms"])
+            formal_ratio = round(saving_ratio(float(lunar["dv_total_kms"]), no_lunar_total), 6)
         rows.append(
             {
                 "t0_mjd": float(t0),
                 "t0_date": lunar["t0_date"],
                 "lunar_valid": True,
+                "budget_basis": "three_segment_formal",
+                "lunar_dv_total_kms": float(lunar["dv_total_kms"]),
+                "lunar_dv_launch_kms": float(lunar["dv_launch_kms"]),
+                "lunar_dv_lunar_residual_kms": float(lunar["dv_lunar_residual_kms"]),
+                "lunar_dv_reentry_kms": float(lunar["dv_reentry_kms"]),
                 "lunar_total_vinf_basis_kms": lunar["total_vinf_basis_kms"],
                 "lunar_return_vinf_kms": lunar["return_vinf_kms"],
                 "no_lunar_valid": best_no_lunar is not None,
-                "no_lunar_total_vinf_basis_kms": no_lunar_total,
+                "no_lunar_dv_total_kms": no_lunar_total,
+                "no_lunar_dv_launch_kms": None if no_lunar_budget is None else no_lunar_budget["dv_launch_kms"],
+                "no_lunar_dv_midcourse_kms": None if no_lunar_budget is None else no_lunar_budget["dv_midcourse_kms"],
+                "no_lunar_dv_reentry_kms": None if no_lunar_budget is None else no_lunar_budget["dv_reentry_kms"],
+                "no_lunar_total_vinf_basis_kms": None if best_no_lunar is None else float(best_no_lunar["total_dv_proxy_kms"]),
                 "no_lunar_return_vinf_kms": best_no_lunar["return_vinf_kms"] if best_no_lunar else None,
                 "same_t0": True,
                 "same_budget_basis": True,

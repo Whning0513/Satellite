@@ -20,6 +20,7 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
 
+from budget_tools import best_lunar_candidate
 from constants import GM_SUN, GM_EARTH, GM_MOON, R_MOON, AU_KM, DT_MAIN, DT_REFINE
 from nbody import propagate_nbody, compute_conserved_quantities, GM_SEM
 from trajectory import DesignParams, solve_trajectory
@@ -39,7 +40,12 @@ def _load_reference_candidate(repo_root: Path) -> dict:
         if not path.exists():
             continue
         data = json.loads(path.read_text(encoding="utf-8"))
-        candidate = data.get(key)
+        if name == "m6_independent_window_search.json":
+            candidate = best_lunar_candidate(data.get("candidates", []), fair_only=True) or data.get(key)
+        elif name == "m5_legal_window_search.json":
+            candidate = best_lunar_candidate(data.get("search_rows", []), fair_only=True) or data.get(key)
+        else:
+            candidate = data.get(key)
         if candidate:
             return {
                 "source_file": name,
@@ -51,9 +57,9 @@ def _load_reference_candidate(repo_root: Path) -> dict:
     return {
         "source_file": "built_in_fallback",
         "t0_mjd": 61065.0,
-        "r_m_km": R_MOON + 100.0,
+        "r_m_km": 9737.4,
         "side": "trailing",
-        "nominal_return_mjd": 61431.12,
+        "nominal_return_mjd": 61743.3,
     }
 
 

@@ -31,6 +31,7 @@ RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
 from constants import AU_KM, GM_SUN, R_EARTH, V_ESCAPE_EARTH, V_EARTH_ORBIT
+from budget_tools import lunar_three_segment_budget, no_lunar_three_segment_budget, saving_ratio
 from patched_conic import compute_patched_conic
 from mission_constraints import is_launch_mjd_in_window, mjd_to_date_str
 from nbody import convergence_study, propagate_nbody
@@ -418,15 +419,25 @@ def audit_m5() -> list[AuditRecord]:
     )
 
     best = no_lunar["best_valid"]
-    ratio = (best["total_dv_proxy_kms"] - budget["total_dv_proxy_vinf_basis"]) / best["total_dv_proxy_kms"] if best else None
+    lunar_formal = lunar_three_segment_budget(
+        departure_vinf_kms=float(budget["departure_vinf_kms"]),
+        lunar_residual_kms=float(budget["lunar_swingby_residual_kms"]),
+        return_vinf_kms=float(budget["return_vinf_kms"]),
+    )
+    no_lunar_formal = no_lunar_three_segment_budget(
+        departure_vinf_kms=float(best["departure_vinf_kms"]),
+        dsm_delta_v_kms=float(best["dsm_delta_v_kms"]),
+        return_vinf_kms=float(best["return_vinf_kms"]),
+    ) if best else None
+    ratio = saving_ratio(lunar_formal["dv_total_kms"], no_lunar_formal["dv_total_kms"]) if no_lunar_formal else None
     rel = (
-        abs(ratio - compare["formal_ratio_vinf_basis"]) / max(abs(ratio), 1e-15)
-        if ratio is not None and compare["formal_ratio_vinf_basis"] is not None
+        abs(ratio - compare["formal_ratio"]) / max(abs(ratio), 1e-15)
+        if ratio is not None and compare["formal_ratio"] is not None
         else None
     )
     ratio_status = (
         "PASS"
-        if launch_ok and ratio is not None and compare["formal_ratio_vinf_basis"] is not None and abs(compare["formal_ratio_vinf_basis"] - ratio) <= 5e-7
+        if launch_ok and ratio is not None and compare["formal_ratio"] is not None and abs(compare["formal_ratio"] - ratio) <= 5e-7
         else "RED" if not launch_ok
         else "WARN"
     )
@@ -434,21 +445,21 @@ def audit_m5() -> list[AuditRecord]:
         _entry(
             module="M5",
             quantity="formal_fixed_date_ratio",
-            project_value=compare["formal_ratio_vinf_basis"],
+            project_value=compare["formal_ratio"],
             independent_value=round(ratio, 6) if ratio is not None else None,
             relative_error=rel,
             unit="ratio",
-            frame="vinf_basis",
+            frame="three_segment_formal",
             event=f"same_t0_{compare.get('same_t0')}",
             status=ratio_status,
             classification="ACTUAL_RESULT" if launch_ok else "INVALID_FORMAL_WINDOW_OR_EVENT",
             action="keep" if launch_ok else "recompute",
             notes=(
-                f"lunar_total={budget['total_dv_proxy_vinf_basis']}, "
-                f"no_lunar_total={best['total_dv_proxy_kms'] if best else None}, "
+                f"lunar_total={lunar_formal['dv_total_kms']}, "
+                f"no_lunar_total={no_lunar_formal['dv_total_kms'] if no_lunar_formal else None}, "
                 f"same_t0={compare.get('same_t0')} ({mjd_to_date_str(compare.get('same_t0')) if compare.get('same_t0') is not None else 'N/A'}), "
                 f"same_budget_basis={compare.get('same_budget_basis')}, "
-                f"launch_window_valid={launch_ok}"
+                f"launch_window_valid={launch_ok}, supplementary_vinf_ratio={compare.get('formal_ratio_vinf_basis')}"
             ),
         )
     )

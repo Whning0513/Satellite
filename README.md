@@ -61,17 +61,19 @@ FinalProject/
 - Moon-aligned 前向搜索实现月球拦截
 - 合法 formal 锚点：MJD 61065.0（2026-01-25），`trailing`，`r_m=1837.4 km`
 - 返回地球距离 446,151 km，`return_vinf=10.5173 km/s`
-- 同日 no-lunar DSM baseline：`total_vinf_basis=20.5938 km/s`
-- 当前正式 fixed-date saving ratio：`50.85%`
+- 正式三段预算：lunar `15.5845 km/s`，same-date no-lunar DSM `25.5940 km/s`
+- 当前正式 fixed-date saving ratio：`39.11%`
+- 补充诊断：`vinf_basis` saving ratio 仍为 `50.85%`，但不再作为 formal budget
 - 这是当前保留的正式 same-date 节能结论
 - 详见 `data/results/m5_best_lunar_candidate_verify.json` 和 `m5_fixed_date_current_compare.json`
 
 ### M6 — 发射窗口优化 [done]
 - 已完成 2026 全年合法窗口 coarse+local-refine 搜索
 - derived legal-window search：`900` 个候选，`95` 个 valid complete return，`71` 个 fair return
-- 当前最佳 legal-window candidate：MJD `61390.5`（2026-12-16），`trailing`，`r_m=2037.4 km`
+- 当前最佳 legal-window candidate：MJD `61389.0`（2026-12-15），`trailing`，`r_m=9737.4 km`
 - derived / independent 两条搜索链都回收到同一组 `t0/side/r_m`
-- 搜索摘要返回距离约 `7.2e3–7.7e3 km`，`return_vinf≈14.4–14.5 km/s`，`total_vinf_basis=10.1213 km/s`
+- derived / independent 搜索摘要返回距离约 `5.04e4 km`，`return_vinf≈11.226 km/s`，formal total `dv=15.1801 km/s`
+- 补充诊断：该窗口的 `total_vinf_basis` 约为 `10.1213 km/s`
 - 当前应将它理解为“最佳 legal-window 搜索候选”；单点 replay 仍有明显步长/事件搜索敏感性，因此不应写成强于 fixed-date formal anchor 的最终 formal 结果
 
 ### M7 — 灵敏度分析 + 步长收敛 [done]
@@ -79,8 +81,9 @@ FinalProject/
 - Full Monte Carlo：`N=200`，`valid=101`，`invalid=99`，`timeout=0`
 - formal `return_vinf` 只在真实 Earth-return event 上定义，旧伪 ~79 km/s 已阻断
 - valid-only `return_vinf` mean / p50 / p95 = `10.8047 / 10.7706 / 11.3542 km/s`
-- valid-only `total_vinf_basis` mean / p50 / p95 = `10.2299 / 10.1479 / 10.3455 km/s`
-- **4 级步长收敛**（3600/1800/900/450s），能量漂移均远低于阈值
+- 补充诊断：valid-only `total_vinf_basis` mean / p50 / p95 = `10.2299 / 10.1479 / 10.3455 km/s`
+- 围绕当前 legal-window candidate（`61389.0 / trailing / 9737.4`）的局部灵敏度重算：`75` 组物理传播、`165` 个 valid return、`100` 个 fair；baseline fair fraction=`0.0`，结论为 `fragile`
+- **4 级步长收敛**（3600/1800/900/450s）：能量漂移保持二阶收敛，但任务级返回判定强烈依赖步长，`1800s` 与 `900s` 才给出有效 Earth-return，`3600s` 与 `450s` 均失效
 
 ### M8 — 可视化 [done-with-caveat]
 - 当前提交物可直接引用 8 张静态图（轨迹、借力、窗口、灵敏度、能量漂移、日期曲线、等值线、Horizons 残差）
@@ -264,17 +267,19 @@ SSB 惯性积分 → 日心系残差对比，消除因省略大行星摄动导�
 
 ### 同日 no-lunar 对比
 
-- **lunar total_vinf_basis：** 10.1213 km/s
-- **no-lunar DSM total_vinf_basis：** 20.5938 km/s
-- **formal saving ratio：** 50.85%
-- 该比较仅在相同 t0、相同 budget basis、均满足真实 Earth-return event 时成立
+- **formal budget basis：** `three_segment_formal = dv_launch + dv_lunar_residual_or_dsm + dv_reentry`
+- **lunar formal total_dv：** 15.5845 km/s
+- **no-lunar DSM formal total_dv：** 25.5940 km/s
+- **formal saving ratio：** 39.11%
+- **supplementary vinf_basis ratio：** 50.85%
+- 该比较仅在相同 t0、相同 formal budget basis、均满足真实 Earth-return event 时成立
 
 ### 已知局限
 
 - M3 是 same-source propagation check，不是独立 JPL 预测精度证明
 - M4 数值验证为局部月心二体/局部任务参数对照，非完整任务级 high-fidelity swingby
 - M6 当前已完成合法窗口 coarse+local-refine 搜索，并由独立搜索链支持当前最佳候选；但它仍是有限分辨率 search candidate，且单点 replay 具有明显敏感性
-- M7 full MC 当前结果为 `101 valid / 99 invalid / 0 timeout`，它支撑的是 `61065` fixed-date formal anchor 周边的鲁棒性，而不是 `61390.5` 年度最佳窗口周边的最终鲁棒性
+- M7 full MC 当前结果为 `101 valid / 99 invalid / 0 timeout`，它支撑的是 `61065` fixed-date formal anchor 周边的鲁棒性，而不是 `61389.0` 年度最佳窗口周边的最终鲁棒性
 - 动画（O5）优先生成 MP4，若 ffmpeg/H.264 不可用会 fallback 到 GIF
 - O7 代理预筛选：Ridge 回归 R²=0.8956，几何特征仅能捕捉整体趋势，top-15 recall=33%
 - O4 多次借力链搜索：有限的多体链可行性（analytic Venus 近似 + Moon 高 v_inf 偏转角不足限制链可行性）

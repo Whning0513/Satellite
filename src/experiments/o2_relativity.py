@@ -10,6 +10,7 @@ from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(_REPO / "src"))
+from budget_tools import best_lunar_candidate
 from constants import GM_SUN, AU_KM
 from units import km_to_au
 from nbody import propagate_nbody
@@ -90,9 +91,9 @@ def main():
     legal = results_dir / "m6_independent_window_search.json"
     if legal.exists():
         legal_data = json.loads(legal.read_text(encoding="utf-8"))
-        best = legal_data.get("best_valid_candidate", {})
-        t0_mjd = float(best.get("t0_mjd", 61390.5))
-        r_m_km = float(best.get("r_m_km", 2037.4))
+        best = best_lunar_candidate(legal_data.get("candidates", []), fair_only=True) or legal_data.get("best_valid_candidate", {})
+        t0_mjd = float(best.get("t0_mjd", 61389.0))
+        r_m_km = float(best.get("r_m_km", 9737.4))
         side = str(best.get("side", "trailing"))
     else:
         t0_mjd = 61065.0

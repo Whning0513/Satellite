@@ -19,6 +19,12 @@ RESULTS = REPO / "data" / "results"
 sys.path.insert(0, str(SRC))
 
 from constants import AU_KM, GM_SUN, V_EARTH_ORBIT
+from budget_tools import (
+    best_lunar_candidate,
+    ensure_lunar_row_formal_fields,
+    lunar_three_segment_budget,
+    no_lunar_three_segment_budget,
+)
 from mission_constraints import is_launch_mjd_in_window, mjd_to_date_str
 from patched_conic import compute_patched_conic
 
@@ -179,6 +185,16 @@ def main() -> int:
     if m5_verify and m5_compare and m5_no_lunar:
         launch_ok = is_launch_mjd_in_window(m5_compare["same_t0"])
         t0_label = f"same_t0={m5_compare['same_t0']} ({mjd_to_date_str(m5_compare['same_t0'])})"
+        lunar_formal = lunar_three_segment_budget(
+            departure_vinf_kms=float(m5_verify["budget"]["departure_vinf_kms"]),
+            lunar_residual_kms=float(m5_verify["budget"]["lunar_swingby_residual_kms"]),
+            return_vinf_kms=float(m5_verify["budget"]["return_vinf_kms"]),
+        )
+        no_lunar_formal = no_lunar_three_segment_budget(
+            departure_vinf_kms=float(m5_no_lunar["best_valid"]["departure_vinf_kms"]),
+            dsm_delta_v_kms=float(m5_no_lunar["best_valid"]["dsm_delta_v_kms"]),
+            return_vinf_kms=float(m5_no_lunar["best_valid"]["return_vinf_kms"]),
+        )
         rows.extend(
             [
                 _row(
@@ -197,37 +213,44 @@ def main() -> int:
                 ),
                 _row(
                     "M5",
-                    "lunar total_vinf_basis",
-                    m5_verify["budget"]["total_dv_proxy_vinf_basis"],
+                    "lunar formal total_dv",
+                    lunar_formal["dv_total_kms"],
                     "km/s",
-                    "vinf_basis / Earth-return event",
+                    "three_segment_formal / Earth-return event",
                     m5_verify["classification"],
-                    (
-                        "Credible formal value only if launch date is within the assignment window and a true Earth-return event exists."
-                    ),
+                    "Formal problem-statement budget: surface launch + lunar residual + reentry braking.",
                 ),
                 _row(
                     "M5",
-                    "no-lunar DSM total_vinf_basis",
-                    m5_no_lunar["best_valid"]["total_dv_proxy_kms"],
+                    "no-lunar formal total_dv",
+                    no_lunar_formal["dv_total_kms"],
                     "km/s",
-                    "vinf_basis / same-date DSM search",
+                    "three_segment_formal / same-date DSM search",
                     m5_no_lunar["classification"],
-                    "Credible because the no-lunar side is a valid fair candidate at the same t0 and budget basis.",
+                    "Same formal three-term budget, with DSM replacing the lunar-residual middle term.",
                 ),
                 _row(
                     "M5",
                     "formal saving ratio",
-                    m5_compare["formal_ratio_vinf_basis"],
+                    m5_compare["formal_ratio"],
                     "ratio",
-                    f"vinf_basis / {t0_label}",
+                    f"three_segment_formal / {t0_label}",
                     m5_compare.get("classification", "UNRESOLVED"),
                     (
                         f"{t0_label}; "
                         "this ratio is not currently formal because the anchor date is outside the assignment window."
                         if not launch_ok
-                        else "Formal only if both sides remain valid Earth-return events inside the assignment launch window."
+                        else "Formal because both sides are valid Earth-return events at the same t0 and same three-segment budget basis."
                     ),
+                ),
+                _row(
+                    "M5",
+                    "supplementary vinf-basis ratio",
+                    m5_compare.get("formal_ratio_vinf_basis"),
+                    "ratio",
+                    f"vinf_basis diagnostic / {t0_label}",
+                    "SUPPLEMENTARY_DIAGNOSTIC",
+                    "Retained only for comparison with earlier internal audits; no longer the formal budget basis.",
                 ),
                 _row(
                     "M5",
@@ -243,7 +266,9 @@ def main() -> int:
 
     m6, m6_source = _load_active_m6()
     if m6:
-        best_valid = m6.get("best_valid_candidate") or {}
+        best_valid = best_lunar_candidate(m6.get("candidates", []), fair_only=True)
+        if best_valid is None:
+            best_valid = ensure_lunar_row_formal_fields(m6.get("best_valid_candidate") or {})
         classification = m6.get("classification", "UNRESOLVED")
         legal_window_ok = is_launch_mjd_in_window(best_valid.get("t0_mjd")) if best_valid.get("t0_mjd") is not None else False
         source_desc = m6_source or "unknown"
@@ -292,10 +317,11 @@ def main() -> int:
                         "side": best_valid.get("side"),
                         "r_m_km": best_valid.get("r_m_km"),
                         "return_vinf_kms": best_valid.get("return_vinf_kms"),
+                        "dv_total_kms": best_valid.get("dv_total_kms"),
                         "total_vinf_basis_kms": best_valid.get("total_vinf_basis_kms"),
                     },
                     "dict",
-                    "Earth-return event / vinf_basis",
+                    "Earth-return event / formal budget + supplementary vinf basis",
                     classification,
                     (
                         "Best candidate is inside the legal 2026 launch window."

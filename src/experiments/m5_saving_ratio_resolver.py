@@ -39,10 +39,10 @@ def main():
     # ── PRIMARY: active 2026-window fixed-date comparison ──
     comp = _load("m5_fixed_date_current_compare.json")
 
-    if comp and comp.get("formal_ratio_vinf_basis") is not None:
-        ratio = comp["formal_ratio_vinf_basis"]
-        lunar_total = comp["lunar_total_vinf_basis"]
-        no_lunar_total = comp["no_lunar_dsm_total_vinf_basis"]
+    if comp and comp.get("formal_ratio") is not None:
+        ratio = comp["formal_ratio"]
+        lunar_total = comp["lunar_total_dv_kms"]
+        no_lunar_total = comp["no_lunar_total_dv_kms"]
         lunar_ok = comp.get("lunar_valid", False)
         no_lunar_ok = comp.get("no_lunar_valid", False)
         same_t0 = float(comp.get("same_t0"))
@@ -51,7 +51,7 @@ def main():
         print(f"    lunar total: {lunar_total:.2f} km/s (valid={lunar_ok})")
         print(f"    no-lunar total: {no_lunar_total:.2f} km/s (valid={no_lunar_ok})")
         print(f"    saving ratio: {ratio:.6f} ({ratio*100:.1f}%)")
-        print(f"    basis: vinf_basis (excess hyperbolic speed)")
+        print(f"    basis: three_segment_formal")
         print(f"    same t0: {same_t0}")
         print(f"    same budget basis: {comp.get('same_budget_basis', True)}")
         print(f"    lunar saves delta_v: {ratio > 0}")
@@ -62,14 +62,15 @@ def main():
             "primary_source": "m5_fixed_date_current_compare.json",
             "formal_fixed_date_ratio": round(ratio, 6),
             "formal_fixed_date_ratio_percent": round(ratio * 100, 1),
-            "ratio_basis": "vinf_basis",
+            "ratio_basis": "three_segment_formal",
             "same_t0_mjd": same_t0,
             "same_budget_basis": bool(comp.get("same_budget_basis", True)),
-            "lunar_total_vinf_basis_kms": round(lunar_total, 4),
+            "lunar_total_dv_kms": round(lunar_total, 4),
             "lunar_valid_return_event": bool(lunar_ok),
-            "no_lunar_total_vinf_basis_kms": round(no_lunar_total, 4),
+            "no_lunar_total_dv_kms": round(no_lunar_total, 4),
             "no_lunar_valid_return_event": bool(no_lunar_ok),
             "lunar_saves_delta_v": ratio > 0,
+            "supplementary_vinf_basis_ratio": comp.get("formal_ratio_vinf_basis"),
             "classification": "ACTUAL_RESULT",
             # Historical invalid value — for reference only
             "invalid_historical_ratio_due_to_wrong_return_event": -1.873262,

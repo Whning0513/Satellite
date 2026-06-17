@@ -70,7 +70,7 @@ def main() -> int:
     lunar = load_json("m5_best_lunar_candidate_verify.json")
     resolved = load_json("m5_saving_ratio_resolved.json")
 
-    ratio = compare.get("formal_ratio_vinf_basis")
+    ratio = compare.get("formal_ratio")
     if ratio is None or ratio <= 0:
         failures.append(f"current compare formal ratio mismatch: {ratio}")
     current_t0 = compare.get("same_t0")
@@ -81,8 +81,12 @@ def main() -> int:
         failures.append(
             f"compare same_budget_basis mismatch: {compare.get('same_budget_basis')}"
         )
-    if compare.get("budget_basis") != "vinf_basis":
+    if compare.get("budget_basis") != "three_segment_formal":
         failures.append(f"compare budget_basis mismatch: {compare.get('budget_basis')}")
+    lunar_total = compare.get("lunar_total_dv_kms")
+    no_lunar_total = compare.get("no_lunar_total_dv_kms")
+    if lunar_total is None or no_lunar_total is None:
+        failures.append("compare JSON missing formal three-segment totals")
     if compare.get("lunar_valid") is not True or compare.get("no_lunar_valid") is not True:
         failures.append("compare JSON does not confirm both valid trajectories")
     if compare.get("launch_window_valid") is not True:

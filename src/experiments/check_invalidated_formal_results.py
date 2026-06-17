@@ -46,8 +46,8 @@ def check(fp):
                 )
             if d.get("same_budget_basis") is not True:
                 ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
-            if d.get("ratio_basis") != "vinf_basis":
-                ERRORS.append(f"[FAIL] {n}: ratio_basis must be vinf_basis")
+            if d.get("ratio_basis") != "three_segment_formal":
+                ERRORS.append(f"[FAIL] {n}: ratio_basis must be three_segment_formal")
             if d.get("lunar_valid_return_event") is not True:
                 ERRORS.append(f"[FAIL] {n}: lunar_valid_return_event must be true")
             if d.get("no_lunar_valid_return_event") is not True:
@@ -65,34 +65,34 @@ def check(fp):
             ERRORS.append(f"[FAIL] {n}: unknown status '{status}'")
 
     if n == "m5_t61037_lunar_vs_no_lunar_deep_compare.json":
-        ratio = d.get("formal_ratio_vinf_basis")
+        ratio = d.get("formal_ratio")
         if ratio is not None and not _in_launch_window(d.get("same_t0")):
             ERRORS.append(
                 f"[FAIL] {n}: formal ratio uses same_t0={d.get('same_t0')} outside formal 2026 launch window"
             )
         if d.get("same_budget_basis") is not True:
             ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
-        if d.get("budget_basis") != "vinf_basis":
-            ERRORS.append(f"[FAIL] {n}: budget_basis must be vinf_basis")
+        if d.get("budget_basis") not in ("vinf_basis", "three_segment_formal"):
+            ERRORS.append(f"[FAIL] {n}: budget_basis must be vinf_basis or three_segment_formal")
         if ratio is not None and d.get("lunar_valid") is not True:
             ERRORS.append(f"[FAIL] {n}: lunar_valid must be true")
         if ratio is not None and d.get("no_lunar_valid") is not True:
             ERRORS.append(f"[FAIL] {n}: no_lunar_valid must be true")
 
     if n == "m5_fixed_date_current_compare.json":
-        ratio = d.get("formal_ratio_vinf_basis")
+        ratio = d.get("formal_ratio")
         if ratio is None:
-            ERRORS.append(f"[FAIL] {n}: missing formal_ratio_vinf_basis")
+            ERRORS.append(f"[FAIL] {n}: missing formal_ratio")
         elif ratio <= 0:
-            ERRORS.append(f"[FAIL] {n}: formal_ratio_vinf_basis must be positive, got {ratio}")
+            ERRORS.append(f"[FAIL] {n}: formal_ratio must be positive, got {ratio}")
         if not _in_launch_window(d.get("same_t0")):
             ERRORS.append(f"[FAIL] {n}: same_t0={d.get('same_t0')} outside formal 2026 launch window")
         if d.get("launch_window_valid") is not True:
             ERRORS.append(f"[FAIL] {n}: launch_window_valid must be true")
         if d.get("same_budget_basis") is not True:
             ERRORS.append(f"[FAIL] {n}: same_budget_basis must be true")
-        if d.get("budget_basis") != "vinf_basis":
-            ERRORS.append(f"[FAIL] {n}: budget_basis must be vinf_basis")
+        if d.get("budget_basis") != "three_segment_formal":
+            ERRORS.append(f"[FAIL] {n}: budget_basis must be three_segment_formal")
         if d.get("lunar_valid") is not True or d.get("no_lunar_valid") is not True:
             ERRORS.append(f"[FAIL] {n}: both lunar_valid and no_lunar_valid must be true")
         if d.get("classification") != "ACTUAL_RESULT":
@@ -236,7 +236,7 @@ def check(fp):
             if _near(block.get("return_vinf_kms"), 77.88, 0.2) or float(block.get("return_vinf_kms", 0.0) or 0.0) >= 80.0:
                 ERRORS.append(f"[FAIL] {n}: {key}.return_vinf_kms leaked old invalid high value")
         fixed_compare = d.get("fixed_date_formal_anchor", {}).get("same_date_no_lunar_compare", {})
-        ratio = fixed_compare.get("formal_ratio_vinf_basis")
+        ratio = fixed_compare.get("formal_ratio")
         if ratio is None or ratio <= 0:
             ERRORS.append(f"[FAIL] {n}: fixed-date formal ratio must be present and positive")
 
@@ -245,7 +245,7 @@ compare = RESULTS / "m5_t61037_lunar_vs_no_lunar_deep_compare.json"
 if compare.exists() and resolved.exists():
     resolved_json = json.loads(resolved.read_text(encoding="utf-8"))
     compare_json = json.loads(compare.read_text(encoding="utf-8"))
-    if compare_json.get("formal_ratio_vinf_basis") is not None and resolved_json.get("formal_fixed_date_ratio") is None:
+    if compare_json.get("formal_ratio") is not None and resolved_json.get("formal_fixed_date_ratio") is None:
         ERRORS.append(
             "[FAIL] m5_saving_ratio_resolved.json: compare JSON is positive but resolved ratio is null"
         )

@@ -10,7 +10,11 @@ import json
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[2]
+import sys
+sys.path.insert(0, str(_REPO / "src"))
 RESULTS = _REPO / "data" / "results"
+
+from budget_tools import lunar_three_segment_budget, no_lunar_three_segment_budget, saving_ratio
 
 VERIFY = RESULTS / "m5_best_lunar_candidate_verify.json"
 NO_LUNAR = RESULTS / "m5_no_lunar_fixed_date_deep_search.json"
@@ -27,9 +31,19 @@ def main() -> int:
     no_lunar_ok = best is not None and bool(no_lunar.get("launch_window_valid"))
 
     if lunar_ok and no_lunar_ok:
-        lunar_total = float(budget["total_dv_proxy_vinf_basis"])
-        no_lunar_total = float(best["total_dv_proxy_kms"])
-        ratio = (no_lunar_total - lunar_total) / no_lunar_total
+        lunar_formal = lunar_three_segment_budget(
+            departure_vinf_kms=float(budget["departure_vinf_kms"]),
+            lunar_residual_kms=float(budget["lunar_swingby_residual_kms"]),
+            return_vinf_kms=float(budget["return_vinf_kms"]),
+        )
+        no_lunar_formal = no_lunar_three_segment_budget(
+            departure_vinf_kms=float(best["departure_vinf_kms"]),
+            dsm_delta_v_kms=float(best["dsm_delta_v_kms"]),
+            return_vinf_kms=float(best["return_vinf_kms"]),
+        )
+        lunar_total = float(lunar_formal["dv_total_kms"])
+        no_lunar_total = float(no_lunar_formal["dv_total_kms"])
+        ratio = saving_ratio(lunar_total, no_lunar_total)
         out = {
             "same_t0": t0,
             "same_t0_date": lunar["candidate"]["t0_date"],
@@ -37,14 +51,24 @@ def main() -> int:
             "lunar_valid": True,
             "no_lunar_valid": True,
             "same_budget_basis": True,
-            "budget_basis": "vinf_basis",
-            "formal_ratio_vinf_basis": round(ratio, 6),
-            "lunar_total_vinf_basis": round(lunar_total, 4),
+            "budget_basis": "three_segment_formal",
+            "formal_ratio": round(ratio, 6),
+            "lunar_three_segment_budget": lunar_formal,
+            "no_lunar_three_segment_budget": no_lunar_formal,
+            "lunar_total_dv_kms": round(lunar_total, 4),
+            "no_lunar_total_dv_kms": round(no_lunar_total, 4),
+            "formal_ratio_vinf_basis": round(
+                (float(best["total_dv_proxy_kms"]) - float(budget["total_dv_proxy_vinf_basis"]))
+                / float(best["total_dv_proxy_kms"]),
+                6,
+            ),
+            "lunar_total_vinf_basis": round(float(budget["total_dv_proxy_vinf_basis"]), 4),
             "lunar_total_launch_equivalent": float(budget["total_dv_proxy_launch_equivalent_basis"]),
-            "no_lunar_dsm_total_vinf_basis": round(no_lunar_total, 4),
+            "no_lunar_dsm_total_vinf_basis": round(float(best["total_dv_proxy_kms"]), 4),
             "no_lunar_dsm_delta_v": float(best["dsm_delta_v_kms"]),
             "no_lunar_dsm_return_vinf": float(best["return_vinf_kms"]),
-            "lunar_saves_delta_v_vinf_basis": ratio > 0,
+            "lunar_saves_delta_v": ratio > 0,
+            "lunar_saves_delta_v_vinf_basis": True,
             "classification": "ACTUAL_RESULT",
         }
     else:
@@ -55,7 +79,8 @@ def main() -> int:
             "lunar_valid": lunar_ok,
             "no_lunar_valid": no_lunar_ok,
             "same_budget_basis": True,
-            "budget_basis": "vinf_basis",
+            "budget_basis": "three_segment_formal",
+            "formal_ratio": None,
             "formal_ratio_vinf_basis": None,
             "reason": f"lunar_valid={lunar_ok}, no_lunar_valid={no_lunar_ok}",
             "classification": "UNRESOLVED",

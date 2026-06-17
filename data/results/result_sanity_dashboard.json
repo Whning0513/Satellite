@@ -105,30 +105,39 @@
     },
     {
       "module": "M5",
-      "result": "lunar total_vinf_basis",
-      "value": 10.1213,
+      "result": "lunar formal total_dv",
+      "value": 15.5845,
       "unit": "km/s",
-      "event_frame_basis": "vinf_basis / Earth-return event",
+      "event_frame_basis": "three_segment_formal / Earth-return event",
       "classification": "ACTUAL_RESULT",
-      "sanity": "Credible formal value only if launch date is within the assignment window and a true Earth-return event exists."
+      "sanity": "Formal problem-statement budget: surface launch + lunar residual + reentry braking."
     },
     {
       "module": "M5",
-      "result": "no-lunar DSM total_vinf_basis",
-      "value": 20.5938,
+      "result": "no-lunar formal total_dv",
+      "value": 25.594,
       "unit": "km/s",
-      "event_frame_basis": "vinf_basis / same-date DSM search",
+      "event_frame_basis": "three_segment_formal / same-date DSM search",
       "classification": "ACTUAL_RESULT",
-      "sanity": "Credible because the no-lunar side is a valid fair candidate at the same t0 and budget basis."
+      "sanity": "Same formal three-term budget, with DSM replacing the lunar-residual middle term."
     },
     {
       "module": "M5",
       "result": "formal saving ratio",
+      "value": 0.391088,
+      "unit": "ratio",
+      "event_frame_basis": "three_segment_formal / same_t0=61065.0 (2026-01-25)",
+      "classification": "ACTUAL_RESULT",
+      "sanity": "Formal because both sides are valid Earth-return events at the same t0 and same three-segment budget basis."
+    },
+    {
+      "module": "M5",
+      "result": "supplementary vinf-basis ratio",
       "value": 0.508527,
       "unit": "ratio",
-      "event_frame_basis": "vinf_basis / same_t0=61065.0 (2026-01-25)",
-      "classification": "ACTUAL_RESULT",
-      "sanity": "Formal only if both sides remain valid Earth-return events inside the assignment launch window."
+      "event_frame_basis": "vinf_basis diagnostic / same_t0=61065.0 (2026-01-25)",
+      "classification": "SUPPLEMENTARY_DIAGNOSTIC",
+      "sanity": "Retained only for comparison with earlier internal audits; no longer the formal budget basis."
     },
     {
       "module": "M5",
@@ -170,14 +179,15 @@
       "module": "M6",
       "result": "best valid candidate",
       "value": {
-        "t0_mjd": 61390.5,
+        "t0_mjd": 61389.0,
         "side": "trailing",
-        "r_m_km": 2037.4,
-        "return_vinf_kms": 14.3987,
+        "r_m_km": 9737.4,
+        "return_vinf_kms": 11.2257,
+        "dv_total_kms": 15.1801,
         "total_vinf_basis_kms": 10.1213
       },
       "unit": "dict",
-      "event_frame_basis": "Earth-return event / vinf_basis",
+      "event_frame_basis": "Earth-return event / formal budget + supplementary vinf basis",
       "classification": "ACTUAL_RESULT_M5_DERIVED_LEGAL_WINDOW",
       "sanity": "Best candidate is inside the legal 2026 launch window."
     },
@@ -347,7 +357,7 @@
     }
   ],
   "summary": {
-    "row_count": 24,
+    "row_count": 25,
     "modules": [
       "M1",
       "M3",
