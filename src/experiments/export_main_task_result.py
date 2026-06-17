@@ -55,6 +55,42 @@ def _load_json(name: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _read_csv_rows(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _reuse_existing_fixed_date_formal_export() -> tuple[dict[str, Any], list[dict[str, Any]]] | None:
+    json_path = RESULTS / "main_task_result.json"
+    csv_path = RESULTS / "main_task_trajectory.csv"
+    if not json_path.exists() or not csv_path.exists():
+        return None
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    block = payload.get("fixed_date_formal_anchor")
+    if not isinstance(block, dict) or not block:
+        return None
+    rows = [
+        row for row in _read_csv_rows(csv_path)
+        if row.get("candidate_label") == "fixed_date_formal_anchor"
+    ]
+    if not rows:
+        return None
+    return block, rows
+
+
+def _reuse_existing_invalidated_guard() -> dict[str, Any] | None:
+    json_path = RESULTS / "main_task_result.json"
+    if not json_path.exists():
+        return None
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    guard = payload.get("invalidated_formal_results_guard")
+    if not isinstance(guard, dict) or not guard:
+        return None
+    return guard
+
+
 def _best_from_rows(container: dict[str, Any], rows_key: str, summary_key: str) -> dict[str, Any] | None:
     rows = container.get(rows_key, [])
     best = best_lunar_candidate(rows, fair_only=True) if rows else None
@@ -580,8 +616,6 @@ def main() -> int:
     body_data = fetch_sem_vectors(use_cache=True)
 
     verify = _load_json("m5_best_lunar_candidate_verify.json")
-    compare = _load_json("m5_fixed_date_current_compare.json")
-    no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json")
     legal_m5 = _load_json("m5_legal_window_search.json")
     annual = load_final_annual_candidate()
     annual_payload = annual.get("payload") or _load_json("m6_independent_window_search.json")
@@ -590,9 +624,30 @@ def main() -> int:
         if annual.get("source_file")
         else "data/results/m6_independent_window_search.json"
     )
-    invalidated = _load_json("m5_saving_ratio_resolved.json")
+    try:
+        invalidated = _load_json("m5_saving_ratio_resolved.json")
+        invalidated_guard = {
+            "resolver_status": invalidated.get("status"),
+            "current_formal_fixed_date_ratio": invalidated.get("formal_fixed_date_ratio"),
+        }
+    except FileNotFoundError:
+        invalidated_guard = _reuse_existing_invalidated_guard()
+        if invalidated_guard is None:
+            invalidated_guard = {
+                "resolver_status": "missing_legacy_resolver",
+                "current_formal_fixed_date_ratio": None,
+            }
 
-    fixed_block, fixed_rows = _fixed_date_formal_block(verify, compare, no_lunar, body_data)
+    try:
+        compare = _load_json("m5_fixed_date_current_compare.json")
+        no_lunar = _load_json("m5_no_lunar_fixed_date_deep_search.json")
+    except FileNotFoundError:
+        fallback = _reuse_existing_fixed_date_formal_export()
+        if fallback is None:
+            raise
+        fixed_block, fixed_rows = fallback
+    else:
+        fixed_block, fixed_rows = _fixed_date_formal_block(verify, compare, no_lunar, body_data)
     legal_block, legal_rows = _best_legal_window_block(legal_m5, annual_payload, annual_source_file, body_data)
     m7 = _load_json("m7_extended_monte_carlo.json")
 
@@ -635,10 +690,7 @@ def main() -> int:
             "valid_return_count": m7.get("valid_return_count"),
             "valid_return_rate": m7.get("valid_return_rate"),
         },
-        "invalidated_formal_results_guard": {
-            "resolver_status": invalidated.get("status"),
-            "current_formal_fixed_date_ratio": invalidated.get("formal_fixed_date_ratio"),
-        },
+        "invalidated_formal_results_guard": invalidated_guard,
         "machine_readable_outputs": {
             "summary_json": "data/results/main_task_result.json",
             "trajectory_csv": "data/results/main_task_trajectory.csv",

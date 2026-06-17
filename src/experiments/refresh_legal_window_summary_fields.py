@@ -82,8 +82,9 @@ def _refresh_m5_daily() -> None:
 
 def _refresh_m6_file(name: str) -> None:
     path, data = _load(name)
+    source_rows = data.get("verified_candidates", []) or data.get("candidates", [])
     rows = sorted(
-        [ensure_lunar_row_formal_fields(row) for row in data.get("candidates", [])],
+        [ensure_lunar_row_formal_fields(row) for row in source_rows],
         key=lunar_candidate_sort_key,
     )
     valid_rows = [row for row in rows if row.get("valid_return_event")]

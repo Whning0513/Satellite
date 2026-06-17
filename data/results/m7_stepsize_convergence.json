@@ -1,10 +1,10 @@
 {
   "reference_candidate": {
-    "source_file": "m6_independent_window_search.json",
-    "t0_mjd": 61389.0,
+    "source_file": "m6_legal_window_daily_verify.json",
+    "t0_mjd": 61360.5,
     "r_m_km": 9737.4,
-    "side": "trailing",
-    "nominal_return_mjd": 61743.3
+    "side": "leading",
+    "nominal_return_mjd": 61725.65
   },
   "dt_values": [
     3600.0,
@@ -15,56 +15,56 @@
   "results": [
     {
       "dt_s": 3600.0,
-      "energy_drift": 8.718307995045639e-10,
-      "angular_momentum_drift": 4.716229733987277e-16,
-      "perihelion_AU": 0.243354,
-      "return_event_distance_km": 16568715.5,
-      "return_event_mjd": 61767.39,
+      "energy_drift": 8.213980538444432e-10,
+      "angular_momentum_drift": 2.7814105924818334e-16,
+      "perihelion_AU": 0.300123,
+      "return_event_distance_km": 1778055.0,
+      "return_event_mjd": 61739.96,
       "valid_return_event": false,
       "return_vinf_kms": null,
-      "runtime_s": 30.9,
-      "perihelion_error_km_vs_finest": 7079120.84,
-      "return_distance_error_km_vs_finest": 12418255.4,
-      "energy_drift_scaled_error_vs_finest": 63038.1525
+      "runtime_s": 15.0,
+      "perihelion_error_km_vs_finest": 4316197.77,
+      "return_distance_error_km_vs_finest": 1741106.2,
+      "energy_drift_scaled_error_vs_finest": 63047.9739
     },
     {
       "dt_s": 1800.0,
-      "energy_drift": 2.1794643317456658e-10,
-      "angular_momentum_drift": 5.3450603651855796e-15,
-      "perihelion_AU": 0.268199,
-      "return_event_distance_km": 1154078.9,
-      "return_event_mjd": 61757.38,
-      "valid_return_event": true,
-      "return_vinf_kms": 10.9993,
-      "runtime_s": 21.9,
-      "perihelion_error_km_vs_finest": 3362361.74,
-      "return_distance_error_km_vs_finest": 2996381.2,
-      "energy_drift_scaled_error_vs_finest": 15008.7106
+      "energy_drift": 2.0535455037469058e-10,
+      "angular_momentum_drift": 4.17211588872275e-16,
+      "perihelion_AU": 0.252855,
+      "return_event_distance_km": 2114216.9,
+      "return_event_mjd": 61737.59,
+      "valid_return_event": false,
+      "return_vinf_kms": null,
+      "runtime_s": 15.2,
+      "perihelion_error_km_vs_finest": 2754994.39,
+      "return_distance_error_km_vs_finest": 2077268.1,
+      "energy_drift_scaled_error_vs_finest": 15012.3862
     },
     {
       "dt_s": 900.0,
-      "energy_drift": 5.4494958907749746e-11,
-      "angular_momentum_drift": 6.288306311983036e-16,
-      "perihelion_AU": 0.282214,
-      "return_event_distance_km": 3308.3,
-      "return_event_mjd": 61742.94,
+      "energy_drift": 5.134987698761105e-11,
+      "angular_momentum_drift": 5.8409622442118504e-15,
+      "perihelion_AU": 0.263878,
+      "return_event_distance_km": 854519.9,
+      "return_event_mjd": 61731.63,
       "valid_return_event": true,
-      "return_vinf_kms": 18.4209,
-      "runtime_s": 29.5,
-      "perihelion_error_km_vs_finest": 1265747.58,
-      "return_distance_error_km_vs_finest": 4147151.8,
-      "energy_drift_scaled_error_vs_finest": 3002.791
+      "return_vinf_kms": 10.8729,
+      "runtime_s": 15.8,
+      "perihelion_error_km_vs_finest": 1105977.06,
+      "return_distance_error_km_vs_finest": 817571.1,
+      "energy_drift_scaled_error_vs_finest": 3003.9729
     },
     {
       "dt_s": 450.0,
-      "energy_drift": 1.3614240351100177e-11,
-      "angular_momentum_drift": 3.144153155991518e-16,
-      "perihelion_AU": 0.290675,
-      "return_event_distance_km": 4150460.1,
-      "return_event_mjd": 61735.4,
-      "valid_return_event": false,
-      "return_vinf_kms": null,
-      "runtime_s": 26.9,
+      "energy_drift": 1.2824731267105908e-11,
+      "angular_momentum_drift": 4.728398007219117e-15,
+      "perihelion_AU": 0.271271,
+      "return_event_distance_km": 36948.8,
+      "return_event_mjd": 61725.64,
+      "valid_return_event": true,
+      "return_vinf_kms": 11.4374,
+      "runtime_s": 16.8,
       "perihelion_error_km_vs_finest": 0.0,
       "return_distance_error_km_vs_finest": 0.0,
       "energy_drift_scaled_error_vs_finest": 0.0
@@ -73,10 +73,10 @@
   "estimated_orders": {
     "energy_drift_order": 2.0,
     "energy_drift_order_fine": 2.0,
-    "perihelion_error_order": 0.83
+    "perihelion_error_order": -0.08
   },
   "energy_drift_all_below_1e6": true,
-  "energy_drift_min": 1.3614240351100177e-11,
-  "energy_drift_max": 8.718307995045639e-10,
+  "energy_drift_min": 1.2824731267105908e-11,
+  "energy_drift_max": 8.213980538444432e-10,
   "note": "Energy drift is used as the clean convergence observable; perihelion and Earth-return distance are task-facing observables on the current legal candidate. return_vinf remains event-gated and is not computed for non-return states."
 }

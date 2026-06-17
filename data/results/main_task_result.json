@@ -116,68 +116,69 @@
   },
   "best_legal_window_candidate": {
     "candidate_label": "best_legal_window_candidate",
-    "classification": "ACTUAL_RESULT_LEGAL_WINDOW",
+    "classification": "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW",
     "launch_window_valid": true,
     "launch_window": [
       "2026-01-01",
       "2026-12-31"
     ],
-    "t0_mjd": 61389.0,
-    "t0_date": "2026-12-15",
-    "side": "trailing",
+    "t0_mjd": 61360.5,
+    "t0_date": "2026-11-16",
+    "side": "leading",
     "r_m_design_km": 9737.4,
-    "mission_duration_days_to_return": 354.3,
+    "mission_duration_days_to_return": 365.15,
     "duration_constraint_valid": true,
-    "moon_encounter_mjd": 61389.432639,
+    "moon_encounter_mjd": 61360.93125,
     "moon_encounter_details": {
-      "spacecraft_to_moon_distance_km": 1581.369,
-      "spacecraft_x_km": 17983428.873,
-      "spacecraft_y_km": 145253315.903,
-      "moon_x_km": 17984262.592,
-      "moon_y_km": 145254659.644,
-      "spacecraft_rel_moon_speed_kms_pre_swingby": 10.59173,
-      "spacecraft_rel_moon_speed_kms_post_swingby": 10.59173
+      "spacecraft_to_moon_distance_km": 1226.313,
+      "spacecraft_x_km": 86818927.269,
+      "spacecraft_y_km": 119717498.121,
+      "moon_x_km": 86819824.177,
+      "moon_y_km": 119718334.422,
+      "spacecraft_rel_moon_speed_kms_pre_swingby": 10.667119,
+      "spacecraft_rel_moon_speed_kms_post_swingby": 10.667119
     },
-    "perihelion_mjd_estimate": 61471.0,
-    "return_event_mjd": 61743.3,
-    "nearest_moon_distance_model_km": 1581.369,
-    "nearest_moon_distance_ref_sampled_km": 1581.369,
-    "perihelion_achieved_AU": 0.282214,
-    "perihelion_sampled_AU": 0.297667,
-    "distance_to_earth_km": 50435.6,
-    "return_distance_ref_sampled_km": 3334.1,
-    "return_vinf_kms": 11.2267,
+    "perihelion_mjd_estimate": 61631.5,
+    "return_event_mjd": 61725.65,
+    "nearest_moon_distance_model_km": 1226.313,
+    "nearest_moon_distance_ref_sampled_km": 1226.313,
+    "perihelion_achieved_AU": 0.271271,
+    "perihelion_sampled_AU": 0.272081,
+    "distance_to_earth_km": 36918.1,
+    "return_distance_ref_sampled_km": 854041.4,
+    "return_vinf_kms": 11.439,
     "valid_return_event": true,
     "fair": true,
     "vinf_basis_budget": {
       "departure_vinf_kms": 10.1213,
-      "return_vinf_kms": 11.2267,
+      "return_vinf_kms": 11.439,
       "return_braking_proxy_kms": 0.0,
       "total_vinf_basis_kms": 10.1213
     },
     "three_segment_budget": {
       "budget_basis": "three_segment_formal",
       "dv_launch_kms": 15.0854,
-      "dv_lunar_residual_kms": 0.0946,
+      "dv_lunar_residual_kms": 0.094,
       "dv_reentry_kms": 0.0,
-      "dv_total_kms": 15.1801,
+      "dv_total_kms": 15.1794,
       "budget_definition": "three_segment_formal",
       "note": "Reconstructed from candidate fields with the formal three-segment budget."
     },
     "three_segment_budget_proxy": {
       "budget_basis": "three_segment_formal",
       "dv_launch_kms": 15.0854,
-      "dv_lunar_residual_kms": 0.0946,
+      "dv_lunar_residual_kms": 0.094,
       "dv_reentry_kms": 0.0,
-      "dv_total_kms": 15.1801,
+      "dv_total_kms": 15.1794,
       "budget_definition": "three_segment_formal",
       "note": "Reconstructed from candidate fields with the formal three-segment budget."
     },
     "provenance": {
-      "candidate_source": "direct_parameter_search_legal_window",
+      "candidate_source": "m5_legal_window_daily_scan_seeded_verify",
       "independent_m6_search": true,
       "source_grid_reused": false,
-      "m6_interpretation": "independent complete-return launch-window search over legal 2026 dates",
+      "m6_interpretation": "high-accuracy independent verification of top candidates from the legal daily scan",
+      "annual_source_file": "data/results/m6_legal_window_daily_verify.json",
       "m5_legal_window_best_crosscheck": {
         "t0_mjd": 61389.0,
         "r_m_km": 9737.4,
@@ -188,17 +189,17 @@
         "trajectory_dt_integrate_s": 900.0,
         "event_coarse_step_days": 0.25,
         "event_refine_step_s": 300.0,
-        "search_summary_distance_to_earth_km": 50435.6,
-        "replayed_distance_to_earth_km": 3334.1,
-        "search_summary_return_vinf_kms": 11.2267,
-        "replayed_return_vinf_kms": 18.5262,
+        "search_summary_distance_to_earth_km": 36918.1,
+        "replayed_distance_to_earth_km": 854041.4,
+        "search_summary_return_vinf_kms": 11.439,
+        "replayed_return_vinf_kms": 10.8729,
         "status": "SENSITIVE_REPLAY_MISMATCH",
         "note": "The legal-window best candidate is preserved as a search-summary result. Single-candidate replay is exported separately because this narrow window is step-size/event-search sensitive."
       }
     },
     "source_files": [
       "data/results/m5_legal_window_search.json",
-      "data/results/m6_independent_window_search.json"
+      "data/results/m6_legal_window_daily_verify.json"
     ],
     "trajectory_rows_file": "data/results/main_task_trajectory.csv"
   },
@@ -212,11 +213,11 @@
       "full_year_fine_search_pending": true
     },
     "m6_independent_window_search": {
-      "classification": "ACTUAL_RESULT_LEGAL_WINDOW",
-      "total_candidates_evaluated": 1220,
-      "valid_complete_return_count": 88,
-      "valid_fair_return_count": 71,
-      "best_valid_candidate_t0_mjd": 61389.0
+      "classification": "ACTUAL_RESULT_DAILY_VERIFIED_LEGAL_WINDOW",
+      "total_candidates_evaluated": 32,
+      "valid_complete_return_count": 14,
+      "valid_fair_return_count": 14,
+      "best_valid_candidate_t0_mjd": 61360.5
     }
   },
   "m7_context": {

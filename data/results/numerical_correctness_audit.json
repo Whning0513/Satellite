@@ -46,7 +46,7 @@
     {
       "module": "M2",
       "quantity": "two_body_pos_err_h_0.004",
-      "project_value": 0.001322616214720431,
+      "project_value": 0.0013226162147204309,
       "independent_check_value": null,
       "relative_error": null,
       "unit": "nondim",
@@ -60,7 +60,7 @@
     {
       "module": "M2",
       "quantity": "two_body_pos_err_h_0.002",
-      "project_value": 0.0003307137113997855,
+      "project_value": 0.0003307137114001462,
       "independent_check_value": null,
       "relative_error": null,
       "unit": "nondim",
@@ -69,12 +69,12 @@
       "status": "WARN",
       "classification": "ACTUAL_RESULT",
       "action": "fix",
-      "notes": "rel_E_err=2.700e-15, rel_L_err=1.414e-15"
+      "notes": "rel_E_err=2.160e-15, rel_L_err=1.131e-15"
     },
     {
       "module": "M2",
       "quantity": "two_body_pos_err_h_0.001",
-      "project_value": 8.268216004640475e-05,
+      "project_value": 8.268216005150561e-05,
       "independent_check_value": null,
       "relative_error": null,
       "unit": "nondim",
@@ -83,12 +83,12 @@
       "status": "PASS",
       "classification": "ACTUAL_RESULT",
       "action": "keep",
-      "notes": "rel_E_err=5.399e-15, rel_L_err=2.686e-15"
+      "notes": "rel_E_err=4.500e-15, rel_L_err=2.120e-15"
     },
     {
       "module": "M2",
       "quantity": "two_body_pos_err_h_0.0005",
-      "project_value": 2.0670773383656365e-05,
+      "project_value": 2.0670773383722278e-05,
       "independent_check_value": null,
       "relative_error": null,
       "unit": "nondim",
@@ -97,7 +97,7 @@
       "status": "PASS",
       "classification": "ACTUAL_RESULT",
       "action": "keep",
-      "notes": "rel_E_err=1.260e-15, rel_L_err=7.068e-16"
+      "notes": "rel_E_err=2.520e-15, rel_L_err=1.272e-15"
     },
     {
       "module": "M2",
@@ -119,153 +119,51 @@
     },
     {
       "module": "M3",
-      "quantity": "SEM_3body_max_residual_km",
-      "project_value": 5911.66,
-      "independent_check_value": 5911.66,
-      "relative_error": 0.0,
-      "unit": "km",
-      "frame": "heliocentric residual after SSB propagation",
-      "event": "full_year_10day_sample",
-      "status": "PASS",
-      "classification": "ACTUAL_WITH_SCOPE",
-      "action": "keep",
-      "notes": "Same-source propagation check benchmark, not independent JPL prediction."
-    },
-    {
-      "module": "M3",
-      "quantity": "SEM_Jupiter_Venus_5body_max_residual_km",
-      "project_value": 1401.42,
-      "independent_check_value": 1401.42,
-      "relative_error": 0.0,
-      "unit": "km",
-      "frame": "heliocentric residual after SSB propagation",
-      "event": "full_year_10day_sample",
-      "status": "PASS",
-      "classification": "ACTUAL_WITH_SCOPE",
-      "action": "keep",
-      "notes": "Same-source propagation check benchmark, not independent JPL prediction."
-    },
-    {
-      "module": "M3",
-      "quantity": "SEM_full_planetary_max_residual_km",
-      "project_value": 126.47,
-      "independent_check_value": 126.47,
-      "relative_error": 0.0,
-      "unit": "km",
-      "frame": "heliocentric residual after SSB propagation",
-      "event": "full_year_10day_sample",
-      "status": "PASS",
-      "classification": "ACTUAL_WITH_SCOPE",
-      "action": "keep",
-      "notes": "Same-source propagation check benchmark, not independent JPL prediction."
-    },
-    {
-      "module": "M3",
-      "quantity": "no_daily_reset",
-      "project_value": true,
-      "independent_check_value": true,
+      "quantity": "deep_audit_required_files",
+      "project_value": null,
+      "independent_check_value": null,
       "relative_error": null,
-      "unit": "bool",
-      "frame": "SSB propagation from day-0 initial condition",
-      "event": "day_30_independence_check",
-      "status": "PASS",
-      "classification": "PASS_WITH_SCOPE",
-      "action": "keep",
-      "notes": "Deep audit confirms no daily Horizons reset."
-    },
-    {
-      "module": "M3",
-      "quantity": "dt_convergence_stable",
-      "project_value": {
-        "1800s": 5887.13,
-        "900s": 5894.57,
-        "450s": 5896.43
-      },
-      "independent_check_value": "model-dominated residual plateau",
-      "relative_error": null,
-      "unit": "km",
-      "frame": "Earth heliocentric residual",
-      "event": "dt_1800_900_450",
-      "status": "PASS",
-      "classification": "PASS_WITH_SCOPE",
-      "action": "keep",
-      "notes": "dt-halving Earth helio max ratios = [0.999, 1.0]"
-    },
-    {
-      "module": "M3",
-      "quantity": "same_source_initial_condition_caveat",
-      "project_value": true,
-      "independent_check_value": true,
-      "relative_error": null,
-      "unit": "bool",
-      "frame": "Horizons day-0 IC, free forward propagation",
-      "event": "full_planetary_126km_interpretation",
-      "status": "PASS",
-      "classification": "PASS_WITH_SCOPE",
-      "action": "keep",
-      "notes": "The 126 km full-planetary result is a same-source propagation check: day-0 Horizons initial conditions are propagated freely forward without daily reset."
+      "unit": "",
+      "frame": "",
+      "event": "",
+      "status": "RED",
+      "classification": "UNRESOLVED",
+      "action": "recompute",
+      "notes": "Missing m3_model_hierarchy.json or m3_numerical_deep_audit.json"
     },
     {
       "module": "M4",
-      "quantity": "max_finite_SOI_angle_error_deg",
-      "project_value": 0.0,
-      "independent_check_value": 0.5,
+      "quantity": "swingby_scan_csv",
+      "project_value": null,
+      "independent_check_value": null,
       "relative_error": null,
-      "unit": "deg",
-      "frame": "moon-centric 2-body, finite SOI",
+      "unit": "",
+      "frame": "moon-centric 2-body",
       "event": "SOI_entry_exit",
-      "status": "PASS",
-      "classification": "ACTUAL_RESULT",
-      "action": "keep",
-      "notes": "r_m=1837.4 km, v_inf=1.0 km/s, side=trailing, analytic=93.077547 deg, numeric=93.077547 deg, vinf_conservation_error=0.000e+00"
+      "status": "RED",
+      "classification": "UNRESOLVED",
+      "action": "recompute",
+      "notes": "Missing data/results/m4_swingby_scan.csv"
     },
     {
       "module": "M5",
-      "quantity": "lunar_return_event_valid",
-      "project_value": true,
-      "independent_check_value": true,
+      "quantity": "required_result_files",
+      "project_value": null,
+      "independent_check_value": null,
       "relative_error": null,
-      "unit": "bool",
-      "frame": "heliocentric state relative to Earth",
-      "event": "earth_return",
-      "status": "PASS",
-      "classification": "ACTUAL_RESULT",
-      "action": "keep",
-      "notes": "dist_earth=446150.8 km, dist_moon=801573.0 km, return_vinf=10.5173 km/s, t0=61065.0 (2026-01-25)"
-    },
-    {
-      "module": "M5",
-      "quantity": "formal_fixed_date_ratio",
-      "project_value": 0.391088,
-      "independent_check_value": 0.391088,
-      "relative_error": 6.266047253884622e-07,
-      "unit": "ratio",
-      "frame": "three_segment_formal",
-      "event": "same_t0_61065.0",
-      "status": "PASS",
-      "classification": "ACTUAL_RESULT",
-      "action": "keep",
-      "notes": "lunar_total=15.5845, no_lunar_total=25.594, same_t0=61065.0 (2026-01-25), same_budget_basis=True, launch_window_valid=True, supplementary_vinf_ratio=0.508527"
-    },
-    {
-      "module": "M5",
-      "quantity": "no_lunar_valid_fair_candidates",
-      "project_value": 177,
-      "independent_check_value": 177,
-      "relative_error": 0.0,
-      "unit": "count",
-      "frame": "same_date_DSM_search",
-      "event": "t0_61065.0",
-      "status": "PASS",
-      "classification": "ACTUAL_RESULT",
-      "action": "keep",
-      "notes": "perihelion_AU=0.3, peri_err_AU=0.0, dsm_delta_v=10.5815, return_vinf=13.7632"
+      "unit": "",
+      "frame": "",
+      "event": "",
+      "status": "RED",
+      "classification": "UNRESOLVED",
+      "action": "recompute",
+      "notes": "Missing one of the current M5 formal comparison files"
     },
     {
       "module": "M6",
       "quantity": "valid_earth_return_candidates",
-      "project_value": 95,
-      "independent_check_value": 95,
+      "project_value": 14,
+      "independent_check_value": 14,
       "relative_error": 0.0,
       "unit": "count",
       "frame": "complete-return launch-window search",
@@ -273,7 +171,7 @@
       "status": "PASS",
       "classification": "PASS_M5_DERIVED_WINDOW_CONFIRMED",
       "action": "keep",
-      "notes": "valid_complete_return_count=95, valid_fair_return_count=71, candidate_source=m5_legal_window_search_grid, source_grid_reused=True, independent_m6_search=False, source_file=m6_legal_window_search.json, best_t0=61389.0 (2026-12-15)"
+      "notes": "valid_complete_return_count=14, valid_fair_return_count=14, candidate_source=m5_legal_window_search_grid, source_grid_reused=True, independent_m6_search=False, source_file=m6_legal_window_daily_verify.json, best_t0=61389.0 (2026-12-15)"
     },
     {
       "module": "M6",
@@ -309,7 +207,7 @@
       "project_value": [
         4.0,
         3.999,
-        4.003
+        4.004
       ],
       "independent_check_value": "monotonic decrease",
       "relative_error": null,
@@ -375,13 +273,13 @@
       "status": "WARN",
       "classification": "FULL_MC_EVENT_SEMANTICS_PASS_TIMEOUT_ANALYSIS_PENDING",
       "action": "keep",
-      "notes": "full N=200 Monte Carlo result present with sample-level timeout accounting; replay closure may still be pending, but future diagnosis is now code-supported"
+      "notes": "full N=200 Monte Carlo result present, but timeout diagnosis is still pending"
     }
   ],
   "status_counts": {
-    "PASS": 23,
+    "PASS": 13,
     "WARN": 3,
-    "RED": 0,
+    "RED": 3,
     "UNRESOLVED": 0
   }
 }

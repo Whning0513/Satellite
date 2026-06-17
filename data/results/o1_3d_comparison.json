@@ -3,36 +3,36 @@
   "windows_tested": [
     {
       "label": "fixed_date_formal_anchor",
-      "t0_mjd": 61065.0
+      "t0_mjd": 61390.5
     },
     {
-      "label": "best_legal_window_candidate",
-      "t0_mjd": 61389.0
+      "label": "daily_verified_annual_candidate",
+      "t0_mjd": 61360.5
     }
   ],
   "results": [
     {
-      "Sun_pos_diff_km": 18591.5,
-      "Sun_z_pos_km": 18591.5,
-      "Earth_pos_diff_km": 15175.5,
-      "Earth_z_pos_km": 15171.1,
-      "Moon_pos_diff_km": 56899.3,
-      "Moon_z_pos_km": 48681.8,
-      "earth_2d_vs_3d_heliocentric_diff_km": 3439.5,
+      "Sun_pos_diff_km": 0.0,
+      "Sun_z_pos_km": -0.0,
+      "Earth_pos_diff_km": 8446.6,
+      "Earth_z_pos_km": -8441.6,
+      "Moon_pos_diff_km": 33727.1,
+      "Moon_z_pos_km": 24091.6,
+      "earth_2d_vs_3d_heliocentric_diff_km": 8446.6,
       "window_label": "fixed_date_formal_anchor",
-      "t0_mjd": 61065.0,
+      "t0_mjd": 61390.5,
       "n_days": 30
     },
     {
-      "Sun_pos_diff_km": 12164.2,
-      "Sun_z_pos_km": 12164.2,
-      "Earth_pos_diff_km": 3726.1,
-      "Earth_z_pos_km": 3714.4,
-      "Moon_pos_diff_km": 36167.6,
-      "Moon_z_pos_km": 27130.2,
-      "earth_2d_vs_3d_heliocentric_diff_km": 8454.9,
-      "window_label": "best_legal_window_candidate",
-      "t0_mjd": 61389.0,
+      "Sun_pos_diff_km": 0.0,
+      "Sun_z_pos_km": -0.0,
+      "Earth_pos_diff_km": 9486.2,
+      "Earth_z_pos_km": -9482.2,
+      "Moon_pos_diff_km": 24538.1,
+      "Moon_z_pos_km": 9992.0,
+      "earth_2d_vs_3d_heliocentric_diff_km": 9486.2,
+      "window_label": "daily_verified_annual_candidate",
+      "t0_mjd": 61360.5,
       "n_days": 30
     }
   ],
