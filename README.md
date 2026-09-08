@@ -1,10 +1,25 @@
-# MSPJ Final Project — 星际航行轨道设计与分析
+# Satellite: 星际轨道设计与数值验证
 
-## 项目概述
+`Satellite` 是一个地月借力与近日轨道设计项目。它从近地停泊轨道出发，搜索经月球引力辅助到达 0.3 AU 近日点的轨迹，并用 JPL Horizons 历表、N 体积分和独立基线检查数值结果。
 
-本项目实现了一个**星际航行轨道设计与分析系统**，基于钱学森《星际航行概论》中的轨道设计思想，结合现代 JPL 历表数据，实现从近地轨道到近日轨道的完整飞行方案设计。
+项目源于钱学森《星际航行概论》相关课程研究。仓库实现了拼接圆锥初值、Velocity-Verlet N 体传播、月球借力模型、发射窗口搜索、灵敏度分析和轨迹可视化。每项关键数值结论都对应回归测试、收敛性检查或可复现的结果文件。
 
-核心任务：**利用月球借力实现从近地轨道到 0.3 AU 近日轨道的转移。**
+## 快速运行
+
+需要 Python 3.10+。核心数值流程使用 NumPy、SciPy、Matplotlib 和 Astroquery：
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+make compile
+python -m unittest src.tests.test_event_semantics
+```
+
+`make validate` 会运行 M1 至 M8 的完整回归验证，约需十分钟。部分审计目标还依赖 `data/results/` 中的归档输出。JPL Horizons 查询需要网络；仓库保留了一份固定历表缓存，用于复现主要结果。
+
+## 任务约束
 
 ### 关键技术指标
 
@@ -15,8 +30,6 @@
 | 近月距 | R_Moon + 500 km |
 | 飞行时间 | < 2 年 |
 | 再入速度 | < 15 km/s |
-
----
 
 ## 项目结构
 
