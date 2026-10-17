@@ -159,7 +159,7 @@ def vv_integrate(r0: np.ndarray, v0: np.ndarray, dt: float, n_steps: int,
     idx = 1
     for step in range(n_steps):
         r, v = vv_step(r, v, dt, accel_fn)
-        if step % store_every == 0 and idx < n_store:
+        if (step + 1) % store_every == 0 and idx < n_store:
             r_hist[idx] = r
             v_hist[idx] = v
             idx += 1
