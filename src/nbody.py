@@ -361,7 +361,7 @@ def make_monitor(E0, L0, check_interval=CHECK_INTERVAL, verbose=True):
 # 5. 误差分析
 # =========================
 
-def compute_errors_2body(rs, vs, mu=MU_2BODY):
+def compute_errors_2body(rs, vs, mu=MU_2BODY, t_final=1.0):
     """计算二体系统的位置、能量和角动量误差。
 
     Parameters
@@ -371,6 +371,8 @@ def compute_errors_2body(rs, vs, mu=MU_2BODY):
     vs : (N, ndim) ndarray
         速度序列。
     mu : float
+    t_final : float
+        Final sample time in units where the reference circular orbit has period 1.
 
     Returns
     -------
@@ -378,7 +380,7 @@ def compute_errors_2body(rs, vs, mu=MU_2BODY):
     """
     rN = rs[-1]
     vN = vs[-1]
-    theoretical_final = np.array([1.0, 0.0])
+    theoretical_final = exact_circle_orbit(np.array([t_final]))[0]
     pos_err = np.linalg.norm(rN - theoretical_final)
 
     E0 = energy_2body(rs[0], vs[0], mu)
@@ -421,7 +423,7 @@ def convergence_study(h_values, T=1.0, mu=MU_2BODY):
             r0, v0, h, n_steps,
             accel_fn=lambda r: accel_2body(r, mu),
         )
-        errors = compute_errors_2body(sol["r"], sol["v"], mu)
+        errors = compute_errors_2body(sol["r"], sol["v"], mu, t_final=sol["t"][-1])
         results.append({
             "h": h,
             "n_steps": n_steps,
